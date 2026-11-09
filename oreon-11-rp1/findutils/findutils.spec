@@ -1,20 +1,24 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 0CF4E8D871593224842832B888DD9E08C5DDACB9
+%global source0_hash bfd19cb06cc71f3352d567e90284d8cdac02ac89774bbeadf0b533b0c11432fd
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: The GNU versions of find utilities (find and xargs)
 Name: findutils
-Version: 4.11.0
-Release: 1%{?dist}
+Version:        4.11.0
+Release:        1%{?dist}
 Epoch: 1
 License: GPL-3.0-or-later
 URL: https://www.gnu.org/software/findutils/
 
-Source0:        https://mirrors.kernel.org/gnu/%{name}/%{name}-%{version}.tar.xz
-Source1:        https://mirrors.kernel.org/gnu/%{name}/%{name}-%{version}.tar.xz.sig
+Source0:        https://mirror.cs.odu.edu/gnu/findutils/findutils-%{version}.tar.xz
+Source1:        findutils-4.11.0.tar.xz.sig
 # From https://savannah.gnu.org/project/release-gpgkeys.php?group=findutils&download=1
 # which is linked as project keyring on https://savannah.gnu.org/projects/findutils
-Source2:        findutils-keyring.gpg
+Source2: findutils-keyring.gpg
 
 # do not build locate
 Patch1:        findutils-4.5.15-no-locate.patch
@@ -25,14 +29,8 @@ Patch2:        findutils-4.4.2-xautofs.patch
 # eliminate compile-time warnings
 Patch3:        findutils-4.5.13-warnings.patch
 
-# test-lock: disable the rwlock test
-Patch4:        findutils-4.6.0-test-lock.patch
-
 # implement the -noleaf option of find (#1252549)
-Patch5:        findutils-4.6.0-leaf-opt.patch
-
-# fix find not obeying -ignore_readdir_race in symlink_loop (#2232278)
-Patch6:        findutils-4.9.0-ignore_readdir_race-symlink_loop.patch
+Patch4:        findutils-4.6.0-leaf-opt.patch
 
 Conflicts: filesystem < 3
 Provides: /bin/find
@@ -46,9 +44,11 @@ BuildRequires: git
 BuildRequires: libselinux-devel
 BuildRequires: make
 BuildRequires: texinfo
+BuildRequires:  gnupg2
 
 # For gpg verification of source tarball
-BuildRequires: gnupg2
+BuildRequires: gpgverify
+BuildRequires:  oreon-rpm-macros
 
 %description
 The findutils package contains programs which will help you locate
@@ -62,9 +62,10 @@ You should install findutils because it includes tools that are very
 useful for finding things on your system.
 
 %prep
-test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" 2>/dev/null | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
-%autosetup -N -S git -n findutils-4.10.0
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
+%autosetup -N -S git_am
 
 # drop the source code of locate
 git rm -q -r locate
@@ -122,9 +123,3 @@ rm -f %{buildroot}%{_infodir}/dir
 %{_infodir}/find.info*
 %{_infodir}/find-maint.info.*
 
-%changelog
-* Fri Apr 3 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.10.0-7
-- Fix .gitignore so Fedora patches are not excluded from the tree
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.10.0-7
-- Prepare for Oreon 11 (RP1)

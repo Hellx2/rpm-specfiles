@@ -1,14 +1,18 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr E3F42FCE156830A80358E6E94FD1AEC3365AF7BF
+%global source0_hash 95477cc412a5980ebaa3152d5561e35826f550d91cf303d3eb7ad3dad10cb46d
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global libsolv_version 0.7.21
 %global libmodulemd_version 2.13.0
 %global librepo_version 1.18.0
 %global dnf_conflict 4.11.0
 %global swig_version 3.0.12
 %global libdnf_major_version 0
-%global libdnf_minor_version 75
+%global libdnf_minor_version 76
 %global libdnf_micro_version 0
 
 %define __cmake_in_source_build 1
@@ -16,41 +20,17 @@
 # set sphinx package name according to distro
 %global requires_python2_sphinx python2-sphinx
 %global requires_python3_sphinx python3-sphinx
-%if 0%{?rhel} == 7
-    %global requires_python2_sphinx python-sphinx
-%endif
-%if 0%{?suse_version}
-    %global requires_python2_sphinx python2-Sphinx
-    %global requires_python3_sphinx python3-Sphinx
-%endif
 
 %bcond_with valgrind
 
-# Do not build bindings for python3 for RHEL <= 7
-%if 0%{?rhel} && 0%{?rhel} <= 7
-%bcond_with python3
-%else
 %bcond_without python3
-%endif
 
-%if 0%{?rhel} > 7 || 0%{?fedora} > 29
 # Disable python2 build by default
 %bcond_with python2
-%else
-%bcond_without python2
-%endif
 
-%if 0%{?rhel} && ! 0%{?centos}
-%bcond_without rhsm
-%else
 %bcond_with rhsm
-%endif
 
-%if 0%{?rhel}
-%bcond_with zchunk
-%else
 %bcond_without zchunk
-%endif
 
 %bcond_with sanitizers
 
@@ -59,15 +39,15 @@
     %{nil}
 
 Name:           libdnf
-Version:        %{libdnf_major_version}.%{libdnf_minor_version}.%{libdnf_micro_version}
-Release:        2%{?dist}
+Version:        0.76.0
+Release:        1%{?dist}
 Summary:        Library providing simplified C and Python API to libsolv
 License:        LGPL-2.1-or-later
 URL:            https://github.com/rpm-software-management/libdnf
-Source0:        https://github.com/rpm-software-management/libdnf/releases/download/0.75.0/libdnf-0.75.0.tar.gz
-Source1:        libdnf-0.75.0.tar.gz.asc
-# Key exported from Petr Pisar's keyring
-Source2:        gpgkey-E3F42FCE156830A80358E6E94FD1AEC3365AF7BF.gpg
+Source0:        https://github.com/rpm-software-management/libdnf/releases/download/%{version}/libdnf-%{version}.tar.gz
+Source1:        libdnf-0.76.0.tar.gz.asc
+# Maintainers keyring
+Source2:        rpm-software-management.gpg
 
 BuildRequires:  cmake >= 3.5.0
 BuildRequires:  gcc
@@ -104,9 +84,7 @@ BuildRequires:  libubsan
 Requires:       libmodulemd%{?_isa} >= %{libmodulemd_version}
 Requires:       libsolv%{?_isa} >= %{libsolv_version}
 Requires:       librepo%{?_isa} >= %{librepo_version}
-%if 0%{?fedora} >= 43 || 0%{?rhel} >= 11
 Requires:       rpm-libs%{?_isa} >= 5.99.90
-%endif
 
 %if %{without python2}
 # Obsoleted from here so we can track the fast growing version easily.
@@ -135,14 +113,8 @@ Development files for %{name}.
 Summary:        Python 2 bindings for the libdnf library.
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 BuildRequires:  python2-devel
-%if !0%{?mageia}
 BuildRequires:  %{requires_python2_sphinx}
-%endif
-%if 0%{?rhel} == 7
-BuildRequires:  swig3 >= %{swig_version}
-%else
 BuildRequires:  swig >= %{swig_version}
-%endif
 
 %description -n python2-%{name}
 Python 2 bindings for the libdnf library.
@@ -184,6 +156,7 @@ Python 2 bindings for the hawkey library.
 Summary:        Python 3 bindings for the hawkey library
 %{?python_provide:%python_provide python3-hawkey}
 BuildRequires:  python3-devel
+BuildRequires:  oreon-rpm-macros
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       python3-%{name} = %{version}-%{release}
 # Fix problem with hawkey - dnf version incompatibility
@@ -197,8 +170,9 @@ Python 3 bindings for the hawkey library.
 %endif
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 %if %{with python2}
 mkdir build-py2
@@ -210,11 +184,6 @@ mkdir build-py3
 %build
 %if %{with python2}
 pushd build-py2
-  %if 0%{?mageia} || 0%{?suse_version}
-    cd ..
-    %define _cmake_builddir build-py2
-    %define __builddir build-py2
-  %endif
   %cmake -DPYTHON_DESIRED:FILEPATH=%{__python2} -DWITH_MAN=OFF ../ %{!?with_zchunk:-DWITH_ZCHUNK=OFF} %{!?with_valgrind:-DDISABLE_VALGRIND=1} %{_cmake_opts} -DLIBDNF_MAJOR_VERSION=%{libdnf_major_version} -DLIBDNF_MINOR_VERSION=%{libdnf_minor_version} -DLIBDNF_MICRO_VERSION=%{libdnf_micro_version} \
     -DWITH_SANITIZERS=%{?with_sanitizers:ON}%{!?with_sanitizers:OFF}
   %cmake_build
@@ -224,11 +193,6 @@ popd
 
 %if %{with python3}
 pushd build-py3
-  %if 0%{?mageia} || 0%{?suse_version}
-    cd ..
-    %define _cmake_builddir build-py3
-    %define __builddir build-py3
-  %endif
   %cmake -DPYTHON_DESIRED:FILEPATH=%{__python3} -DWITH_GIR=0 -DWITH_MAN=0 -Dgtkdoc=0 ../ %{!?with_zchunk:-DWITH_ZCHUNK=OFF} %{!?with_valgrind:-DDISABLE_VALGRIND=1} %{_cmake_opts} -DLIBDNF_MAJOR_VERSION=%{libdnf_major_version} -DLIBDNF_MINOR_VERSION=%{libdnf_minor_version} -DLIBDNF_MICRO_VERSION=%{libdnf_micro_version} \
     -DWITH_SANITIZERS=%{?with_sanitizers:ON}%{!?with_sanitizers:OFF}
   %cmake_build
@@ -236,10 +200,6 @@ popd
 %endif
 
 %check
-%if 0%{?rhel} == 9 && %{defined ctest}
-# Work around broken passing options to ctest macro, RHEL-120543
-%global ctest(-) %{expand:%{macrobody:ctest}}
-%endif
 %if %{with python2}
 pushd build-py2
   %ctest -V
@@ -275,12 +235,7 @@ popd
 
 %find_lang %{name}
 
-%if (0%{?rhel} && 0%{?rhel} <= 7) || 0%{?suse_version}
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
-%else
 %ldconfig_scriptlets
-%endif
 
 %files -f %{name}.lang
 %license COPYING
@@ -320,6 +275,3 @@ popd
 %{python3_sitearch}/hawkey/
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{libdnf_major_version}.%{libdnf_minor_version}.%{libdnf_micro_version}-2
-- Prepare for Oreon 11 (RP1)

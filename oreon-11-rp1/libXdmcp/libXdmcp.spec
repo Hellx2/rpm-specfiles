@@ -1,19 +1,26 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash d8a5222828c3adab70adf69a5583f1d32eb5ece04304f7f8392b6a353aa2228c
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: X Display Manager Control Protocol library
 Name: libXdmcp
-Version: 1.1.5
-Release: 5%{?dist}
+Version:        1.1.5
+Release:        1%{?dist}
 License: MIT-open-group
 URL: http://www.x.org
 
-Source0:        https://www.x.org/pub/individual/lib/%{name}-%{version}.tar.xz
+Source0:        https://www.x.org/pub/individual/lib/libXdmcp-%{version}.tar.xz
 
 BuildRequires: make
 BuildRequires: xorg-x11-util-macros
 BuildRequires: autoconf automake libtool
 BuildRequires: xorg-x11-proto-devel
 BuildRequires: xmlto
+BuildRequires:  oreon-rpm-macros
 
 %description
 X Display Manager Control Protocol library.
@@ -26,7 +33,8 @@ Requires: %{name} = %{version}-%{release}
 libXdmcp development package.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup
 
 %build
@@ -59,6 +67,3 @@ rm -rf $RPM_BUILD_ROOT%{_docdir}
 %{_libdir}/libXdmcp.so
 %{_libdir}/pkgconfig/xdmcp.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.1.5-5
-- Prepare for Oreon 11 (RP1)

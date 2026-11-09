@@ -1,18 +1,25 @@
-%global source0_hash 11a8f358910712cf957dd4fd205063fce7e386b68fc7dfe3a0e1e53155ec53c5
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 239781632846db3b01901028147fb4b57e6f2d5330ca63ce104b21d9b3e6031f
+%global source5_hash edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: Utilities for managing accounts and shadow password files
 Name: shadow-utils
-Version: 4.20.2
-Release: 1%{?dist}
+Version:        4.20.0
+Release:        1%{?dist}
 Epoch: 2
 License: BSD-3-Clause AND GPL-2.0-or-later
 URL: https://github.com/shadow-maint/shadow
-Source0: https://github.com/shadow-maint/shadow/releases/download/4.20.2/shadow-4.19.3.tar.xz
-Source1: https://github.com/shadow-maint/shadow/releases/download/4.20.2/shadow-4.19.3.tar.xz.asc
+Source0:        https://github.com/shadow-maint/shadow/releases/download/%{version}/shadow-%{version}.tar.xz
+Source1:        shadow-4.20.0.tar.xz.asc
 Source2: shadow-utils.useradd
 Source3: shadow-utils.login.defs
 Source4: shadow-bsd.txt
-Source5: https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+Source5:        https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
 Source6: shadow-utils.HOME_MODE.xml
 Source7: passwd.pamd
 
@@ -22,14 +29,10 @@ Source7: passwd.pamd
 %global _ld_strict_symbol_defs 1
 
 ### Patches ###
-# Misc manual page changes - non-upstreamable
-Patch0: shadow-4.15.0-manfix.patch
-# Probably non-upstreamable
-Patch1: shadow-4.19.0-account-tools-setuid.patch
-# https://github.com/shadow-maint/shadow/commit/3e8c105f0703264e947d8c034b90419794955d49
-Patch2: shadow-4-19-useradd-support-btrfs.patch
-# https://github.com/shadow-maint/shadow/commit/6be13b2f84a2c1a0d0f4129b5258b4b443e7f86c
-Patch3: shadow-4.19.3-chkhash.patch
+# https://github.com/shadow-maint/shadow/pull/1772
+# Force C locale before regcomp() and regexec()
+# Fixes bogus invalid hash results in Turkish
+Patch:        0001-Force-C-locale-before-regcomp-regexec.patch
 
 ### Dependencies ###
 Requires: audit-libs >= 1.6.5
@@ -61,6 +64,7 @@ BuildRequires: libxslt
 BuildRequires: make
 BuildRequires: pam
 BuildRequires: pam-devel
+BuildRequires:  oreon-rpm-macros
 
 ### Provides ###
 Provides: shadow = %{epoch}:%{version}-%{release}
@@ -108,8 +112,10 @@ Requires: shadow-utils-subid = %{epoch}:%{version}-%{release}
 Development files for shadow-utils-subid.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%autosetup -p 1 -S git -n shadow-4.19.3
+%oreon_sha256
+echo '%{source5_hash}  %{SOURCE5}' | sha256sum -c -
+
+%autosetup -p 1 -S git -n shadow-4.20.0
 
 iconv -f ISO88591 -t utf-8  doc/HOWTO > doc/HOWTO.utf8
 cp -f doc/HOWTO.utf8 doc/HOWTO
@@ -147,6 +153,8 @@ install -d -m 755 $RPM_BUILD_ROOT%{_sysconfdir}/default
 install -p -c -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/login.defs
 install -p -c -m 0600 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/default/useradd
 install -d -m 755 $RPM_BUILD_ROOT%{_pam_confdir}
+install -m 644 %{SOURCE7} $RPM_BUILD_ROOT%{_pam_confdir}/chpasswd
+install -m 644 %{SOURCE7} $RPM_BUILD_ROOT%{_pam_confdir}/newusers
 install -m 644 %{SOURCE7} $RPM_BUILD_ROOT%{_pam_confdir}/passwd
 
 
@@ -164,26 +172,20 @@ mv -v $RPM_BUILD_ROOT/usr/sbin/* $RPM_BUILD_ROOT%{_bindir}/
 # Remove binaries we don't use.
 rm $RPM_BUILD_ROOT%{_bindir}/chfn
 rm $RPM_BUILD_ROOT%{_bindir}/chsh
-rm $RPM_BUILD_ROOT%{_bindir}/expiry
 rm $RPM_BUILD_ROOT%{_bindir}/login
 rm $RPM_BUILD_ROOT%{_bindir}/su
 rm $RPM_BUILD_ROOT%{_bindir}/faillog
-rm $RPM_BUILD_ROOT%{_sbindir}/logoutd
 rm $RPM_BUILD_ROOT%{_sbindir}/nologin
 rm $RPM_BUILD_ROOT%{_mandir}/man1/chfn.*
 rm $RPM_BUILD_ROOT%{_mandir}/*/man1/chfn.*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/chsh.*
 rm $RPM_BUILD_ROOT%{_mandir}/*/man1/chsh.*
-rm $RPM_BUILD_ROOT%{_mandir}/man1/expiry.*
-rm $RPM_BUILD_ROOT%{_mandir}/*/man1/expiry.*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/login.*
 rm $RPM_BUILD_ROOT%{_mandir}/*/man1/login.*
 rm $RPM_BUILD_ROOT%{_mandir}/man1/su.*
 rm $RPM_BUILD_ROOT%{_mandir}/*/man1/su.*
 rm $RPM_BUILD_ROOT%{_mandir}/man5/passwd.*
 rm $RPM_BUILD_ROOT%{_mandir}/*/man5/passwd.*
-rm $RPM_BUILD_ROOT%{_mandir}/man8/logoutd.*
-rm $RPM_BUILD_ROOT%{_mandir}/*/man8/logoutd.*
 rm $RPM_BUILD_ROOT%{_mandir}/man8/nologin.*
 rm $RPM_BUILD_ROOT%{_mandir}/*/man8/nologin.*
 rm $RPM_BUILD_ROOT%{_mandir}/man3/getspnam.*
@@ -195,11 +197,8 @@ rm $RPM_BUILD_ROOT%{_mandir}/*/man8/faillog.*
 
 # Remove PAM service files we don't use.
 rm $RPM_BUILD_ROOT%{_pam_confdir}/chfn
-rm $RPM_BUILD_ROOT%{_pam_confdir}/chpasswd
 rm $RPM_BUILD_ROOT%{_pam_confdir}/chsh
-rm $RPM_BUILD_ROOT%{_pam_confdir}/groupmems
 rm $RPM_BUILD_ROOT%{_pam_confdir}/login
-rm $RPM_BUILD_ROOT%{_pam_confdir}/newusers
 rm $RPM_BUILD_ROOT%{_pam_confdir}/su
 
 find $RPM_BUILD_ROOT%{_mandir} -depth -type d -empty -delete
@@ -226,6 +225,8 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/libsubid.a
 %license gpl-2.0.txt shadow-bsd.txt
 %attr(0644,root,root)   %config(noreplace) %{_sysconfdir}/login.defs
 %attr(0644,root,root)   %config(noreplace) %{_sysconfdir}/default/useradd
+%config(noreplace) %{_pam_confdir}/chpasswd
+%config(noreplace) %{_pam_confdir}/newusers
 %config(noreplace) %{_pam_confdir}/passwd
 %{_bindir}/sg
 %attr(4755,root,root) %{_bindir}/chage
@@ -279,6 +280,3 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/libsubid.a
 %{includesubiddir}/subid.h
 %{_libdir}/libsubid.so
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.19.3-1
-- Prepare for Oreon 11 (RP1)

@@ -1,44 +1,53 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 155752ba6796aa294cde87c2bf0e771a5891eeeacb131345be0e080a3ec0ceea
 
-Summary:        Compatibility package for gnulib-l10n
-Name:           gnulib-l10n
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+Summary: Localizations for Gnulib
+Name:    gnulib-l10n
 Version:        20241231
 Release:        1%{?dist}
-License:        GPL-3.0-or-later
-URL:            https://www.gnu.org/software/gnulib/
-BuildArch:      noarch
+License: LGPL-2.1-or-later
 
-Source0:        https://mirrors.kernel.org/gnu/gnulib/%{name}-%{version}.tar.gz
-Source1:        https://mirrors.kernel.org/gnu/gnulib/%{name}-%{version}.tar.gz.sig
+Url:     https://www.gnu.org/software/gnulib
+Source0:        https://mirror.cs.odu.edu/gnu/gnulib/gnulib-l10n-%{version}.tar.gz
+Source1:        gnulib-l10n-20241231.tar.gz.sig
 
-Provides:       gnulib-l10n = %{version}-%{release}
+# From https://www.haible.de/bruno/gpgkeys.html
+Source2: gnulib-l10n-keyring.gpg
+
+# Machine objects (*.mo) are architecture independent.
+BuildArch: noarch
+
+BuildRequires: gcc
+BuildRequires: gettext-devel
+BuildRequires: make
+
+# For gpg verification of source tarball
+BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 
 %description
-Compatibility package to provide gnulib-l10n in Oreon repositories.
-This package intentionally ships metadata and documentation only.
+The localizations for the GNU portability library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f"  | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%setup -q -n %{name}-%{version}
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
+%autosetup
 
 %build
+%configure
+%make_build
 
 %install
-install -d -m 0755 %{buildroot}%{_docdir}/%{name}
-if test -f LICENSE; then
-  install -m 0644 LICENSE %{buildroot}%{_docdir}/%{name}/
-elif test -f COPYING; then
-  install -m 0644 COPYING %{buildroot}%{_docdir}/%{name}/LICENSE
-else
-  install -m 0644 README %{buildroot}%{_docdir}/%{name}/LICENSE
-fi
-echo "Oreon compatibility package for gnulib-l10n translations." > README.oreon
-install -m 0644 README.oreon %{buildroot}%{_docdir}/%{name}/
+%make_install
+%find_lang gnulib
 
-%files
-%license %{_docdir}/%{name}/LICENSE
-%doc %{_docdir}/%{name}/README.oreon
+%files -f gnulib.lang
+%doc ABOUT-NLS README
+%license COPYING
 
-%changelog
-* Sun Apr 12 2026 Oreon Packaging Team <packaging@oreonhq.com> - 20241231-1
-- Add gnulib-l10n compatibility package to Oreon repo

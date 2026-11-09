@@ -1,5 +1,11 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 4d7e4fdef2eca6afe07a2682151cea78781e0a4e8f9622142d9f70c083a2fd4f
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Supported build option:
 #
 # --with nls ... build this package with --enable-nls 
@@ -7,10 +13,10 @@
 Name:           help2man
 Summary:        Create simple man pages from --help output
 Version:        1.49.3
-Release:        9%{?dist}
+Release:        1%{?dist}
 License:        GPL-3.0-or-later
 URL:            https://www.gnu.org/software/help2man/
-Source:        https://mirrors.kernel.org/gnu/help2man/help2man-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/help2man/help2man-%{version}.tar.xz
 
 %bcond_with nls
 
@@ -24,6 +30,7 @@ BuildRequires:  perl(POSIX)
 BuildRequires:  perl(Text::ParseWords)
 BuildRequires:  perl(Text::Tabs)
 BuildRequires:  perl(strict)
+BuildRequires:  oreon-rpm-macros
 %{?with_nls:BuildRequires: perl(Locale::gettext) /usr/bin/msgfmt}
 %{?with_nls:BuildRequires: perl(Encode)}
 %{?with_nls:BuildRequires: perl(I18N::Langinfo)}
@@ -37,7 +44,8 @@ way to generate a placeholder man page pointing to that resource while
 still providing some useful information.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n help2man-%{version}
 
 %build
@@ -60,6 +68,3 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %{_libdir}/help2man
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.49.3-9
-- Prepare for Oreon 11 (RP1)

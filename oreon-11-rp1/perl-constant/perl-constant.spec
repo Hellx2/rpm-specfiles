@@ -1,23 +1,25 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 744453124b07800d6fd6b901061892cbbcc134a316adbe0f1edfc5f89e04312b
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Run optional test
-%if ! (0%{?rhel})
 %bcond_without perl_constant_enables_optional_test
-%else
-%bcond_with perl_constant_enables_optional_test
-%endif
 
 %global cpan_version 1.27
 
 Name:           perl-constant
 Version:        1.33
-Release:        522%{?dist}
+Release:        1%{?dist}
 Summary:        Perl pragma to declare constants
 License:        GPL-1.0-or-later OR Artistic-1.0-Perl
 URL:            https://metacpan.org/release/constant
 Source0:        https://cpan.metacpan.org/authors/id/S/SA/SAPER/constant-1.27.tar.gz
 # Update to 1.33
-Patch0:         constant-1.33-update.patch
+Patch0:        constant-1.33-update.patch
 BuildArch:      noarch
 BuildRequires:  coreutils
 BuildRequires:  make
@@ -38,6 +40,7 @@ BuildRequires:  perl(warnings)
 # Optional tests:
 BuildRequires:  perl(Test::Pod) >= 1.14
 BuildRequires:  perl(Test::Pod::Coverage) >= 1.04
+BuildRequires:  oreon-rpm-macros
 %endif
 Requires:       perl(Carp)
 
@@ -68,7 +71,8 @@ Tests from %{name}. Execute them
 with "%{_libexecdir}/%{name}/test".
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n constant-%{cpan_version}
 %patch -P0 -p1
 
@@ -109,6 +113,3 @@ make test
 %files tests
 %{_libexecdir}/%{name}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.33-522
-- Prepare for Oreon 11 (RP1)

@@ -1,21 +1,29 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 7ccfc6abd01ed67c1a0924b353e526f1b766b21f42d4562ee635a8ebfc5bb38c
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global username    saslauth
 
 %global _plugindir2 %{_libdir}/sasl2
 %global bootstrap_cyrus_sasl 0
-%global bdb_migration %[!(0%{?rhel} >= 10)]
+%global bdb_migration 1
 %global gdbm_db_file /etc/sasl2/sasldb2
 
 Summary: The Cyrus SASL library
 Name: cyrus-sasl
-Version: 2.1.28
-Release: %autorelease
+Version:        2.1.28
+Release:        1%{?dist}
 License: BSD-Attribution-HPND-disclaimer
 URL: https://www.cyrusimap.org/sasl/
 
-# Upstream release tarball (dlcompat/srp stripped in %%prep like Fedora script)
-Source0:        https://github.com/cyrusimap/cyrus-sasl/releases/download/cyrus-sasl-2.1.28/cyrus-sasl-2.1.28.tar.gz
+# Source0 originally comes from https://www.cyrusimap.org/releases/;
+# make-no-dlcompatorsrp-tarball.sh removes the "dlcompat" subdirectory and builds a
+# new tarball.
+Source0:        https://github.com/cyrusimap/cyrus-sasl/releases/download/cyrus-sasl-%{version}/cyrus-sasl-%{version}.tar.gz
 Source3: saslauth.sysusers
 Source5: saslauthd.service
 Source7: sasl-mechlist.c
@@ -27,29 +35,28 @@ Source11: autogen.sh
 
 
 Requires: %{name}-lib%{?_isa} = %{version}-%{release}
-Patch11: cyrus-sasl-2.1.25-no_rpath.patch
-Patch15: cyrus-sasl-2.1.20-saslauthd.conf-path.patch
-Patch23: cyrus-sasl-2.1.23-man.patch
-Patch24: cyrus-sasl-2.1.21-sizes.patch
+Patch11:        cyrus-sasl-2.1.25-no_rpath.patch
+Patch15:        cyrus-sasl-2.1.20-saslauthd.conf-path.patch
+Patch23:        cyrus-sasl-2.1.23-man.patch
+Patch24:        cyrus-sasl-2.1.21-sizes.patch
 # The 64 bit *INT8 type is not used anywhere and other types match
-Patch49: cyrus-sasl-2.1.26-md5global.patch
+Patch49:        cyrus-sasl-2.1.26-md5global.patch
 
-Patch101: cyrus-sasl-2.1.27-Add-basic-test-infrastructure.patch
-Patch102: cyrus-sasl-2.1.27-Add-Channel-Binding-support-for-GSSAPI-GSS-SPNEGO.patch
+Patch101:        cyrus-sasl-2.1.27-Add-basic-test-infrastructure.patch
+Patch102:        cyrus-sasl-2.1.27-Add-Channel-Binding-support-for-GSSAPI-GSS-SPNEGO.patch
 #https://github.com/simo5/cyrus-sasl/commit/ebd2387f06c84c7f9aac3167ec041bb01e5c6e48
-Patch106: cyrus-sasl-2.1.27-nostrncpy.patch
+Patch106:        cyrus-sasl-2.1.27-nostrncpy.patch
 # Upstream PR: https://github.com/cyrusimap/cyrus-sasl/pull/635
-Patch107: cyrus-sasl-2.1.27-more-tests.patch
-Patch108: cyrus-sasl-2.1.27-Add-support-for-setting-max-ssf-0-to-GSS-SPNEGO.patch
-#Migration tool should be removed from Fedora 36
-Patch109: cyrus-sasl-2.1.27-Migration-from-BerkeleyDB.patch
-Patch500: cyrus-sasl-2.1.27-coverity.patch
-Patch501: cyrus-sasl-2.1.27-cumulative-digestmd5.patch
-Patch502: cyrus-sasl-2.1.27-cumulative-ossl3.patch
-Patch503: cyrus-sasl-2.1.28-SAST.patch
+Patch107:        cyrus-sasl-2.1.27-more-tests.patch
+Patch108:        cyrus-sasl-2.1.27-Add-support-for-setting-max-ssf-0-to-GSS-SPNEGO.patch
+Patch109:        cyrus-sasl-2.1.27-Migration-from-BerkeleyDB.patch
+Patch500:        cyrus-sasl-2.1.27-coverity.patch
+Patch501:        cyrus-sasl-2.1.27-cumulative-digestmd5.patch
+Patch502:        cyrus-sasl-2.1.27-cumulative-ossl3.patch
+Patch503:        cyrus-sasl-2.1.28-SAST.patch
 
-Patch599: cyrus-sasl-2.1.28-fedora-c99.patch
-Patch600: cyrus-sasl-2.1.28-gcc15.patch
+Patch599:        cyrus-sasl-2.1.28-oreon-c99.patch
+Patch600:        cyrus-sasl-2.1.28-gcc15.patch
 
 BuildRequires: autoconf, automake, libtool, gdbm-devel, groff
 BuildRequires: krb5-devel >= 1.2.2, openssl-devel, pam-devel, pkgconfig
@@ -65,6 +72,7 @@ BuildRequires: libdb-devel-static
 BuildRequires: python3 nss_wrapper socket_wrapper krb5-server
 BuildRequires: make
 BuildRequires: libxcrypt-devel
+BuildRequires:  oreon-rpm-macros
 Requires: /sbin/nologin
 Provides: user(%username)
 Provides: group(%username)
@@ -163,10 +171,10 @@ the GS2 authentication scheme.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n cyrus-sasl-%{version}
-rm -rf dlcompat* 2>/dev/null || :
-rm -rf plugins/srp* 2>/dev/null || :
+rm -rf dlcompat* plugins/srp*
 %patch -P11 -p1 -b .no_rpath
 %patch -P15 -p1 -b .path
 %patch -P23 -p1 -b .man
@@ -399,6 +407,3 @@ make check %{?_smp_mflags}
 %{_mandir}/man3/*
 %{_sbindir}/sasl2-shared-mechlist
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.1.28-1
-- Prepare for Oreon 11 (RP1)

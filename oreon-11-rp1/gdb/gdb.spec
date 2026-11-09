@@ -1,5 +1,11 @@
-%global source0_hash 14996f5f74c9f68f5a543fdc45bca7800207f91f92aeea6c2e791822c7c6d876
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash cd9fc3fe2b47743840e42c1592d3d87f8302eb18639c0b8b4ba0898002e2348f
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # rpmbuild parameters:
 # --with testsuite: Run the testsuite (biarch if possible).  Default is without.
 # --with buildisa: Use %%{?_isa} for BuildRequires
@@ -24,17 +30,9 @@
  %global _root_libdir %{_libdir}
 }
 
-# If we're on Fedora or RHEL 9+, we will build the gdb-minimal package.
 # Never build the -minimal package on SCLs, since it's unneeded there.
-%if 0%{?fedora} || (0%{?rhel} > 8 && 0%{!?scl:1})
   %global _build_minimal 1
-%endif
 
-# Include support for Guile? This is enabled on RHEL 8 and
-# Fedora < 38.
-%if (0%{?fedora:1} && 0%{?fedora} < 38) || (0%{?rhel:1} && 0%{?rhel} == 8)
-  %define use_guile 1
-%endif
 
 Name: %{?scl_prefix}gdb
 
@@ -43,16 +41,17 @@ Name: %{?scl_prefix}gdb
 # See timestamp of source gnulib installed into gnulib/ .
 %global snapgnulib 20220501
 %global tarname gdb-%{version}
-Version: 17.2
+Version:        18.1
 
 # The release always contains a leading reserved number, start it at 1.
 # `upstream' is not a part of `name' to stay fully rpm dependencies compatible for the testing.
-Release: 1%{?dist}
+Release:        1%{?dist}
 
-License: GPL-3.0-or-later AND BSD-3-Clause AND FSFAP AND LGPL-2.1-or-later AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain AND GFDL-1.3-or-later AND LGPL-2.0-or-later WITH GCC-exception-2.0 AND GPL-3.0-or-later WITH GCC-exception-3.1 AND GPL-2.0-or-later WITH GNU-compiler-exception AND MIT
+License: GPL-3.0-or-later AND BSD-3-Clause AND FSFAP AND LGPL-2.1-or-later AND GPL-2.0-or-later AND LGPL-2.0-or-later AND LicenseRef-Oreon-Public-Domain AND GFDL-1.3-or-later AND LGPL-2.0-or-later WITH GCC-exception-2.0 AND GPL-3.0-or-later WITH GCC-exception-3.1 AND GPL-2.0-or-later WITH GNU-compiler-exception AND MIT
 # Do not provide URL for snapshots as the file lasts there only for 2 days.
-# https://sourceware.org/pub/gdb/releases/FIXME{tarname}.tar.xz
-Source:        https://sourceware.org/pub/gdb/releases/%{tarname}.tar.xz
+# ftp://sourceware.org/pub/gdb/releases/FIXME{tarname}.tar.xz
+Source0:        https://sourceware.org/pub/gdb/releases/gdb-%{version}.tar.xz
+Patch0:         gdb-aarch64-opc-null-comment.patch
 URL: https://gnu.org/software/gdb/
 
 # For our convenience
@@ -63,13 +62,9 @@ URL: https://gnu.org/software/gdb/
 %endif
 
 # error: Installed (but unpackaged) file(s) found: /usr/lib/debug/usr/bin/gdb-gdb.py
-# https://lists.fedoraproject.org/archives/list/devel@lists.fedoraproject.org/message/PBOJDOFMWTRV3ZOKNV5HN7IBX5EPHDHF/
 %undefine _debuginfo_subpackages
 
-# For DTS RHEL<=7 GDB it is better to use none than a Requires dependency.
-%if 0%{!?rhel:1}
 Recommends: dnf-command(debuginfo-install)
-%endif
 
 %if 0%{!?scl:1}
 Summary: A GNU source-level debugger for C, C++, Fortran, Go and other languages
@@ -100,24 +95,20 @@ Summary: A GNU source-level debugger for C, C++, Fortran, Go and other languages
   %global have_inproctrace 1
 %endif
 
-# https://fedorahosted.org/fpc/ticket/43 https://fedorahosted.org/fpc/ticket/109
 Provides: bundled(libiberty) = %{snapsrc}
 Provides: bundled(gnulib) = %{snapgnulib}
 # The libraries in the top-level directory (libbfd, libopcodes,
 # libctf) are covered by the "bundled(binutils)" below.  See ticket
 # #109, as mentioned above.
 Provides: bundled(binutils) = %{snapsrc}
-# https://fedorahosted.org/fpc/ticket/130
 Provides: bundled(md5-gcc) = %{snapsrc}
 
-# https://fedoraproject.org/wiki/Packaging:Guidelines#BuildRequires_and_.25.7B_isa.7D
 %if 0%{?_with_buildisa:1} || 0%{?_with_testsuite:1}
   %global buildisa %{?_isa}
 %else
   %global buildisa %{nil}
 %endif
 
-# https://bugzilla.redhat.com/show_bug.cgi?id=1209492
 Recommends: default-yama-scope
 
 # rpm-suggestions.py needs to import rpm which is found in python3-rpm.
@@ -130,77 +121,17 @@ BuildRequires: gcc-c++
 
 #=
 #push=Should be pushed upstream.
-#fedora=Should stay as a Fedora patch.
-#fedoratest=Keep it in Fedora only as a regression test safety.
 
 # Cleanup any leftover testsuite processes as it may stuck mock(1) builds.
 #=push+jan
 Source2: gdb-orphanripper.c
 
-# /etc/gdbinit (from Debian but with Fedora compliant location).
-#=fedora
 Source4: gdbinit
 
 # Include the auto-generated file containing the "Patch:" directives.
 # See README.local-patches for more details.
-# Check distro name is included in the version output.
-Patch001: gdb-test-show-version.patch
-
-# Update gdb-add-index.sh such that, when the GDB environment
-# variable is not set, the script is smarter than just looking for
-# 'gdb' in the $PATH.
-#
-# The actual search order is now: /usr/bin/gdb.minimal, gdb (in the
-# $PATH), then /usr/libexec/gdb.
-#
-# For the rationale of looking for gdb.minimal see:
-#
-#   https://fedoraproject.org/wiki/Changes/Minimal_GDB_in_buildroot
-#
-#=fedora
-Patch002: gdb-add-index.patch
-
-# Not a backport.  Add a new script which hooks into GDB and suggests
-# RPMs to install when GDB finds an objfile with no debug info.
-Patch003: gdb-rpm-suggestion-script.patch
-
-# Backport Guinevere Larsen's build warning fixes (RH BZ 2424325).
-Patch004: gdb-rhbz2424325-c23-const-build-warnings.patch
-
-# Backport Keith Seitz's C23 const-correctness fixes (pending upstream review).
-# Mailing list: https://sourceware.org/pipermail/binutils/2026-January/...
-# Posted 2026-01-07, not yet approved.
-Patch005: gdb-rhbz2424325-c23-more-const-fixes.patch
-
-# Backport Tom de Vries fix regarding implicit lambda captures
-# (RH BZ 2424325).
-Patch006: gdb-rhbz2424325-c++20-implicit-lambda-capture.patch
-
-# Backport of upstream commit 70b66cf338b14336 to address RHBZ
-# 2402580.  This backport can be dropped when rebasing to GDB 18.
-# There were some moderate merge conflicts which needed resolving
-# when backporting this fix.
-Patch007: gdb-rhbz2403580-misplaced-symtabs.patch
-
-# Backport of three upstream patches.  The first two relate to index
-# generation, while the third relates to symbol lookup, but is needed
-# so that the tests from the earlier two patches will pass.
-#
-# These backports will all drop out when rebasing onto GDB 18.
-Patch008: gdb-index-generation-fixes.patch
-
-# Backport of upstream commit f08ffbbf2691bad2d5df660ee644647687775f0c
-# Can be dropped on a rebase to gdb 17.2 or 18.1
-Patch009: gdb-rhbz2435950-skip-revert.patch
-
-# Backport of upstream commit c1da013915e from Kevin Buettner
-# (RHBZ 2413405).
-Patch010: gdb-rhbz2413405-gcore-unreadable-pages.patch
-
-# Backport of upstream commit d2cc16cd7fc from Jan Vrany fixing
-# FAILs in gdb.base/fileio.exp caused by macro expansion of path
-# components (e.g. "linux") in OUTDIR.
-Patch011: gdb-fileio-test-fixes.patch
+Source9998: _gdb.spec.Patch.include
+%include %{SOURCE9998}
 
 BuildRequires: readline-devel%{buildisa} >= 7.0
 BuildRequires: ncurses-devel%{buildisa} texinfo gettext flex bison
@@ -214,20 +145,12 @@ BuildRequires: zlib-devel%{buildisa} libselinux-devel%{buildisa}
   %global __python %{__python3}
 BuildRequires: python3-devel%{buildisa}
 %endif
-# gdb-doc in PDF, see: https://bugzilla.redhat.com/show_bug.cgi?id=919891#c10
 BuildRequires: texinfo-tex
 BuildRequires: texlive-collection-latexrecommended
 # Permit rebuilding *.[0-9] files even if they are distributed in gdb-*.tar:
 BuildRequires: /usr/bin/pod2man
-BuildRequires: libbabeltrace-devel%{buildisa}
 %if %{defined use_guile}
-    %if 0%{!?rhel:1}
 BuildRequires: guile22-devel%{buildisa}
-    %endif
-    # Guile is only supported prior to RHEL9, where it was called "guile".
-    %if 0%{?rhel:1} && 0%{?rhel} < 9
-BuildRequires: guile-devel%{buildisa}
-    %endif
 %endif
 
 # Add support for Intel Processor Trace on eligible architectures.
@@ -237,14 +160,9 @@ BuildRequires: guile-devel%{buildisa}
 BuildRequires: libipt-devel%{buildisa}
 %endif
 
-# See https://bugzilla.redhat.com/show_bug.cgi?id=1593280
-# DTS RHEL-6 has mpfr-2 while GDB requires mpfr-3 on RHEL-7, RHEL-8, and
-# Fedora < 32, and mpfr-4 on Fedora 32+ and RHEL-9+.
 BuildRequires: mpfr-devel%{buildisa}
 BuildRequires: source-highlight-devel
-%if 0%{!?rhel:1}
 BuildRequires: xxhash-devel
-%endif
 
 # Include debuginfod support.
 BuildRequires: elfutils-debuginfod-client-devel
@@ -262,9 +180,7 @@ BuildRequires: boost-devel
 %endif
 
 %ifarch x86_64
-  %if 0%{?fedora:1} || 0%{?rhel} < 10
     %global bits_other (%{__isa_name}-32)
-  %endif
 %endif
 
 BuildRequires: sharutils dejagnu
@@ -272,30 +188,20 @@ BuildRequires: sharutils dejagnu
 # Test supported SCL toolchain components.
 BuildRequires: %{?scl_testing_prefix}gcc %{?scl_testing_prefix}gcc-c++ %{?scl_testing_prefix}gcc-gfortran
 
-# Fedora supports Objective C.
-%if 0%{!?rhel:1}
 BuildRequires: gcc-objc
-%endif
 
 BuildRequires: systemtap-sdt-devel
 BuildRequires: opencl-headers ocl-icd-devel%{bits_local} ocl-icd-devel%{bits_other}
 
-%if 0%{!?rhel:1}
 BuildRequires: gcc-go
 BuildRequires: libgo-devel%{bits_local} libgo-devel%{bits_other}
-%endif
 
-%if 0%{!?rhel:1}
   %ifnarch s390x
-# Fedora s390x does not support fpc.
 BuildRequires: fpc
-  %endif
 %endif
 
-%if 0%{!?rhel:1}
 BuildRequires: gcc-gnat
 BuildRequires: libgnat%{bits_local} libgnat%{bits_other}
-%endif
 BuildRequires: glibc-devel%{bits_local} glibc-devel%{bits_other}
 BuildRequires: libgcc%{bits_local} libgcc%{bits_other}
 BuildRequires: libgfortran%{bits_local} libgfortran%{bits_other}
@@ -305,9 +211,6 @@ BuildRequires: libstdc++%{bits_local} libstdc++%{bits_other}
 BuildRequires: libquadmath%{bits_local} libquadmath%{bits_other}
 %endif
 # multilib glibc-static is open Bug 488472:
-%if 0%{?rhel:1}
-BuildRequires: glibc-static%{bits_other}
-%endif
 BuildRequires: valgrind%{bits_local} valgrind%{bits_other}
 BuildRequires: xz
 BuildRequires: rust
@@ -315,6 +218,7 @@ BuildRequires: elfutils-debuginfod
 %endif
 # endif _with_testsuite
 BuildRequires: make gmp-devel
+BuildRequires:  oreon-rpm-macros
 
 %{?scl:Requires:%scl_runtime}
 
@@ -344,7 +248,7 @@ Fortran, Go, and other languages, by executing them in a controlled
 fashion and printing their data.
 
 This package provides a minimal version of GDB, tailored to be used by
-the Fedora buildroot.  It should probably not be used by end users.
+the Oreon buildroot.  It should probably not be used by end users.
 %endif
 # endif _build_minimal
 
@@ -366,7 +270,6 @@ BuildArch: noarch
 %if 0%{?scl:1}
 # As of F-28, packages won't need to call /sbin/install-info by hand
 # anymore.  We make an exception for DTS here.
-# https://lists.fedoraproject.org/archives/list/devel@lists.fedoraproject.org/thread/MP2QVJZBOJZEOQO2G7UB2HLXKXYPF2G5/
 Requires(post): /sbin/install-info
 Requires(preun): /sbin/install-info
 %endif
@@ -379,8 +282,9 @@ and printing their data.
 This package provides INFO, HTML and PDF user manual for GDB.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%setup -q -n %{gdb_src}
+%oreon_sha256
+
+%autosetup -p1 -n %{gdb_src}
 
 # Files have `# <number> <file>' statements breaking VPATH / find-debuginfo.sh .
 (cd gdb;rm -fv $(perl -pe 's/\\\n/ /' <Makefile.in|sed -n 's/^YYFILES = //p'))
@@ -388,22 +292,6 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 # *.info* is needlessly split in the distro tar; also it would not get used as
 # we build in GDB_BUILD, just to be sure.
 find -name "*.info*"|xargs rm -f
-
-# Apply patches defined on _gdb.spec.Patch.include
-
-# Include the auto-generated patch directives.
-# See README.local-patches for more details.
-%patch -p1 -P001
-%patch -p1 -P002
-%patch -p1 -P003
-%patch -p1 -P004
-%patch -p1 -P005
-%patch -p1 -P006
-%patch -p1 -P007
-%patch -p1 -P008
-%patch -p1 -P009
-%patch -p1 -P010
-%patch -p1 -P011
 
 find -name "*.orig" | xargs rm -f
 ! find -name "*.rej" # Should not happen.
@@ -418,33 +306,22 @@ find -name "*.orig" | xargs rm -f
 #
 # GDB's version string is exposed to users as part of the Python API,
 # and it is not uncommon for users to try and grok the version number
-# from this string.  Having Fedora/RHEL GDB not start with the major
 # version number can be unexpected, and might cause tools/script that
-# work for other builds of GDB to fail with Fedora/RHEL GDB.
 #
 # So, we switched to use the more standard --with-pkgversion configure
 # option.  This ensures the distro name is still included in the 'gdb
 # --version' output, but the text is no longer part of the string
 # exposed in the Python API.
 #
-# Unfortunately, for RHEL the dist_name macro is not defined.  At
-# least not on RHEL 9 or earlier.  So, if dist_name is not defined,
-# but the rhel macro is, then we use a hard-coded RHEL appropriate
 # string.
 #
 # FIXME: It would be nice to rewrite this using elif, but this is not
-# supported on older (pre 9) RHEL systems.
 
 %if 0%{?dist_name:1}
   %global pkgversion_configure_flag --with-pkgversion=%{dist_name}
 %else
-  %if 0%{?fedora:1}
-    %global pkgversion_configure_flag --with-pkgversion=Fedora Linux
-  %endif
+    %global pkgversion_configure_flag --with-pkgversion=Oreon Linux
 
-  %if 0%{?rhel:1}
-    %global pkgversion_configure_flag --with-pkgversion=Red Hat Enterprise Linux
-  %endif
 %endif
 
 # Change the version that gets printed by GDB.  The 'version' here is
@@ -470,6 +347,10 @@ mv -f readline-doc readline/readline/doc
 rm -rf zlib texinfo
 
 %build
+
+# Generate TexLive format file needed for PDF documentation
+# This is necessary in F45+ because format files are no longer pre-generated
+fmtutil-user --byfmt pdfetex || true
 
 # A set of common GDB configure flags, which are used for both minimal
 # and non-minimal compilations.
@@ -501,22 +382,15 @@ COMMON_GDB_CONFIGURE_FLAGS="\
         --with-system-zlib                                      \
         --with-lzma                                             \
         --with-debuginfod                                       \
-%if 0%{?rhel:1}
-        --disable-libctf                                        \
-%endif
         --disable-gdb-compile
 "
 
-# The base set of targets that Fedora and RHEL support.  These are the
 # targets that every GDB build, regardless of host architecture,
 # supports debugging.  This means that these targets can be used as
 # remote debug targets.
-ENABLED_TARGETS="aarch64-linux-gnu,powerpc-linux-gnu,riscv64-linux-gnu,s390-linux-gnu,x86_64-redhat-linux-gnu"
+ENABLED_TARGETS="aarch64-linux-gnu,powerpc-linux-gnu,riscv64-linux-gnu,s390x-linux-gnu,x86_64-redhat-linux-gnu"
 
-# Fedora, and older RHEL also have 32-bit ARM support.
-%if 0%{?fedora:1} || (0%{?rhel:1} && 0%{?rhel} < 10)
 ENABLED_TARGETS="$ENABLED_TARGETS,arm-linux-gnu"
-%endif
 
 # Identify the build directory with the version of gdb as well as the
 # architecture, to allow for mutliple versions to be installed and
@@ -582,7 +456,7 @@ export CXXFLAGS="$CFLAGS"
 # The configure flags we will use when building the full GDB.
 GDB_FULL_CONFIGURE_FLAGS="\
         --with-system-gdbinit=%{_sysconfdir}/gdbinit            \
-        --with-babeltrace                                       \
+        --without-babeltrace                                       \
         --with-expat                                            \
 $(: ppc64 host build crashes on ppc variant of libexpat.so )    \
         --without-libexpat-prefix                               \
@@ -607,9 +481,7 @@ $(: ppc64 host build crashes on ppc variant of libexpat.so )    \
 %else
         --without-intel-pt                                      \
 %endif
-%if 0%{!?rhel:1}
         --with-xxhash                                           \
-%endif
         --enable-unit-tests"
 
 # --htmldir and --pdfdir are not used as they are used from GDB_BUILD.
@@ -700,7 +572,7 @@ echo ====================TESTING=========================
 cd gdb
 gcc -o ./orphanripper %{SOURCE2} -Wall -lutil -ggdb2
 # Need to use a single --ignore option, second use overrides first.
-# No `%%{?_smp_mflags}' here as it may race.
+# No `%{?_smp_mflags}' here as it may race.
 # WARNING: can't generate a core file - core tests suppressed - check ulimit
 # "readline-overflow.exp" - Testcase is broken, functionality is OK.
 (
@@ -745,11 +617,9 @@ gcc -o ./orphanripper %{SOURCE2} -Wall -lutil -ggdb2
   for test in                           \
     gdb.base/readline-overflow.exp      \
     gdb.base/bigcore.exp                \
-%if 0%{?rhel} < 7 
     gdb.base/gnu-debugdata.exp          \
     gdb.base/access-mem-running.exp     \
     gdb.threads/access-mem-running-thread-exit.exp \
-%endif
   ; do
     mv -f ../../gdb/testsuite/$test ../gdb/testsuite/$test-DISABLED || :
   done
@@ -834,14 +704,13 @@ done
 mkdir -p $RPM_BUILD_ROOT/usr/lib/debug%{_bindir}
 cp -p ./gdb/gdb-gdb.py $RPM_BUILD_ROOT/usr/lib/debug%{_bindir}/
 for pyo in "" "-O";do
-  # RHEL-5: AttributeError: 'module' object has no attribute 'compile_file'
   %{__python} $pyo -c 'import compileall, re, sys; sys.exit (not compileall.compile_dir("'"$RPM_BUILD_ROOT/usr/lib/debug%{_bindir}"'", 1, "'"/usr/lib/debug%{_bindir}"'"))'
 done
 %endif
 
 # Compile python files
 %if 0%{!?_without_python:1}
-%py_byte_compile %{__python3} %{buildroot}%{_datadir}/gdb/python/gdb
+%{__python3} -m compileall -o 0 -o 1 -s %{buildroot} -p / --invalidation-mode=timestamp %{buildroot}%{_datadir}/gdb/python/gdb
 
 # BZ 999645: /usr/share/gdb/auto-load/ needs filesystem symlinks
 for i in $(echo bin lib $(basename %{_libdir}) sbin|tr ' ' '\n'|sort -u);do
@@ -900,7 +769,6 @@ rm -f $RPM_BUILD_ROOT%{_infodir}/ctf-spec*
 
 rm -f $RPM_BUILD_ROOT%{_infodir}/dir
 
-# These files are unrelated to Fedora Linux.
 rm -f $RPM_BUILD_ROOT%{_datadir}/gdb/system-gdbinit/elinos.py
 rm -f $RPM_BUILD_ROOT%{_datadir}/gdb/system-gdbinit/wrs-linux.py
 rmdir $RPM_BUILD_ROOT%{_datadir}/gdb/system-gdbinit
@@ -949,8 +817,6 @@ rmdir $RPM_BUILD_ROOT%{_datadir}/gdb/system-gdbinit
 %endif
 
 %if 0%{!?_without_python:1}
-# [rhel] Do not migrate /usr/share/gdb/auto-load/ with symlinks on RHELs.
-%if 0%{!?rhel:1}
 %pre
 for i in $(echo bin lib $(basename %{_libdir}) sbin|tr ' ' '\n'|sort -u);do
   src="%{_datadir}/gdb/auto-load/$i"
@@ -963,7 +829,6 @@ for i in $(echo bin lib $(basename %{_libdir}) sbin|tr ' ' '\n'|sort -u);do
   fi
 done
 %endif
-%endif
 
 %files doc
 %doc %{gdb_build}/gdb/doc/{gdb,annotate}.{html,pdf}
@@ -973,7 +838,6 @@ done
 %if 0%{?scl:1}
 # As of F-28, packages won't need to call /sbin/install-info by hand
 # anymore.  We make an exception for DTS here.
-# https://lists.fedoraproject.org/archives/list/devel@lists.fedoraproject.org/thread/MP2QVJZBOJZEOQO2G7UB2HLXKXYPF2G5/
 
 %post doc
 # This step is part of the installation of the RPM. Not to be confused
@@ -999,9 +863,3 @@ fi
 %endif
 # endif scl
 
-%changelog
-* Sun Apr 19 2026 Oreon Packaging Team <packaging@oreonhq.com> - 17.1-6
-- Use HTTPS for upstream tarball (spectool has no FTP)
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 17.1-5
-- Prepare for Oreon 11 (RP1)

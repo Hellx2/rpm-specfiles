@@ -1,16 +1,22 @@
-%global source0_hash 7df5c08d952ba33f9b6bdabdb06a61a78b2cf62d2122c2d1d03a91a79832aa3c
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 7ce33c2492221a0436f96a8500215e9f3e3dcb5fd26a757cd415e7a843babd5e
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name: libgcrypt
-Version: 1.12.4
-Release: 1%{?dist}
+Version:        1.12.2
+Release:        1%{?dist}
 URL: https://www.gnupg.org/
 Source0:        https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-%{version}.tar.bz2
-Source1:        https://www.gnupg.org/ftp/gcrypt/libgcrypt/libgcrypt-%{version}.tar.bz2.sig
-Source2: https://gnupg.org/signature_key.asc
+Source1:        libgcrypt-1.12.2.tar.bz2.sig
+Source2:        signature_key.asc
 # Pass the annobin flags to the libgcrypt.so (#2016349)
-Patch1: libgcrypt-1.10.1-annobin.patch
+Patch1:        libgcrypt-1.10.1-annobin.patch
 # https://gitlab.com/redhat-crypto/libgcrypt/libgcrypt-mirror/-/merge_requests/19/
-Patch5: libgcrypt-1.11.0-marvin.patch
+Patch5:        libgcrypt-1.11.0-marvin.patch
 
 %global gcrylibdir %{_libdir}
 %global gcrysoname libgcrypt.so.20
@@ -25,6 +31,8 @@ BuildRequires: autoconf, automake, libtool
 BuildRequires: make
 BuildRequires: gnupg2
 BuildRequires: annobin-annocheck binutils
+BuildRequires: gdb
+BuildRequires:  oreon-rpm-macros
 
 %package devel
 Summary: Development files for the %{name} package
@@ -42,13 +50,77 @@ in GNU Privacy Guard.  This package contains files needed to develop
 applications using libgcrypt.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %setup -q
 %patch 1 -p1
 %patch 5 -p1
 
 %build
+specdir=$PWD/oreon-specs
+wrapdir=$PWD/oreon-cc
+mkdir -p "$specdir" "$wrapdir"
+plugindir=$(/usr/bin/gcc -print-file-name=plugin)
+plugin=
+for cand in "$plugindir/gcc-annobin.so" "$plugindir/annobin.so"; do
+  if [ -e "$cand" ]; then
+    plugin=$cand
+    break
+  fi
+done
+if [ -n "$plugin" ]; then
+  printf '%s\n' '*cc1_options:' "+ -fplugin=$plugin" > "$specdir/annobin-cc1"
+else
+  cp -L %{_rpmconfigdir}/oreon/oreon-annobin-cc1 "$specdir/annobin-cc1"
+fi
+cp -L %{_rpmconfigdir}/oreon/oreon-hardened-cc1 "$specdir/hardened-cc1"
+cp -L %{_rpmconfigdir}/oreon/oreon-hardened-ld "$specdir/hardened-ld"
+cp -L %{_rpmconfigdir}/oreon/oreon-hardened-ld-errors "$specdir/hardened-ld-errors"
+cat > "$wrapdir/ccwrap.py" << 'PY'
+import os, sys
+specdir = os.environ["OREON_SPECDIR"]
+rpm = os.environ["OREON_RPMCONFIG"]
+repl = {
+    rpm + "/redhat/redhat-hardened-cc1": specdir + "/hardened-cc1",
+    rpm + "/oreon/oreon-annobin-cc1": specdir + "/annobin-cc1",
+    rpm + "/redhat/redhat-hardened-ld": specdir + "/hardened-ld",
+    rpm + "/redhat/redhat-hardened-ld-errors": specdir + "/hardened-ld-errors",
+}
+args = []
+for a in sys.argv[1:]:
+    if a.startswith("-specs="):
+        path = a[len("-specs="):]
+        if "annobin-cc1" in path:
+            path = specdir + "/annobin-cc1"
+        else:
+            path = repl.get(path, path)
+        if "/redhat/" in path and not os.path.exists(path):
+            continue
+        a = "-specs=" + path
+    elif a == "-fplugin=annobin" or a.startswith("-fplugin=annobin"):
+        plug = os.environ.get("OREON_ANNOBIN")
+        if plug:
+            a = "-fplugin=" + plug
+    args.append(a)
+os.execv(os.environ["OREON_REAL_CC"], [os.environ["OREON_REAL_CC"], *args])
+PY
+for pair in "gcc:/usr/bin/gcc" "cc:/usr/bin/gcc" "g++:/usr/bin/g++" "c++:/usr/bin/c++"; do
+  name=${pair%%:*}
+  real=${pair#*:}
+  cat > "$wrapdir/$name" << EOF
+#!/bin/sh
+export OREON_SPECDIR="$specdir"
+export OREON_RPMCONFIG="%{_rpmconfigdir}"
+export OREON_ANNOBIN="$plugin"
+export OREON_REAL_CC=$real
+exec /usr/bin/python3 "$wrapdir/ccwrap.py" "\$@"
+EOF
+  chmod +x "$wrapdir/$name"
+done
+export PATH="$wrapdir:$PATH"
+export CC="$wrapdir/gcc"
+export CXX="$wrapdir/g++"
 # should be all algorithms except SM3 and SM4, aria
 export DIGESTS='crc gostr3411-94 md4 md5 rmd160 sha1 sha256 sha512 sha3 tiger whirlpool stribog blake2'
 export CIPHERS='arcfour blowfish cast5 des aes twofish serpent rfc2268 seed camellia idea salsa20 gost28147 chacha20'
@@ -74,8 +146,8 @@ make check
 
 # Disabled now due to failing in F44
 # https://github.com/rpminspect/rpminspect/issues/1546
-# export PROFILE=%%{?dist}
-# annocheck --ignore-unknown --verbose --profile=${PROFILE:1} %%{libpath}
+# export PROFILE=%{?dist}
+# annocheck --ignore-unknown --verbose --profile=${PROFILE:1} %{libpath}
 
 %install
 %make_install
@@ -91,7 +163,7 @@ rm -f ${RPM_BUILD_ROOT}/%{_infodir}/dir ${RPM_BUILD_ROOT}/%{_libdir}/*.la
 /sbin/ldconfig -n $RPM_BUILD_ROOT/%{_libdir}
 
 %if "%{gcrylibdir}" != "%{_libdir}"
-# Relocate the shared libraries to %%{gcrylibdir}.
+# Relocate the shared libraries to %{gcrylibdir}.
 mkdir -p $RPM_BUILD_ROOT%{gcrylibdir}
 for shlib in $RPM_BUILD_ROOT%{_libdir}/*.so* ; do
 	if test -L "$shlib" ; then
@@ -143,6 +215,3 @@ mkdir -p -m 755 $RPM_BUILD_ROOT/etc/gcrypt
 %{_infodir}/gcrypt.info*
 %license COPYING
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.12.1-1
-- Prepare for Oreon 11 (RP1)

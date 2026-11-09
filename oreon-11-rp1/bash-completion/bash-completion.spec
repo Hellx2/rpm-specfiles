@@ -1,20 +1,26 @@
-%global source0_hash dd9d825e496435fb3beba3ae7bea9f77e821e894667d07431d1d4c8c570b9e58
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 88bcf85124f77f74f2f2f8bcd16ac4382d807a827ede742a64940c7116aea33f
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Expected failures in mock, hangs in koji
 %bcond_with tests
 # The *.py files we ship are not python scripts, #813651
 %global _python_bytecompile_errors_terminate_build 0
-%define upstream_version 2.17.0
+%define upstream_version 2.18.0
 
 Name:           bash-completion
-Version:        2.18.0
+Version:        2.18
 Release:        1%{?dist}
 Epoch:          1
 Summary:        Programmable completion for Bash
 
 License:        GPL-2.0-or-later
 URL:            https://github.com/scop/bash-completion
-Source0:        https://github.com/scop/bash-completion/releases/download/%{upstream_version}/%{name}-%{upstream_version}.tar.xz
+Source0:        https://github.com/scop/bash-completion/releases/download/%{version}.0/bash-completion-%{version}.0.tar.xz
 
 BuildArch:      noarch
 %if %{with tests}
@@ -26,6 +32,7 @@ BuildRequires:  tcllib
 # It should be removed while rebasing to bash-completion-2.8
 BuildRequires:  automake
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 Requires:       bash >= 4.1
 
 %description
@@ -40,7 +47,8 @@ Requires: %{name} =  %{epoch}:%{version}-%{release}
 This package contains development files for %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n %{name}-%{upstream_version} -p1
 
 %build
@@ -54,19 +62,18 @@ autoreconf -fi -v
 %make_install
 
 # Updated completion shipped in cowsay package:
-rm %{buildroot}%{_datadir}/bash-completion/completions/{cowsay,cowthink}
+rm %{buildroot}%{_datadir}/bash-completion/completions-core/{cowsay,cowthink}.bash
 
 # Bug 1819867 - conflict over the makepkg name with pacman
-rm %{buildroot}%{_datadir}/bash-completion/completions/makepkg
+rm %{buildroot}%{_datadir}/bash-completion/completions-core/makepkg.bash
 
 # Bug 2088307 - Remove completions for prelink
-rm %{buildroot}%{_datadir}/bash-completion/completions/prelink
+rm %{buildroot}%{_datadir}/bash-completion/completions-core/prelink.bash
 
-# Bug 2188865 - Remove bash completions for javaws as it's not shipped with Fedora
-rm %{buildroot}%{_datadir}/bash-completion/completions/javaws
+rm %{buildroot}%{_datadir}/bash-completion/completions-core/javaws.bash
 
 # Bug 2391218 - patchutils package contains its own completion for this
-rm %{buildroot}%{_datadir}/bash-completion/completions/interdiff
+rm %{buildroot}%{_datadir}/bash-completion/completions-fallback/interdiff.bash
 
 %check
 # For some tests involving non-ASCII filenames
@@ -89,13 +96,9 @@ make -C completions check
 %doc AUTHORS CHANGELOG.md CONTRIBUTING.md README.md
 %doc doc/configuration.md doc/styleguide.md
 %config(noreplace) %{_sysconfdir}/profile.d/bash_completion.sh
-%{_sysconfdir}/bash_completion.d/000_bash_completion_compat.bash
 %{_datadir}/bash-completion/
 
 %files devel
 %{_datadir}/cmake/
 %{_datadir}/pkgconfig/bash-completion.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.17-2
-- Prepare for Oreon 11 (RP1)

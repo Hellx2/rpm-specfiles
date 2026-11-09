@@ -1,18 +1,29 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 6ede051357868ed427ea71d16fc27f4d63cc0d9c8a32788aa11c450ecefcc76f
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global pypi_name distro
 
 Name:           python-%{pypi_name}
 Version:        1.9.0
-Release:        11%{?dist}
+Release:        1%{?dist}
 Summary:        Linux Distribution - a Linux OS platform information API
 
 License:        Apache-2.0
 URL:            https://github.com/python-distro/distro
-Source0:        https://github.com/python-distro/distro/archive/refs/tags/v1.9.0.tar.gz#/distro-1.9.0.tar.gz
+Source0:        https://github.com/python-distro/distro/archive/v%{version}/distro-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:  python3-devel
 BuildRequires:  python3-pytest
+BuildRequires:  python3dist(setuptools)
+BuildRequires:  python3dist(pip)
+BuildRequires:  python3dist(wheel)
+BuildRequires:  pyproject-rpm-macros
+BuildRequires:  oreon-rpm-macros
  
 %global _description \
 The distro (for: Linux Distribution) package provides information about the\
@@ -32,18 +43,14 @@ for more information.
 
 %package -n     python3-%{pypi_name}
 Summary:        %{summary}
-%if 0%{?fedora} || (0%{?oreon} >= 11)
 Suggests:       /usr/bin/lsb_release
-%endif
 
 %description -n python3-%{pypi_name} %{_description}
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%autosetup -n %{pypi_name}-%{version}
+%oreon_sha256
 
-%generate_buildrequires
-%pyproject_buildrequires
+%autosetup -n %{pypi_name}-%{version}
 
 %build
 %pyproject_wheel
@@ -62,6 +69,3 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %check
 %pytest
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.9.0-11
-- Import

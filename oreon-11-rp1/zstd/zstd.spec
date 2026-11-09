@@ -1,5 +1,11 @@
-%global source0_hash 37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # enable asm implementations by default
 %bcond_without asm
 
@@ -15,19 +21,18 @@
 # enable pzstd support by default
 %bcond_without pzstd
 
-# Disable gtest on RHEL
-%bcond gtest %[ !0%{?rhel} ]
+%bcond gtest 1
 
 Name:           zstd
 Version:        1.5.7
-Release:        5%{?dist}
+Release:        2%{?dist}
 Summary:        Zstd compression library
 
 License:        BSD-3-Clause OR GPL-2.0-only
 URL:            https://github.com/facebook/zstd
-Source0:        https://github.com/facebook/zstd/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
+Source0:        https://github.com/facebook/zstd/releases/download/v%{version}/zstd-%{version}.tar.gz
 
-Patch1:         man-pages-1.5.7.patch
+Patch1:        man-pages-1.5.7.patch
 
 BuildRequires:  cmake
 BuildRequires:  make
@@ -45,6 +50,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  zlib-devel
 %endif
 BuildRequires:  execstack
+BuildRequires:  oreon-rpm-macros
 
 %description
 Zstd, short for Zstandard, is a fast lossless compression algorithm,
@@ -71,7 +77,8 @@ Header files for Zstd library.
 Static variant of the Zstd library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 find -name .gitignore -delete
 %patch 1 -p1
@@ -148,6 +155,3 @@ make PZSTD_CXX_STD=-std=c++17 -C contrib/pzstd tests check
 
 %ldconfig_scriptlets -n lib%{name}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.5.7-5
-- Prepare for Oreon 11 (RP1)

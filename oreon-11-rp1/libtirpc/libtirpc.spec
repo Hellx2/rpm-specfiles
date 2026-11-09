@@ -1,19 +1,26 @@
-%global source0_hash b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 8839959bfcc7a0f4c609d8e4f53f1c67ae33de23775ec35beb39ff15adf11920
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %define _root_libdir    /%{_lib}
 
 Name:			libtirpc
-Version:		1.3.8
-Release:		1%{?dist}
+Version:        1.3.8
+Release:        1%{?dist}
 Summary:		Transport Independent RPC Library
 License:		SISSL AND BSD-3-Clause
 URL:  			http://git.linux-nfs.org/?p=steved/libtirpc.git;a=summary
-Source0:        https://downloads.sourceforge.net/libtirpc/libtirpc-%{version}.tar.bz2
+Source0:        http://downloads.sourceforge.net/libtirpc/libtirpc-%{version}.tar.bz2
 
 BuildRequires:		automake, autoconf, libtool, pkgconfig
 BuildRequires:		krb5-devel
 BuildRequires:		gcc
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 This package contains SunLib's implementation of transport-independent
@@ -38,7 +45,8 @@ developing programs which use the tirpc library.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 # Remove .orig files
@@ -116,6 +124,3 @@ mv %{buildroot}%{_mandir}/man3 %{buildroot}%{_mandir}/man3t
 %{_includedir}/tirpc/rpcsvc/crypt.x
 %{_mandir}/*/*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.3.7-2
-- Prepare for Oreon 11 (RP1)

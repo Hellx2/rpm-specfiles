@@ -1,18 +1,24 @@
-%global source0_hash bc23066d87ab3168f27cef3e97d545fa63314f5c79df5ea444d41d56f962c6af
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash ea7de4299689e12b6dddd392f9896f08fb0777ac7168897a244a6d6085043fea
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           fmt
-Version:        12.2.0
+Version:        12.1.0
 Release:        1%{?dist}
 
 License:        MIT
 Summary:        Small, safe and fast formatting library for C++
 URL:            https://github.com/fmtlib/%{name}
-Source0:        https://github.com/fmtlib/fmt/archive/refs/tags/%{version}.tar.gz#/fmt-%{version}.tar.gz
-
+Source0:        https://github.com/fmtlib/fmt/archive/%{version}.tar.gz
 BuildRequires:  cmake
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  ninja-build
+BuildRequires:  oreon-rpm-macros
 
 # This package replaces the old name of cppformat
 Provides:       cppformat = %{?epoch:%{epoch}:}%{version}-%{release}
@@ -36,7 +42,8 @@ Obsoletes:      cppformat-devel < %{?epoch:%{epoch}:}%{version}-%{release}
 This package contains the header file for using %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -56,10 +63,11 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %files
 %license LICENSE
 %doc ChangeLog.md README.md
-%{_libdir}/lib%{name}.so.11*
+%{_libdir}/lib%{name}.so.12*
 
 %files devel
 %{_includedir}/%{name}
 %{_libdir}/lib%{name}.so
 %{_libdir}/cmake/%{name}
 %{_libdir}/pkgconfig/%{name}.pc
+

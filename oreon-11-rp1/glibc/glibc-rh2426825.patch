@@ -2,12 +2,12 @@ Work around GCC problem that makes diagnostics pragmas ineffective,
 by moving the error suppression to the command line.
 
 diff --git a/sysdeps/unix/sysv/linux/s390/Makefile b/sysdeps/unix/sysv/linux/s390/Makefile
-index d5433f1dd9a434d5..605f77e7332b52ed 100644
+index 30332909982271b2..5a33e8c2530b1bf2 100644
 --- a/sysdeps/unix/sysv/linux/s390/Makefile
 +++ b/sysdeps/unix/sysv/linux/s390/Makefile
-@@ -14,3 +14,9 @@ endif
- ifeq ($(subdir),misc)
- tests += tst-ptrace-singleblock
+@@ -37,3 +37,9 @@ sysdep_headers += \
+   sys/elf.h \
+   # sysdep_headers
  endif
 +
 +ifeq ($(subdir),benchtests)

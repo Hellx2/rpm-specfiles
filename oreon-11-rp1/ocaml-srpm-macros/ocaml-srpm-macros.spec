@@ -1,5 +1,12 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 868ae8d9f15283f67be3193b1f2eebb73e3a4b16b313b6932b4c66474906e1c3
+
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # OCaml has a bytecode backend that works on anything with a C
 # compiler, and a native code backend available on a subset of
 # architectures.  A further subset of architectures support native
@@ -8,11 +15,10 @@
 # This package contains a file needed to define some RPM macros
 # which are required before any SRPM is built.
 #
-# See also: https://bugzilla.redhat.com/show_bug.cgi?id=1087794
 
 Name:           ocaml-srpm-macros
 Version:        11
-Release:        3%{?dist}
+Release:        2%{?dist}
 
 Summary:        OCaml architecture macros
 License:        GPL-2.0-or-later
@@ -30,9 +36,10 @@ SRPMS.  It does not pull in any other OCaml dependencies.
 
 
 %prep
+echo "%{source0_hash}  %{SOURCE0}" | sha256sum -c -
 
 
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+
 %build
 
 
@@ -45,6 +52,3 @@ install -p -m 0644 %{SOURCE0} $RPM_BUILD_ROOT%{rpmmacrodir}/macros.ocaml-srpm
 %{rpmmacrodir}/macros.ocaml-srpm
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 11-3
-- Prepare for Oreon 11 (RP1)

@@ -1,19 +1,26 @@
-%global source0_hash aae608dfe8213dfd05d909a57718ef82f30722c392344583d3f39050c7f29a80
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 5738270935e7c3d38a79b3adf7c9692566ce7895a25f67de43ad52ab504acd32
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:		xxhash
-Version:	0.8.3
-Release:	4%{?dist}
+Version:        0.8.4
+Release:        1%{?dist}
 Summary:	Extremely fast hash algorithm
 
 #		The source for the library (xxhash.c and xxhash.h) is BSD-2-Clause
 #		The source for the command line tool (xxhsum.c) is GPL-2.0-or-later
 License:	BSD-2-Clause AND GPL-2.0-or-later
 URL:		https://www.xxhash.com/
-Source0:        https://github.com/Cyan4973/xxHash/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
+Source0:        https://github.com/Cyan4973/xxHash/archive/v%{version}/xxhash-%{version}.tar.gz
 
 BuildRequires:	make
 BuildRequires:	gcc
 BuildRequires:	doxygen
+BuildRequires:  oreon-rpm-macros
 
 %description
 xxHash is an Extremely fast Hash algorithm, running at RAM speed
@@ -53,7 +60,8 @@ BuildArch:	noarch
 Documentation files for the xxhash library
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n xxHash-%{version}
 
 %build
@@ -78,13 +86,20 @@ doxygen
 %make_install \
     PREFIX=%{_prefix} \
     LIBDIR=%{_libdir} \
+    MOREFLAGS="%{__global_cflags} %{?__global_ldflags} %{moreflags_dispatch}" \
     DISPATCH=%{dispatch} \
     LIBXXH_DISPATCH=%{dispatch}
 rm %{buildroot}/%{_libdir}/libxxhash.a
 
 %check
-make check
-make test-xxhsum-c
+make check \
+    MOREFLAGS="%{__global_cflags} %{?__global_ldflags} %{moreflags_dispatch}" \
+    DISPATCH=%{dispatch} \
+    LIBXXH_DISPATCH=%{dispatch}
+make test-xxhsum-c \
+    MOREFLAGS="%{__global_cflags} %{?__global_ldflags} %{moreflags_dispatch}" \
+    DISPATCH=%{dispatch} \
+    LIBXXH_DISPATCH=%{dispatch}
 
 %files
 %{_bindir}/xxh*sum
@@ -109,6 +124,3 @@ make test-xxhsum-c
 %files doc
 %doc doxygen/html
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.8.3-4
-- Prepare for Oreon 11 (RP1)

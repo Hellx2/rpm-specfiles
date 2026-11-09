@@ -1,23 +1,29 @@
-%global source0_hash none
-%global source2_hash 4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae
-%global source3_hash 5e47bbfad7db2965d69580e918ee64edeb8d8d32de404b8dae9ce5c6d76a1472
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce
+%global source2_hash 2335b6c582a52654f94612bf10d2f4672805d05329aa6568b1d8cd9e5c6fb8e6
+%global source3_hash da07b543872dc0bb2ff12aabd0c248578d78df3eb6b67efdc537a46d455c7f31
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global major_version 5.5
 # Normally, this is the same as version, but... not always.
-%global test_version 5.5.0
+%global test_version 5.5.1
 # If you are incrementing major_version, enable bootstrapping and adjust accordingly.
 # Version should be the latest prior build. If you don't do this, RPM will break and
 # everything will grind to a halt.
 %global bootstrap 1
 %global bootstrap_major_version 5.4
-%global bootstrap_version %{bootstrap_major_version}.8
+%global bootstrap_version %{bootstrap_major_version}.9
 
 # Place rpm-macros into proper location.
 %global macrosdir %(d=%{_rpmconfigdir}/macros.d; [ -d $d ] || d=%{_sysconfdir}/rpm; echo $d)
 
 
 Name:           lua
-Version:        %{major_version}.0
+Version:        5.5.1
 Release:        1%{?dist}
 Summary:        Powerful light-weight programming language
 License:        MIT
@@ -26,29 +32,25 @@ Source0:        https://www.lua.org/ftp/lua-%{version}.tar.gz
 # copied from doc/readme.html on 2014-07-18
 Source1:        mit.txt
 %if 0%{?bootstrap}
-Source2:        https://www.lua.org/ftp/lua-5.4.8.tar.gz
+Source2:        https://www.lua.org/ftp/lua-5.4.9.tar.gz
 %endif
-Source3:        https://www.lua.org/tests/lua-5.5.0-tests.tar.gz
+Source3:        https://www.lua.org/tests/lua-%{version}-tests.tar.gz
 # multilib
 Source4:        luaconf.h
-Patch0:         %{name}-5.5.0-autotoolize.patch
-Patch1:         %{name}-5.4.6-idsize.patch
+Patch0:        lua-5.5.0-autotoolize.patch
+Patch1:        lua-5.4.6-idsize.patch
 #Patch2:         %%{name}-5.3.0-luac-shared-link-fix.patch
-Patch3:         %{name}-5.2.2-configure-linux.patch
-Patch4:         %{name}-5.3.0-configure-compat-module.patch
+Patch3:        lua-5.2.2-configure-linux.patch
+Patch4:        lua-5.3.0-configure-compat-module.patch
 %if 0%{?bootstrap}
-Patch5:         %{name}-5.4.8-autotoolize.patch
-Patch6:		%{name}-5.4.8-luac-shared-link-fix.patch
-Patch7:		%{name}-5.4.8-bug1.patch
-Patch8:		%{name}-5.4.8-bug2.patch
-Patch9:		%{name}-5.4.8-bug3.patch
+Patch5:        lua-5.4.8-autotoolize.patch
+Patch6:        lua-5.4.8-luac-shared-link-fix.patch
 %endif
 # https://www.lua.org/bugs.html
-Patch10:	lua-5.5.0-bug1.patch
-Patch11:	lua-5.5.0-bug2.patch
 
 BuildRequires:  automake autoconf libtool readline-devel ncurses-devel
 BuildRequires:  make
+BuildRequires:  oreon-rpm-macros
 Requires:       lua-libs = %{version}-%{release}
 
 %description
@@ -96,9 +98,10 @@ This package contains compatibility libraries for lua %{bootstrap_major_version}
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source2_hash}" = "none" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source2_hash}" || { echo "oreon: Source2 hash mismatch" >&2; exit 1; }; }
-test "%{source3_hash}" = "none" || { f="%{SOURCE3}"; test -f "$f" || { echo "oreon: missing Source3 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source3_hash}" || { echo "oreon: Source3 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
+echo '%{source3_hash}  %{SOURCE3}' | sha256sum -c -
+
 %if 0%{?bootstrap}
 %setup -q -a 2 -a 3 -n %{name}-%{version}
 %else
@@ -112,8 +115,6 @@ mv src/luaconf.h src/luaconf.h.template.in
 %patch -P3 -p1 -z .configure-linux
 
 # Bug patches here
-%patch -P10 -p1 -b .bug1
-%patch -P11 -p1 -b .bug2
 
 # Put proper version in configure.ac, patch0 hardcodes 5.5.0
 sed -i 's|5.5.0|%{version}|g' configure.ac
@@ -128,9 +129,6 @@ mv src/luaconf.h src/luaconf.h.template.in
 %patch -P3 -p1 -z .configure-linux
 %patch -P4 -p1 -z .configure-compat-all
 %patch -P6 -p1 -b .luac-shared-link-fix
-%patch -P7 -p1 -b .54bug1
-%patch -P8 -p1 -b .54bug2
-%patch -P9 -p1 -b .54bug3
 autoreconf -i
 cd ..
 %endif
@@ -172,7 +170,7 @@ cd ./lua-%{test_version}-tests/
 #     /db.lua/d;
 #     /errors.lua/d;
 #     ' all.lua
-# LD_LIBRARY_PATH=$RPM_BUILD_ROOT/%%{_libdir} $RPM_BUILD_ROOT/%%{_bindir}/lua all.lua
+# LD_LIBRARY_PATH=$RPM_BUILD_ROOT/%{_libdir} $RPM_BUILD_ROOT/%{_bindir}/lua all.lua
 
 # Removing tests that fail under mock/koji
 sed -i.orig -e '
@@ -236,6 +234,3 @@ popd
 %files static
 %{_libdir}/*.a
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{major_version}.0-1
-- Prepare for Oreon 11 (RP1)

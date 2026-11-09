@@ -1,33 +1,47 @@
-%global source0_hash 09e2ff033d39baa8b388a2d7fbc5390bfde99ae3b7c67c7daaf7433fbcf0f01e
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 1fdf525f22dcf796d99a99ba3ea00a1f7b1ae5421bc62e8443a708920b99b904
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Rebuild --with static to enable static subpackages
 # This is *not* supported by elfutils maintainers
 %bcond_with static
 
 Name: elfutils
-Version: 0.194
-%global baserelease 5
-Release: %{baserelease}%{?dist}
+Version:        0.197
+%global baserelease 1
+Release:        1%{?dist}
 URL: http://elfutils.org/
 %global source_url https://sourceware.org/pub/elfutils/%{version}/
 License: GPL-3.0-or-later AND (GPL-2.0-or-later OR LGPL-3.0-or-later) AND GFDL-1.3-no-invariants-or-later
-Source: %{?source_url}%{name}-%{version}.tar.bz2
+Source0:        https://sourceware.org/pub/elfutils/%{version}/elfutils-%{version}.tar.bz2
 Source1: elfutils-debuginfod.sysusers
 Summary: A collection of utilities and DSOs to handle ELF files and DWARF data
 
 # Needed for isa specific Provides and Requires.
 %global depsuffix %{?_isa}%{!?_isa:-%{_arch}}
 
-# eu-stacktrace currently only supports x86_64
-%ifarch x86_64
-%global enable_stacktrace 1
+# eu-stackprof currently only supports x86/ARM
+%ifarch %{ix86} %{x86_64} %{arm} %{arm64}
+%global enable_stackprof 1
 %else
-%global enable_stacktrace 0
+%global enable_stackprof 0
 %endif
+
+%global provide_yama_scope      0
+
+%global provide_yama_scope      1
 
 Requires: elfutils-libelf%{depsuffix} = %{version}-%{release}
 Requires: elfutils-libs%{depsuffix} = %{version}-%{release}
 Requires: elfutils-debuginfod-client%{depsuffix} = %{version}-%{release}
+
+%if %{provide_yama_scope}
+Recommends: yama-ptrace-enable
+%endif
 
 BuildRequires: gcc
 # For libstdc++ demangle support
@@ -70,9 +84,9 @@ BuildRequires: ima-evm-utils-devel
 BuildRequires: openssl-devel
 BuildRequires: rpm-sign
 
-# For eu-stacktrace
-%if %{enable_stacktrace}
-BuildRequires: sysprof-capture-devel
+# For eu-stackprof
+%if %{enable_stackprof}
+BuildRequires: libpfm-devel
 %endif
 
 BuildRequires: automake
@@ -82,35 +96,15 @@ BuildRequires: gettext-devel
 %global _gnu %{nil}
 %global _program_prefix eu-
 
-%global provide_yama_scope      0
-
-%if 0%{?fedora} >= 22 || 0%{?rhel} >= 7
-%global provide_yama_scope      1
-%endif
-
 %global with_sysusers           0
 
-%if 0%{?fedora} >= 32 || 0%{?rhel} >= 9
 %global with_sysusers           1
-%endif
 
 # Patches
 
 # For s390x... FDO package notes are bogus.
-Patch1: elfutils-0.186-fdo-swap.patch
-
-# Prevent assert failure in readelf for some -ggdb3 binaries.
-Patch2: elfutils-0.194-alloc-jobs.patch
-
-# Fix const warning from newer GCC.
-Patch3: elfutils-0.194-fix-const.patch
-
-# Work around ET_REL files with sh_addr fields set to non-zero
-Patch4: elfutils-0.194-sh_addr-non-zero.patch
-
-# Recognize SHT_AARCH64_ATTRIBUTES.
-# https://sourceware.org/bugzilla/show_bug.cgi?id=33923
-Patch5: elfutils-0.194-aarch64-Recognize-SHT_AARCH64_ATTRIBUTES.patch
+Patch1:        elfutils-0.186-fdo-swap.patch
+Patch2:        elfutils-stackprof-skip-missing-event.patch
 
 %description
 Elfutils is a collection of utilities, including stack (to show
@@ -128,13 +122,12 @@ Provides: elfutils-libs%{depsuffix} = %{version}-%{release}
 %endif
 Requires: elfutils-libelf%{depsuffix} = %{version}-%{release}
 %if %{provide_yama_scope}
-Requires: default-yama-scope
+# (e.g. 0.195-1.fc44, which compares greater than 0.195-1) is also
+# removed on upgrade (rhbz#2515161).  The package is gone for good,
+# replaced by the opt-in yama-ptrace-enable.
+Obsoletes: elfutils-default-yama-scope
 %endif
-%if 0%{?rhel} >= 8 || 0%{?fedora} >= 20
 Recommends: elfutils-debuginfod-client%{depsuffix} = %{version}-%{release}
-%else
-Requires: elfutils-debuginfod-client%{depsuffix} = %{version}-%{release}
-%endif
 
 %description libs
 The elfutils-libs package contains libraries which implement DWARF, ELF,
@@ -151,11 +144,7 @@ Provides: elfutils-devel%{depsuffix} = %{version}-%{release}
 %endif
 Requires: elfutils-libs%{depsuffix} = %{version}-%{release}
 Requires: elfutils-libelf-devel%{depsuffix} = %{version}-%{release}
-%if 0%{?rhel} >= 8 || 0%{?fedora} >= 20
 Recommends: elfutils-debuginfod-client-devel%{depsuffix} = %{version}-%{release}
-%else
-Requires: elfutils-debuginfod-client-devel%{depsuffix} = %{version}-%{release}
-%endif
 
 %description devel
 The elfutils-devel package contains the libraries to create
@@ -223,10 +212,9 @@ for libelf.
 %endif
 
 %if %{provide_yama_scope}
-%package default-yama-scope
-Summary: Default yama attach scope sysctl setting
+%package -n yama-ptrace-enable
+Summary: Sysctl setting to enable full ptrace functionality
 License: GPL-2.0-or-later OR LGPL-3.0-or-later
-Provides: default-yama-scope
 BuildArch: noarch
 # For the sysctl_apply macro we need systemd as build requires.
 # We also need systemd-sysctl in post to apply the default kernel config.
@@ -241,15 +229,11 @@ BuildArch: noarch
 # use Recommends (sadly Recommends(post) doesn't exist). This works because
 # in all cases that really matter systemd will already be installed. #1599083
 BuildRequires: systemd >= 215
-%if 0%{?fedora} > 24 || 0%{?rhel} > 7
 Recommends: systemd
-%else
-Requires(post): systemd
-%endif
 
-%description default-yama-scope
-Yama sysctl setting to enable default attach scope settings
-enabling programs to use ptrace attach, access to
+%description -n yama-ptrace-enable
+Sysctl setting to enable full ptrace functionality,
+allowing programs to use ptrace attach, access to
 /proc/PID/{mem,personality,stack,syscall}, and the syscalls
 process_vm_readv and process_vm_writev which are used for
 interprocess services, communication and introspection
@@ -286,6 +270,7 @@ BuildRequires: systemd
 BuildRequires: systemd-rpm-macros
 %endif
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 Requires(post):   systemd
 Requires(preun):  systemd
 Requires(postun): systemd
@@ -315,7 +300,8 @@ The ELF/DWARF file searching functions in libdwfl can query
 such servers to download those files on demand.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 autoreconf -f -v -i
@@ -335,16 +321,16 @@ RPM_OPT_FLAGS="${RPM_OPT_FLAGS} -Wformat"
 
 
 trap 'cat config.log' EXIT
-# dist_debuginfod_url is defined in macros.dist. Fedora and CentOS have
-# URLs pointing to their respective servers.  RHEL and Amazon Linux do
 # not configure a default server.
 %configure CFLAGS="$RPM_OPT_FLAGS" \
 %if "%{?dist_debuginfod_url}"
 	--enable-debuginfod \
 	--enable-debuginfod-urls="%{dist_debuginfod_url}" \
 %endif
-%if %{enable_stacktrace}
-	--enable-stacktrace \
+%if %{enable_stackprof}
+	--enable-stackprof \
+%else
+	--disable-stackprof \
 %endif
 	--enable-debuginfod-ima-verification \
 	--enable-debuginfod-ima-cert-path=%{_sysconfdir}/keys/ima
@@ -381,8 +367,6 @@ uname -r; rpm -q binutils gcc glibc || true
 
 %make_build check || (cat tests/test-suite.log; false)
 
-# Only the latest Fedora and EPEL have these scriptlets,
-# older Fedora and plain RHEL don't.
 %if 0%{?ldconfig_scriptlets:1}
 %ldconfig_scriptlets libs
 %ldconfig_scriptlets libelf
@@ -397,9 +381,9 @@ uname -r; rpm -q binutils gcc glibc || true
 %endif
 
 %if %{provide_yama_scope}
-%post default-yama-scope
+%post -n yama-ptrace-enable
 # Due to circular dependencies might not be installed yet, so double check.
-# (systemd -> elfutils-libs -> default-yama-scope -> systemd)
+# (systemd -> elfutils-libs -> yama-ptrace-enable -> systemd)
 if [ -x /usr/lib/systemd/systemd-sysctl ] ; then
 %sysctl_apply 10-default-yama-scope.conf
 fi
@@ -407,7 +391,7 @@ fi
 
 %files
 %license COPYING COPYING-GPLV2 COPYING-LGPLV3 doc/COPYING-GFDL
-%doc README TODO CONTRIBUTING
+%doc README TODO CONTRIBUTING THREAD-SAFETY
 %{_bindir}/eu-addr2line
 %{_bindir}/eu-ar
 %{_bindir}/eu-elfclassify
@@ -423,8 +407,11 @@ fi
 %{_bindir}/eu-size
 %{_bindir}/eu-srcfiles
 %{_bindir}/eu-stack
-%if %{enable_stacktrace}
-%{_bindir}/eu-stacktrace
+%if %{enable_stackprof}
+%{_bindir}/eu-stackprof
+%else
+# The man page is installed even when eu-stackprof itself is not built.
+%exclude %{_mandir}/man1/eu-stackprof.1*
 %endif
 %{_bindir}/eu-strings
 %{_bindir}/eu-strip
@@ -473,6 +460,7 @@ fi
 %{_mandir}/man3/elf_*.3*
 %{_mandir}/man3/elf32_*.3*
 %{_mandir}/man3/elf64_*.3*
+%{_mandir}/man3/gelf.3*
 %{_mandir}/man3/gelf_*.3*
 %{_mandir}/man3/libelf.3*
 
@@ -482,7 +470,7 @@ fi
 %endif
 
 %if %{provide_yama_scope}
-%files default-yama-scope
+%files -n yama-ptrace-enable
 %{_sysctldir}/10-default-yama-scope.conf
 %endif
 
@@ -534,9 +522,3 @@ exit 0
 %postun debuginfod
 %systemd_postun_with_restart debuginfod.service
 
-%changelog
-* Fri Apr 3 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.194-5
-- Use HTTPS for sourceware tarball instead
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.194-1
-- Prepare for Oreon 11 (RP1)

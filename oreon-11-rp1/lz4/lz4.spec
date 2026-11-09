@@ -1,21 +1,28 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global _vpath_srcdir build/meson
 
 Name:           lz4
 Version:        1.10.0
-Release:        4%{?dist}
+Release:        1%{?dist}
 Summary:        Extremely fast compression algorithm
 
 License:        GPL-2.0-or-later AND BSD-2-Clause
 URL:            https://lz4.github.io/lz4/
-Source0:        https://github.com/lz4/lz4/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
+Source0:        https://github.com/lz4/lz4/archive/v%{version}/lz4-%{version}.tar.gz
 
 Obsoletes:      %{name} < 1.7.5-3
 
 BuildRequires: make
 BuildRequires:  gcc
 BuildRequires:  meson >= 0.43
+BuildRequires:  oreon-rpm-macros
 
 %description
 LZ4 is an extremely fast loss-less compression algorithm, providing compression
@@ -46,7 +53,8 @@ LZ4 is an extremely fast loss-less compression algorithm. This package
 contains static libraries for static linking of applications.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup
 
 %build
@@ -84,6 +92,3 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %doc lib/LICENSE
 %{_libdir}/liblz4.a
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.10.0-4
-- Prepare for Oreon 11 (RP1)

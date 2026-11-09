@@ -1,21 +1,27 @@
-%global source0_hash 0f4510f1c7a679c3545990a31479f391ad45d84e039176309d42f80cf41743f5
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 296b9db9095749f2aa104202d7ab7fd09ad10710e00780a709c9754b1a1d9292
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_with bootstrap
 
 Summary: CMS and X.509 library
 Name:    libksba
-Version: 1.8.1
-Release: 1%{?dist}
+Version:        1.8.0
+Release:        1%{?dist}
 
 # The library is licensed under LGPLv3+ or GPLv2+,
 # the rest of the package under GPLv3+
 License: GPL-3.0-or-later AND LGPL-2.1-or-later AND (LGPL-3.0-or-later OR GPL-2.0-or-later)
 URL:     https://www.gnupg.org/
 Source0:        https://www.gnupg.org/ftp/gcrypt/libksba/libksba-%{version}.tar.bz2
-Source1:        https://www.gnupg.org/ftp/gcrypt/libksba/libksba-%{version}.tar.bz2.sig
-Source2: https://gnupg.org/signature_key.asc
+Source1:        libksba-1.8.0.tar.bz2.sig
+Source2:        signature_key.asc
 
-Patch1: libksba-1.3.0-multilib.patch
+Patch1:        libksba-1.3.0-multilib.patch
 
 BuildRequires: gcc
 BuildRequires: gawk
@@ -24,8 +30,8 @@ BuildRequires: gawk
 BuildRequires: gnupg2
 %endif
 BuildRequires: libgpg-error-devel >= 1.8
-BuildRequires: libgcrypt-devel >= 1.2.0
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 KSBA (pronounced Kasbah) is a library to make X.509 certificates as
@@ -42,13 +48,12 @@ Requires: pkgconfig
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%if %{without bootstrap}
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
-%endif
-%setup -q
+%oreon_sha256
 
-%patch 1 -p1 -b .multilib
+%if %{without bootstrap}
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
+%endif
+%autosetup -p1
 
 # Convert to utf-8
 for file in THANKS; do
@@ -92,6 +97,3 @@ make check
 %{_infodir}/ksba.info*
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.6.8-1
-- Prepare for Oreon 11 (RP1)

@@ -1,19 +1,26 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 10053dbc2fa342516b780a6bbf6e7b2a2360b8d49c5ac426936bf3df82526732
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global with_check 1
 
 Name:    libb2
 Summary: C library providing BLAKE2b, BLAKE2s, BLAKE2bp, BLAKE2sp
-Version: 0.98.1
-Release: 15%{?dist}
+Version:        0.98.1
+Release:        1%{?dist}
 License: CC0-1.0 OR Apache-1.0 OR Apache-2.0
 URL:     https://blake2.net/
-Source0:        https://github.com/BLAKE2/libb2/archive/refs/tags/v%{version}.tar.gz#/libb2-%{version}.tar.gz
+Source0:        https://github.com/BLAKE2/libb2/archive/v%{version}/libb2-%{version}.tar.gz
 
 BuildRequires: gcc
 BuildRequires: automake
 BuildRequires: libtool
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 C library providing BLAKE2b, BLAKE2s, BLAKE2bp, BLAKE2sp.
@@ -29,10 +36,10 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 %{summary}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n libb2-%{version}
 
-# Force default Fedora cflags
 sed -e 's|CFLAGS=-O3|CFLAGS="%{optflags}"|g' -i configure.ac
 autoreconf -ivf
 
@@ -61,60 +68,3 @@ rm -f %{buildroot}%{_libdir}/*.la
 %{_libdir}/pkgconfig/libb2.pc
 %{_includedir}/blake2.h
 
-%changelog
-* Fri Jan 16 2026 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-15
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_44_Mass_Rebuild
-
-* Thu Jul 24 2025 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-14
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_43_Mass_Rebuild
-
-* Fri Jan 17 2025 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-13
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
-
-* Thu Jul 18 2024 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-12
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
-
-* Thu Jan 25 2024 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-11
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
-
-* Sun Jan 21 2024 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-10
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_40_Mass_Rebuild
-
-* Thu Jul 20 2023 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-9
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_39_Mass_Rebuild
-
-* Thu Jan 19 2023 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-8
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_38_Mass_Rebuild
-
-* Thu Jul 21 2022 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-7
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
-
-* Thu Jan 20 2022 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-6
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_36_Mass_Rebuild
-
-* Thu Jul 22 2021 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-5
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
-
-* Tue Jan 26 2021 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-4
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_34_Mass_Rebuild
-
-* Tue Jul 28 2020 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-3
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_33_Mass_Rebuild
-
-* Wed Jan 29 2020 Fedora Release Engineering <releng@fedoraproject.org> - 0.98.1-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_32_Mass_Rebuild
-
-* Mon Sep 09 2019 Elliott Sales de Andrade <quantum.analyst@gmail.com> - 0.98.1-1
-- Update to latest tagged version
-
-* Thu Jul 25 2019 Fedora Release Engineering <releng@fedoraproject.org> - 0.98-4.20171225git60ea749
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
-
-* Fri Feb 01 2019 Fedora Release Engineering <releng@fedoraproject.org> - 0.98-3.20171225git60ea749
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
-
-* Fri Jul 13 2018 Fedora Release Engineering <releng@fedoraproject.org> - 0.98-2.20171225git60ea749
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
-
-* Sun Mar 18 2018 Antonio Trande <sagitter@fedoraproject.org> - 0.98-1.20171225git60ea749
-- First RPM

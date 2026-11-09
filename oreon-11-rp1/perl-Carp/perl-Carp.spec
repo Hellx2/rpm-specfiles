@@ -1,17 +1,23 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash f5273b4e1a6d51b22996c48cb3a3cbc72fd456c4038f5c20b127e2d4bcbcebd9
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global base_version 1.50
 Name:           perl-Carp
 Version:        1.54
-Release:        521%{?dist}
+Release:        1%{?dist}
 Summary:        Alternative warn and die for modules
 License:        GPL-1.0-or-later OR Artistic-1.0-Perl
 URL:            https://metacpan.org/release/Carp
 Source0:        https://cpan.metacpan.org/authors/id/X/XS/XSAWYERX/Carp-1.50.tar.gz
 # Unbundled from perl 5.34.0
-Patch0:         Carp-1.50-Upgrade-to-1.52.patch
+Patch0:        Carp-1.50-Upgrade-to-1.52.patch
 # Unbundled from perl 5.37.11
-Patch1:         Carp-1.52-Upgrade-to-1.54.patch
+Patch1:        Carp-1.52-Upgrade-to-1.54.patch
 BuildArch:      noarch
 BuildRequires:  coreutils
 BuildRequires:  make
@@ -30,6 +36,7 @@ BuildRequires:  perl(Data::Dumper)
 BuildRequires:  perl(IPC::Open3)
 BuildRequires:  perl(overload)
 BuildRequires:  perl(Test::More) >= 0.47
+BuildRequires:  oreon-rpm-macros
 
 # Do not export private DB module stub
 %global __provides_exclude %{?__provides_exclude:%__provides_exclude|}^perl\\(DB\\)
@@ -37,7 +44,6 @@ BuildRequires:  perl(Test::More) >= 0.47
 # 2-digit number only
 %global __requires_exclude %{?__requires_exclude:%__requires_exclude|}^perl\\(IPC::Open3\\)
 
-Provides:       perl(Carp::Heavy)
 %description
 The Carp routines are useful in your own modules because they act like
 die() or warn(), but with a message which is more likely to be useful to a
@@ -58,7 +64,8 @@ Tests from %{name}. Execute them
 with "%{_libexecdir}/%{name}/test".
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n Carp-%{base_version}
 %patch -P0 -p1
 %patch -P1 -p1
@@ -98,6 +105,3 @@ make test
 %files tests
 %{_libexecdir}/%{name}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.54-521
-- Prepare for Oreon 11 (RP1)

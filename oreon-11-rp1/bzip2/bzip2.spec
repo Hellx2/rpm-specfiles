@@ -1,23 +1,27 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source3_key_fpr EC3CFE88F6CA0788774F5C1D1AA44BE649DE760A
+%global source0_hash ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global library_version 1.0.8
 
 Summary: File compression utility
 Name: bzip2
-Version: 1.0.8
-Release: 23%{?dist}
+Version:        1.0.8
+Release:        1%{?dist}
 License: BSD-4-Clause
 URL: https://sourceware.org/bzip2
-#Source0: http://www.bzip.org/%%{version}/%%{name}-%%{version}.tar.gz
-Source0:        https://sourceware.org/pub/bzip2/%{name}-%{version}.tar.gz
-Source1:        bzip2.pc
-Source2:        https://sourceware.org/pub/bzip2/%{name}-%{version}.tar.gz.sig
+#Source0: http://www.bzip.org/%{version}/%{name}-%{version}.tar.gz
+Source0:        https://sourceware.org/pub/bzip2/bzip2-%{version}.tar.gz
+Source1: bzip2.pc
+Source2:        bzip2-1.0.8.tar.gz.sig
 # https://sourceware.org/bzip2/downloads.html links to the gpg key
 # https://sourceware.org/pub/bzip2/gpgkey-5C1D1AA44BE649DE760A.gpg
 # with which the tarballs are signed
-Source3:        gpgkey-5C1D1AA44BE649DE760A.gpg
+Source3: gpgkey-5C1D1AA44BE649DE760A.gpg
 
 Patch0:        bzip2-saneso.patch
 Patch1:        bzip2-cflags.patch
@@ -27,6 +31,7 @@ Patch3:        man_gzipdiff.patch
 BuildRequires: gcc
 BuildRequires: make
 BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 
 %description
 Bzip2 is a freely available, patent-free, high quality data compressor.
@@ -60,8 +65,9 @@ Summary: Libraries for applications using bzip2
 Static libraries for applications using the bzip2 compression format.
 
 %prep
-test -z "%{source3_key_fpr}" || { f="%{SOURCE3}"; test -f "$f" || { echo "oreon: missing Source3 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" 2>/dev/null | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source3_key_fpr}" || { echo "oreon: Source3 key fingerprint mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE3}' --signature='%{SOURCE2}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE3} --sig %{SOURCE2} --data %{SOURCE0}
 %setup -q
 %patch -P0 -p1
 %patch -P1 -p1
@@ -132,9 +138,3 @@ ln -s bzgrep.1 $RPM_BUILD_ROOT%{_mandir}/man1/bzfgrep.1
 %{_libdir}/*.so
 %{_libdir}/pkgconfig/bzip2.pc
 
-%changelog
-* Fri Apr 3 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0.8-23
-- Escape macros in commented legacy Source0 line (rpmlint)
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0.8-23
-- Prepare for Oreon 11 (RP1)

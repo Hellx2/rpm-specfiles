@@ -1,24 +1,30 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 0d5cd86965f869a26cf64f4b71be7b96f90a3ba8b3d74e27e8e9d9d5550f31ba
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 #% define beta_tag rc2
-%define patchlevel 9
+%define patchlevel 15
 %define baseversion 5.3
 %bcond_without tests
 
-Version: %{baseversion}.%{patchlevel}
+Version:        5.3.15
 Name: bash
 Summary: The GNU Bourne Again shell
-Release: 3%{?dist}
+Release:        1%{?dist}
 License: GPL-3.0-or-later
 Url: https://www.gnu.org/software/bash
-Source0:        https://mirrors.kernel.org/gnu/bash/bash-5.3.tar.gz
+Source0:        https://mirror.cs.odu.edu/gnu/bash/bash-5.3.tar.gz
 # For now there isn't any doc
-#Source2: https://ftp.gnu.org/gnu/bash/bash-doc-%%{version}.tar.gz
+#Source2: ftp://ftp.gnu.org/gnu/bash/bash-doc-%%{version}.tar.gz
 
 Source1: dot-bashrc
 Source2: dot-bash_profile
 Source3: dot-bash_logout
-Source4:        https://mirrors.kernel.org/gnu/bash/bash-5.3.tar.gz.sig
+Source4:        bash-5.3.tar.gz.sig
 # Retreived from https://tiswww.cwru.edu/~chet/gpgkey.asc
 # which is the https version of the link on http://tiswww.case.edu/php/chet/bash/bashtop.html
 Source5: chet-gpgkey.asc
@@ -31,62 +37,61 @@ end}
 
 # Other patches
 # Non-interactive shells beginning with argv[0][0] == '-' should run the startup files when not in posix mode.
-Patch102: bash-2.03-profile.patch
-# https://bugzilla.redhat.com/show_bug.cgi?id=60870
-Patch103: bash-2.05a-interpreter.patch
+Patch102:        bash-2.03-profile.patch
+Patch103:        bash-2.05a-interpreter.patch
 # Generate info for debuginfo files.
-Patch104: bash-2.05b-debuginfo.patch
+Patch104:        bash-2.05b-debuginfo.patch
 # Pid passed to setpgrp() can not be pid of a zombie process.
-Patch105: bash-2.05b-pgrp_sync.patch
+Patch105:        bash-2.05b-pgrp_sync.patch
 # Source bashrc file when bash is run under ssh.
-Patch107: bash-3.2-ssh_source_bash.patch
+Patch107:        bash-3.2-ssh_source_bash.patch
 
 # Try to pick up latest `--rpm-requires` patch from http://git.altlinux.org/gears/b/bash4.git
-Patch109: bash-requires.patch
-Patch110: bash-setlocale.patch
+Patch109:        bash-requires.patch
+Patch110:        bash-setlocale.patch
 # Disable tty tests while doing bash builds
-Patch111: bash-tty-tests.patch
+Patch111:        bash-tty-tests.patch
 
 # 484809, check if interp section is NOBITS
-Patch116: bash-4.0-nobits.patch
+Patch116:        bash-4.0-nobits.patch
 
 # Do the same CFLAGS in generated Makefile in examples
-Patch117: bash-4.1-examples.patch
+Patch117:        bash-4.1-examples.patch
 
 # Builtins like echo and printf won't report errors
 # when output does not succeed due to EPIPE
-Patch118: bash-4.1-broken_pipe.patch
+Patch118:        bash-4.1-broken_pipe.patch
 
 # Enable system-wide .bash_logout for login shells
-Patch119: bash-4.2-rc2-logout.patch
+Patch119:        bash-4.2-rc2-logout.patch
 
 # Static analyzis shows some issues in bash-2.05a-interpreter.patch
-Patch120: bash-4.2-coverity.patch
+Patch120:        bash-4.2-coverity.patch
 
 # 799958, updated info about trap
 # This patch should be upstreamed.
-Patch122: bash-4.2-manpage_trap.patch
+Patch122:        bash-4.2-manpage_trap.patch
 
 # 1112710 - mention ulimit -c and -f POSIX block size
 # This patch should be upstreamed.
-Patch124: bash-4.3-man-ulimit.patch
+Patch124:        bash-4.3-man-ulimit.patch
 
 # 1102815 - fix double echoes in vi visual mode
-Patch125: bash-4.3-noecho.patch
+Patch125:        bash-4.3-noecho.patch
 
 #1241533,1224855 - bash leaks memory when LC_ALL set
-Patch126: bash-4.3-memleak-lc_all.patch
+Patch126:        bash-4.3-memleak-lc_all.patch
 
 # bash-4.4 builds loadable builtin examples by default
 # this patch disables it
-Patch127: bash-4.4-no-loadable-builtins.patch
+Patch127:        bash-4.4-no-loadable-builtins.patch
 
 # 2020528 - Add a runtime option to enable history logging to syslog
 # This option is undocumented in upstream and is documented by this patch
-Patch128: bash-5.0-syslog-history.patch
+Patch128:        bash-5.0-syslog-history.patch
 
 # Enable audit logs
-Patch131: bash-4.3-audit.patch
+Patch131:        bash-4.3-audit.patch
 
 BuildRequires:  gcc
 BuildRequires: texinfo bison
@@ -97,6 +102,7 @@ BuildRequires: gnupg2
 BuildRequires: glibc-all-langpacks
 BuildRequires: make
 BuildRequires: audit-libs-devel
+BuildRequires:  oreon-rpm-macros
 Requires: filesystem >= 3
 Provides: /bin/sh
 Provides: /bin/bash
@@ -122,8 +128,9 @@ Requires: %{name} = %{version}-%{release}
 This package contains documentation files for %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE5}' --signature='%{SOURCE4}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE5} --sig %{SOURCE4} --data %{SOURCE0}
 %autosetup -n %{name}-%{baseversion} -p1
 
 echo %{version} > _distribution
@@ -325,6 +332,3 @@ end
 %{_includedir}/%{name}
 %{_libdir}/pkgconfig/%{name}.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{baseversion}.%{patchlevel}-3
-- Prepare for Oreon 11 (RP1)

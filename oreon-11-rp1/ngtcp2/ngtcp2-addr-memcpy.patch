@@ -1,0 +1,32 @@
+--- a/lib/ngtcp2_addr.c	2026-11-07 16:57:08.124017200 -0800
++++ b/lib/ngtcp2_addr.c	2026-11-07 16:58:02.192457415 -0800
+@@ -31,14 +31,14 @@
+ 
+ ngtcp2_addr *ngtcp2_addr_init(ngtcp2_addr *dest, const ngtcp2_sockaddr *addr,
+                               ngtcp2_socklen addrlen) {
+-  *dest = (ngtcp2_addr){
+-    .addr = (ngtcp2_sockaddr *)addr,
+-    .addrlen = addrlen,
+-  };
+-
++  dest->addr = (ngtcp2_sockaddr *)addr;
++  dest->addrlen = addrlen;
+   return dest;
+ }
+ 
++#if defined(__GNUC__) && __GNUC__ >= 11
++__attribute__((noipa))
++#endif
+ void ngtcp2_addr_copy(ngtcp2_addr *dest, const ngtcp2_addr *src) {
+   dest->addrlen = src->addrlen;
+   if (src->addrlen) {
+@@ -46,6 +46,9 @@
+   }
+ }
+ 
++#if defined(__GNUC__) && __GNUC__ >= 11
++__attribute__((noipa))
++#endif
+ void ngtcp2_addr_copy_byte(ngtcp2_addr *dest, const ngtcp2_sockaddr *addr,
+                            ngtcp2_socklen addrlen) {
+   dest->addrlen = addrlen;

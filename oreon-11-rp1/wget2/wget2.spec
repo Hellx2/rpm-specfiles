@@ -1,25 +1,35 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%if (0%{?fedora} && 0%{?fedora} < 40) || (0%{?rhel} && 0%{?rhel} < 11)
-%bcond as_wget 0
-%else
+%global source0_hash 4f1915b2a55a789a15f2f9ada7cc44bca81418e648f76fd88a7f4dd028b2149f
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond as_wget 1
-%endif
 
-%global somajor 4
+%global somajor 5
 
 Name:           wget2
-Version:        2.2.1
-Release:        2%{?dist}
+Version:        2.3.0
+Release:        1%{?dist}
 Summary:        An advanced file and recursive website downloader
 
 # Documentation is GFDL
 License:        GPL-3.0-or-later AND LGPL-3.0-or-later AND GFDL-1.3-or-later
 URL:            https://gitlab.com/gnuwget/wget2
-Source0:        https://mirrors.kernel.org/gnu/wget/%{name}-%{version}.tar.gz
-Source1:        https://mirrors.kernel.org/gnu/wget/%{name}-%{version}.tar.gz.sig
+Source0:        https://mirror.cs.odu.edu/gnu/wget/wget2-%{version}.tar.gz
+Source1:        wget2-2.3.0.tar.gz.sig
 # key 08302DB6A2670428
 Source2:        tim.ruehsen-keyring.asc
+
+# Fix using absolute paths with -P option (rhbz#2558146)
+# Backport from upstream: https://github.com/rockdaboot/wget2/commit/acf7f4ecd35e9d353bfb5d3ad216dd5368f1b3d4
+Patch0:        0000-fix-absolute-paths-with-P-option.patch
+
+# Fix double-free causing a crash (only after failed requests)
+# Backport from upstream: https://gitlab.com/gnuwget/wget2/-/commit/8d7b977a7dff86e7056fc93b7c73d61779d28cdc
+Patch1:        0001-fix-double-free.patch
 
 # Buildsystem build requirements
 BuildRequires:  autoconf
@@ -33,9 +43,7 @@ BuildRequires:  make
 # Documentation build requirements
 BuildRequires:  doxygen
 BuildRequires:  git-core
-%if ! 0%{?rhel}
 BuildRequires:  pandoc
-%endif
 
 # Wget2 build requirements
 BuildRequires:  bzip2-devel
@@ -59,14 +67,13 @@ BuildRequires:  pkgconfig(libpsl)
 BuildRequires:  pkgconfig(libzstd)
 BuildRequires:  pkgconfig(zlib)
 
-%if ! 0%{?rhel}
 # Test suite
 BuildRequires:  lcov
 BuildRequires:  lzip
-%endif
 
 # For gpg signature verification
 BuildRequires:  gnupg2
+BuildRequires:  oreon-rpm-macros
 
 Provides:       webclient
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
@@ -117,18 +124,16 @@ the system provider of wget.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -S git_am
 
 
 %build
 %configure --disable-static
-%if ! 0%{?rhel}
-# Remove RPATH, rely on default -Wl,--enable-new-dtags in Fedora.
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
-%endif
 %make_build
 
 
@@ -136,10 +141,6 @@ sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 %make_install
 %find_lang %{name}
 
-%if 0%{?rhel}
-# tarball includes a pre-built manpage
-install -D -m0644 -t %{buildroot}%{_mandir}/man1/ docs/man/man1/wget2.1
-%endif
 
 # Purge all libtool archives
 find %{buildroot} -type f -name "*.la" -delete -print
@@ -181,6 +182,3 @@ echo ".so man1/%{name}.1" > %{buildroot}%{_mandir}/man1/wget.1
 %endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.2.1-2
-- Prepare for Oreon 11 (RP1)

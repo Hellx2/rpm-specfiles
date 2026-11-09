@@ -1,21 +1,26 @@
-%global source0_hash e7713409882813991d2269d125e40dad1f54a019a52b78b3962941c1d4a6f86f
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash c02940f430841ecf158d5d9a50007afc4d5353c8678a2455003ca0b2c4e9f5ff
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:		pciutils
-Version:	3.15.0
-Release:	1%{?dist}
+Version:        3.15.0
+Release:        1%{?dist}
 Summary:	PCI bus related utilities
 License:	GPL-2.0-or-later
 URL:		https://mj.ucw.cz/sw/pciutils/
 
-Source0:        https://www.kernel.org/pub/software/utils/pciutils/%{name}-%{version}.tar.xz
+Source0:        https://www.kernel.org/pub/software/utils/pciutils/pciutils-%{version}.tar.xz
 Source1:	multilibconfigh
 Source2:	libpci_symbols.lst
 
-#change pci.ids directory to hwdata, fedora/rhel specific
-Patch1:		pciutils-2.2.1-idpath.patch
+Patch1:        pciutils-2.2.1-idpath.patch
 
 #add support for directory with another pci.ids, rejected by upstream, rhbz#195327
-Patch2:		pciutils-dir-d.patch
+Patch2:        pciutils-dir-d.patch
 
 Requires:	hwdata
 Requires:	%{name}-libs = %{version}-%{release}
@@ -51,7 +56,8 @@ This package contains a static library for inspecting and setting
 devices connected to the PCI bus.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+echo "%{source0_hash}  %{SOURCE0}" | sha256sum -c -
+
 %autosetup -p1
 
 %build
@@ -116,6 +122,3 @@ diff -u %{SOURCE2} libpci_symbols_new.lst
 %{_includedir}/pci
 %{_mandir}/man7/*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.14.0-3
-- Prepare for Oreon 11 (RP1)

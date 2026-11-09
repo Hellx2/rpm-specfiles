@@ -1,5 +1,11 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 3112c1f25d39eca661fe3fc663431e130cc6e2f900c081738317fba49d29e298
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %{!?_pkgdocdir:%global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 # We don't want accidental SONAME bumps.
@@ -29,17 +35,17 @@
 
 
 Name:           json-c
-Version:        0.19
+Version:        0.18
 Release:        1%{?dist}
 Summary:        JSON implementation in C
 
 License:        MIT
 URL:            https://github.com/%{name}/%{name}
-Source0:        https://github.com/json-c/json-c/archive/refs/tags/json-c-0.18-20240915.tar.gz#/json-c-0.18-20240915.tar.gz
+Source0:        https://github.com/json-c/json-c/archive/json-c-%{version}-20240915.tar.gz
 
 # Add libver to mingw dll
-Patch0:         json-c_mingw-libver.patch
-Patch1:         json-c-0.18-utf8-validation.patch
+Patch0:        json-c_mingw-libver.patch
+Patch1:        json-c-0.18-utf8-validation.patch
 
 BuildRequires:  cmake
 BuildRequires:  gcc
@@ -92,6 +98,7 @@ Summary:       MinGW Windows %{name} library
 BuildArch:     noarch
 BuildRequires: mingw64-filesystem
 BuildRequires: mingw64-gcc
+BuildRequires:  oreon-rpm-macros
 
 %description -n mingw64-%{name}
 %{summary}.
@@ -101,7 +108,8 @@ BuildRequires: mingw64-gcc
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n %{name}-%{name}-%{version}-%{reldate} -p 1
 
 # Remove pre-built html documentation.
@@ -175,9 +183,7 @@ unset USE_VALGRIND
 
 
 %files doc
-%if 0%{?fedora} || 0%{?rhel} >= 7
 %license %{_datadir}/licenses/%{name}*
-%endif
 %doc %{_pkgdocdir}
 
 %if %{with mingw}
@@ -198,6 +204,3 @@ unset USE_VALGRIND
 %{mingw64_libdir}/pkgconfig/%{name}.pc
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.18-8
-- Prepare for Oreon 11 (RP1)

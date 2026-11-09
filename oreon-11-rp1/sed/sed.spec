@@ -1,19 +1,24 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash b8e72182b2ec96a3574e2998c47b7aaa64cc20ce000d8e9ac313cc07cecf28c7
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # -*- coding: utf-8 -*-
 
 Summary: A GNU stream text editor
 Name: sed
-Version: 4.10
-Release: 1%{?dist}
+Version:        4.10
+Release:        1%{?dist}
 License: GPL-3.0-or-later
 URL: http://sed.sourceforge.net/
-Source0:        https://mirrors.kernel.org/gnu/sed/sed-%{version}.tar.xz
-Source1:        http://sed.sourceforge.net/sedfaq.txt
-Patch0: sed-b-flag.patch
-Patch1: sed-c-flag.patch
-Patch2: sed-covscan-annotations.patch
-Patch3: sed-regexp-cache-size.patch
+Source0:        https://mirror.cs.odu.edu/gnu/sed/sed-%{version}.tar.xz
+Patch0:        sed-b-flag.patch
+Patch1:        sed-c-flag.patch
+#Patch2: sed-covscan-annotations.patch
+Patch3:        sed-regexp-cache-size.patch
 BuildRequires: make
 BuildRequires: glibc-devel, libselinux-devel, libacl-devel, automake, autoconf, gcc
 BuildRequires: perl-Getopt-Long
@@ -27,6 +32,7 @@ BuildRequires: glibc-langpack-ru
 
 %ifarch %{valgrind_arches}
 BuildRequires: valgrind
+BuildRequires:  oreon-rpm-macros
 %endif
 
 Provides: /bin/sed
@@ -42,19 +48,19 @@ that sed performs (substitutions, deletions, insertions, etc.) can be
 specified in a script file or from the command line.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
-%configure --without-included-regex
+#%configure --without-included-regex
+%configure 
 %make_build
 
 #rhbz#2396649
 sed -i s/"SELinux is enabled on this system."// ./doc/sed.1
 sed -i s/"SELinux is disabled on this system."// ./doc/sed.1
 
-install -m 644 -p %{SOURCE1} sedfaq.txt
-gzip -9 sedfaq.txt
 
 %check
 echo ====================TESTING=========================
@@ -71,11 +77,8 @@ rm -f ${RPM_BUILD_ROOT}/%{_infodir}/dir
 %files -f %{name}.lang
 %{!?_licensedir:%global license %%doc}
 %license COPYING 
-%doc BUGS NEWS THANKS README AUTHORS sedfaq.txt.gz
+%doc BUGS NEWS THANKS README AUTHORS
 %{_bindir}/sed
 %{_infodir}/sed.info*
 %{_mandir}/man1/sed.1*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.9-8
-- Prepare for Oreon 11 (RP1)

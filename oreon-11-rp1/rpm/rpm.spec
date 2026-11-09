@@ -1,5 +1,11 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash f520810d27c74bf1c5d8b8885845c61e0c845f62d33e68b02e020633a8b62fe3
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # build against xz?
 %bcond_without xz
 # build with plugins?
@@ -7,11 +13,7 @@
 # build with libimaevm.so
 %bcond_without libimaevm
 # build with fsverity support?
-%if 0%{?rhel}
-%bcond_with fsverity
-%else
 %bcond_without fsverity
-%endif
 # build with zstd support?
 %bcond_without zstd
 # build with ndb backend?
@@ -19,18 +21,16 @@
 # build with sqlite support?
 %bcond_without sqlite
 
-# https://fedoraproject.org/wiki/Changes/Unify_bin_and_sbin
 %bcond merged_sbin 1
 
-# https://fedoraproject.org/wiki/Changes/Enforcing_signature_checking_by_default
 # Upstream defaults to enforcing in >= 6.0, this is backwards compat switch
 %bcond legacy_verify 0
 
 %define rpmhome /usr/lib/rpm
 
-%global rpmver 6.0.1
+%global rpmver 6.1.0
 #global snapver rc1
-%global baserelease 5
+%global baserelease 1
 %global sover 10
 
 %global srcver %{rpmver}%{?snapver:-%{snapver}}
@@ -38,11 +38,11 @@
 
 Summary: The RPM package management system
 Name: rpm
-Version: %{rpmver}
-Release: %{?snapver:0.%{snapver}.}%{baserelease}%{?dist}
+Version:        6.1.0
+Release:        1%{?dist}
 Url: https://rpm.org/
 License: GPL-2.0-or-later
-Source0: http://ftp.rpm.org/releases/%{srcdir}/rpm-%{srcver}.tar.bz2
+Source0:        http://ftp.rpm.org/releases/rpm-6.1.x/rpm-%{version}.tar.bz2
 
 Source10: rpmdb-rebuild.service
 
@@ -113,8 +113,7 @@ BuildRequires: fsverity-utils-devel
 # Set rpmdb path to /usr/lib/sysimage/rpm
 rpm-4.17.x-rpm_dbpath.patch
 # Disable autoconf config.site processing (#962837)
-rpm-4.18.x-siteconfig.patch
-# In current Fedora, man-pages pkg owns all the localized man directories
+rpm-6.1.x-siteconfig.patch
 rpm-4.9.90-no-man-dirs.patch
 
 # Use systemd-sysusers due to https://github.com/shadow-maint/shadow/issues/940
@@ -124,7 +123,6 @@ rpm-6.0-rpmformat.patch
 
 # Temporarily disable the deprecation warning for
 # %%clamp_mtime_to_source_date_epoch, details here:
-# https://src.fedoraproject.org/rpms/redhat-rpm-config/pull-request/298
 0001-Revert-Add-a-deprecation-warning-for-clamp_mtime_to_.patch
 
 # Patches already upstream:
@@ -205,7 +203,6 @@ Requires: zstd
 Requires: debugedit >= 0.3
 Requires: pkgconfig >= 1:0.24
 Requires: /usr/bin/gdb-add-index
-# https://fedoraproject.org/wiki/Changes/Minimal_GDB_in_buildroot
 Suggests: gdb-minimal
 # Technically rpmbuild doesn't require any external configuration, but
 # creating distro-compatible packages does. To make the common case
@@ -227,6 +224,7 @@ This package contains support for digitally signing RPM packages.
 %package -n python3-%{name}
 Summary: Python 3 bindings for apps which will manipulate RPM packages
 BuildRequires: python3-devel
+BuildRequires:  oreon-rpm-macros
 %{?python_provide:%python_provide python3-%{name}}
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
 Provides: %{name}-python3 = %{version}-%{release}
@@ -350,7 +348,8 @@ change.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n rpm-%{srcver} -p1
 
 %if %{with legacy_verify}
@@ -469,6 +468,7 @@ fi
 %{_mandir}/man5/rpm-macrofile.5*
 %{_mandir}/man5/rpm-manifest.5*
 %{_mandir}/man5/rpm-rpmrc.5*
+%{_mandir}/man7/rpm-design.7*
 %{_mandir}/man7/rpm-lua.7*
 %{_mandir}/man7/rpm-macros.7*
 %{_mandir}/man7/rpm-payloadflags.7*
@@ -577,7 +577,10 @@ fi
 %{_bindir}/gendiff
 %{_bindir}/rpmspec
 %{_bindir}/rpmlua
+%{_bindir}/rpmuncompress
+%{_bindir}/rpm-setup-autosign
 
+%{_mandir}/man1/elfdeps.1*
 %{_mandir}/man1/gendiff.1*
 %{_mandir}/man1/rpmbuild.1*
 %{_mandir}/man1/rpmdeps.1*
@@ -586,6 +589,10 @@ fi
 %{_mandir}/man1/rpm-setup-autosign.1*
 %{_mandir}/man1/rpmuncompress.1*
 %{_mandir}/man5/rpmbuild-config.5.*
+%{_mandir}/man7/rpm-dependency-generators.7*
+%{_mandir}/man7/rpm-scriptlets.7*
+%{_mandir}/man7/rpm-sysusers.7*
+
 
 %{rpmhome}/brp-*
 %{rpmhome}/check-*
@@ -632,6 +639,3 @@ fi
 %license COPYING
 %doc %{_defaultdocdir}/rpm/API/
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{rpmver}-1
-- Prepare for Oreon 11 (RP1)

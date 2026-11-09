@@ -1,26 +1,40 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 64731a3a08ae94837e480f866cb1a2be9b12b9010899317f1db097ce5281a52a
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global libname mesonbuild
 
 %bcond check 1
+%bcond docs 1
 
 Name:           meson
-Version:        1.12.0
-Release:        %autorelease
+Version:        1.12.1
+Release:        1%{?dist}
 Summary:        High productivity build system
 
 License:        Apache-2.0
 URL:            https://mesonbuild.com/
-Source:        https://github.com/mesonbuild/meson/releases/download/%{version_no_tilde .}/meson-%{version_no_tilde %{quote:}}.tar.gz
-Patch0:         skip-aarch64-bindgen-cross-test-on-aarch64.patch
+Source0:        https://github.com/mesonbuild/meson/archive/%{version}/meson-%{version}.tar.gz
 
 BuildArch:      noarch
 
 BuildRequires:  python3-devel
+BuildRequires:  python3-pip
 Requires:       ninja-build
 
-%if %{with check}
+Requires:       meson-srpm-macros = %{version}-%{release}
+
+%if %{with docs}
+BuildRequires:  python3-pyyaml
+%endif
+%if %{with check} || %{with docs}
 BuildRequires:  ninja-build
+%endif
+%if %{with check}
 # Some tests expect the unversioned executable
 BuildRequires:  /usr/bin/python
 # Various languages
@@ -28,15 +42,11 @@ BuildRequires:  gcc
 BuildRequires:  libasan
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
-%if %{undefined rhel}
 BuildRequires:  gcc-objc
 BuildRequires:  gcc-objc++
-%endif
 BuildRequires:  java-25-devel
 BuildRequires:  libomp-devel
-%if %{undefined rhel}
 BuildRequires:  mono-core mono-devel
-%endif
 BuildRequires:  rust
 # Since the build is noarch, we can't use %%ifarch
 #%%ifarch %%{ldc_arches}
@@ -45,63 +55,45 @@ BuildRequires:  rust
 # Various libs support
 BuildRequires:  boost-devel
 BuildRequires:  /usr/bin/clang-format
-%if %{undefined rhel}
 BuildRequires:  clippy
-%endif
 BuildRequires:  gtest-devel
 BuildRequires:  gmock-devel
-%if %{undefined rhel}
 BuildRequires:  qt5-qtbase-devel
 BuildRequires:  qt5-qtbase-private-devel
 BuildRequires:  qt5-linguist
-%endif
 BuildRequires:  vala
 BuildRequires:  python3-gobject-base
-%if %{undefined rhel}
 BuildRequires:  wxGTK-devel
 BuildRequires:  bindgen
-%endif
 BuildRequires:  flex
 BuildRequires:  bison
 BuildRequires:  gettext
-%if %{undefined rhel}
 BuildRequires:  gnustep-base-devel
 BuildRequires:  /usr/bin/gnustep-config
-%endif
 BuildRequires:  git-core
 BuildRequires:  pkgconfig(protobuf)
 BuildRequires:  pkgconfig(glib-2.0)
-%if %{undefined rhel}
 BuildRequires:  pkgconfig(glib-sharp-2.0)
-%endif
 BuildRequires:  pkgconfig(gobject-introspection-1.0)
 BuildRequires:  gtk-doc
 BuildRequires:  itstool
-%if %{undefined rhel}
 BuildRequires:  mercurial
 BuildRequires:  gcovr
-%endif
 BuildRequires:  pkgconfig(zlib)
-BuildRequires:  zlib-static
 BuildRequires:  python3dist(cython)
-%if %{undefined rhel}
 BuildRequires:  python3dist(fastjsonschema)
-%else
-BuildRequires:  python3dist(jsonschema)
-%endif
 BuildRequires:  pkgconfig(sdl2)
 BuildRequires:  /usr/bin/pcap-config
 BuildRequires:  pkgconfig(vulkan)
 BuildRequires:  llvm-devel
 BuildRequires:  cups-devel
-%if %{undefined rhel}
 BuildRequires:  /usr/bin/wx-config
-%endif
 BuildRequires:  /usr/bin/sdl2-config
+BuildRequires:  oreon-rpm-macros
 %endif
 
-%generate_buildrequires
-%pyproject_buildrequires
+# generated BuildRequires, refresh with: orbscli plan bake
+BuildRequires: python3dist(setuptools) >= 42
 
 %description
 Meson is a build system designed to optimize programmer
@@ -109,18 +101,38 @@ productivity. It aims to do this by providing simple, out-of-the-box
 support for modern software development tools and practices, such as
 unit tests, coverage reports, Valgrind, CCache and the like.
 
+%package srpm-macros
+Summary:        rpm macros to build projects using meson
+Conflicts:      meson < 1.12.0-2
+
+%description srpm-macros
+This package contains %{summary}.
+
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%autosetup -p1 -n meson-%{version_no_tilde %{quote:}}
+%oreon_sha256
+
+%autosetup -p1
 # Macro should not change when we are redefining bindir
 sed -i -e "/^%%__meson /s| .*$| %{_bindir}/%{name}|" data/macros.%{name}
+# Automatically pull in meson if the build system is used
+sed -i -e '/^%%buildsystem_meson_generate_buildrequires/s|%%{nil}|echo "meson"|' data/macros.%{name}
 
 %build
 %pyproject_wheel
 
+%if %{with docs}
+%{python3} ./meson.py setup docs docs.build \
+	--prefix=%{_prefix} --mandir=%{_mandir} -Dhtml=false -Dunsafe_yaml=true
+%{python3} ./meson.py compile -C docs.build
+%endif
+
 %install
 %pyproject_install
 %pyproject_save_files -l mesonbuild
+
+%if %{with docs}
+%{python3} ./meson.py install -C docs.build --destdir=%{buildroot}
+%endif
 
 install -Dpm0644 -t %{buildroot}%{rpmmacrodir} data/macros.%{name}
 install -Dpm0644 -t %{buildroot}%{_datadir}/bash-completion/completions/ data/shell-completions/bash/meson
@@ -133,19 +145,17 @@ export MESON_PRINT_TEST_OUTPUT=1
 %endif
 
 %files -f %{pyproject_files}
-%license COPYING
 %{_bindir}/%{name}
 %{_mandir}/man1/%{name}.1*
-%{rpmmacrodir}/macros.%{name}
+%if %{with docs}
+%{_mandir}/man3/%{name}-reference.3*
+%endif
 %dir %{_datadir}/polkit-1
 %dir %{_datadir}/polkit-1/actions
 %{_datadir}/polkit-1/actions/com.mesonbuild.install.policy
 %{_datadir}/bash-completion/completions/meson
 %{_datadir}/zsh/site-functions/_meson
 
-%changelog
-* Sat May 23 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.10.2-2
-- skip bindgen cross unittest on native aarch64 (meson 1.11.1 backport)
+%files srpm-macros
+%{rpmmacrodir}/macros.%{name}
 
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.10.2-1
-- Prepare for Oreon 11 (RP1)

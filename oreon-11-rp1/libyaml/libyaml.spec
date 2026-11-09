@@ -1,14 +1,18 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash c642ae9b75fee120b2d96c712538bd2cf283228d2337df2cf2988e3c02678ef4
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global with_mingw 0
 
-%if 0%{?fedora}
 %global with_mingw 1
-%endif
 
 Name:       libyaml
-Version:    0.2.5
-Release:    18%{?dist}
+Version:        0.2.5
+Release:        1%{?dist}
 Summary:    YAML 1.1 parser and emitter written in C
 
 # SPDX
@@ -28,6 +32,7 @@ BuildRequires: mingw32-filesystem >= 95
 BuildRequires: mingw32-gcc-c++
 BuildRequires: mingw64-filesystem >= 95
 BuildRequires: mingw64-gcc-c++
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description
@@ -70,7 +75,8 @@ emitter written in C.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n yaml-%{version}
 
 
@@ -143,6 +149,3 @@ popd
 %endif
 
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.2.5-18
-- Import

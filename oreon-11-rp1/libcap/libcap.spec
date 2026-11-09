@@ -1,16 +1,22 @@
-%global source0_hash f07fcec6f01edc4bb18373067494fdcb718186aed720b97ec6c7a5d67b218f69
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 2a2c705e382c413643a458b837575c0eb0989477ab6fb99c87adbe9a259612ad
+%global source1_hash 6d072d8a37ffa36856bc1cce70f3d21189c65b753cf8575f96d38c195fcd85ca
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name: libcap
-Version: 2.78
-Release: 1%{?dist}
+Version:        2.78
+Release:        1%{?dist}
 Summary: Library for getting and setting POSIX.1e capabilities
 URL: https://sites.google.com/site/fullycapable/
 License: BSD-3-Clause OR GPL-2.0-only
 
-Source0:        https://mirrors.edge.kernel.org/pub/linux/libs/security/linux-privs/libcap2/%{name}-%{version}.tar.gz
-Source1:        https://mirrors.edge.kernel.org/pub/linux/libs/security/linux-privs/libcap2/%{name}-%{version}.tar.sign
-Source2: https://git.kernel.org/pub/scm/docs/kernel/pgpkeys.git/plain/keys/29EE848AE2CCF3F4.asc
-Patch0: _makenames-build.patch
+Source0:        https://mirrors.edge.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-%{version}.tar.gz
+Source1:        https://mirrors.edge.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-%{version}.tar.sign
+Source2:        29EE848AE2CCF3F4.asc
 
 BuildRequires: pam-devel gcc
 BuildRequires: make
@@ -19,6 +25,7 @@ BuildRequires: gnupg2
 
 %ifarch %{golang_arches}
 BuildRequires: golang >= 1.22
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %if "%{_sbindir}" == "%{_bindir}"
@@ -67,7 +74,12 @@ the capability status of processes and threads.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }gzip -cd %{SOURCE0} | %{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data=-
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
+gzip -cd %{SOURCE0} > %{_builddir}/libcap-verify.tar
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{_builddir}/libcap-verify.tar
+rm -f %{_builddir}/libcap-verify.tar
 %autosetup -p1
 
 
@@ -123,6 +135,3 @@ chmod +x %{buildroot}/%{_libdir}/*.so.*
 %{_mandir}/man8/captree.8*
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.77-3
-- Prepare for Oreon 11 (RP1)

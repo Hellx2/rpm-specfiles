@@ -1,17 +1,24 @@
-%global source0_hash 816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 98d35d11a78dc453aebb7d10c3748f3f73ff78c8267c0dc697b8631f67bf7e8f
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           brotli
-Version:        1.2.0
-Release:        3%{?dist}
+Version:        1.2.1
+Release:        1%{?dist}
 Summary:        Lossless compression algorithm
 
 License:        MIT
 URL:            https://github.com/google/brotli
-Source0:        https://github.com/google/brotli/archive/refs/tags/v1.2.0.tar.gz#/brotli-1.2.0.tar.gz
+Source0:        https://github.com/google/brotli/archive/v%{version}/brotli-%{version}.tar.gz
 
 BuildRequires:  cmake
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
+BuildRequires:  oreon-rpm-macros
 
 Requires: libbrotli%{?_isa} = %{version}-%{release}
 
@@ -21,6 +28,13 @@ using a combination of a modern variant of the LZ77 algorithm, Huffman coding
 and 2nd order context modeling, with a compression ratio comparable to the best
 currently available general-purpose compression methods. It is similar in speed
 with deflate but offers more dense compression.}
+
+# generated BuildRequires, refresh with: orbscli plan bake
+BuildRequires: pyproject-rpm-macros
+BuildRequires: python3-devel
+BuildRequires: python3dist(packaging)
+BuildRequires: python3dist(pip) >= 19
+BuildRequires: python3dist(setuptools) >= 40.8
 
 %description %{_description}
 
@@ -46,17 +60,15 @@ Requires: libbrotli%{?_isa} = %{version}-%{release}
 This package installs the development files.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%autosetup -p1 -n brotli-1.2.0
+%oreon_sha256
+
+%autosetup -p1
 # fix permissions for -debuginfo
 # rpmlint will complain if I create an extra %%files section for
 # -debuginfo for this so we'll put it here instead
 chmod 644 c/enc/*.[ch]
 chmod 644 c/include/brotli/*.h
 chmod 644 c/tools/brotli.c
-
-%generate_buildrequires
-%pyproject_buildrequires
 
 %build
 %cmake \
@@ -108,6 +120,3 @@ cd python
 %{_mandir}/man3/encode.h.3brotli*
 %{_mandir}/man3/types.h.3brotli*
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.2.0-3
-- Import

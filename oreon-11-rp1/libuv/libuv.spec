@@ -1,20 +1,19 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 612F0EAD9401622379DF4402F28C3C8DA33C03BE
+%global source0_hash 66d511b9e6e334c0e62279eb234fbfb2b3110b1479c09b95b44c7afca8cff9e7
+%global source1_hash 9264d3673cc1c633f77ab1469627864836e6500cb9b3823c571dcb1c10ba13cb
 
-# Run the tests by default on Fedora
-# Some of the network tests fail on RHEL/CentOS Stream due to the network
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # configuration on the builders
-%if 0%{?rhel}
-%bcond tests 0
-%else
 %bcond tests 1
-%endif
 
 Name:           libuv
 Epoch:          1
 Version:        1.52.1
-Release:        %autorelease
+Release:        1%{?dist}
 Summary:        Platform layer for node.js
 
 # Code is MIT
@@ -24,7 +23,7 @@ Summary:        Platform layer for node.js
 License:        MIT AND CC-BY-4.0 AND ISC AND BSD-2-Clause
 URL:            http://libuv.org/
 Source0:        http://dist.libuv.org/dist/v%{version}/libuv-v%{version}.tar.gz
-Source1:        https://dist.libuv.org/dist/v%{version}/%{name}-v%{version}.tar.gz.sign
+Source1:        https://dist.libuv.org/dist/v%{version}/libuv-v%{version}.tar.gz.sign
 # mkdir temp
 # gpg --no-default-keyring --keyring temp/keyring.gpg --keyserver keyserver.ubuntu.com \
 #  --recv-keys D77B1E34243FBAF05F8E9CC34F55C8C846AB89B9  \
@@ -36,6 +35,8 @@ Source1:        https://dist.libuv.org/dist/v%{version}/%{name}-v%{version}.tar.
 # cp temp/keysuv.gpg .
 Source2:        keysuv.gpg
 Source3:        libuv.abignore
+Source10:       https://files.pythonhosted.org/packages/source/m/markupsafe/markupsafe-3.0.4.tar.gz
+Patch0:         libuv-udp-reuseport-burst.patch
 
 BuildRequires:  cmake
 BuildRequires:  gcc
@@ -43,6 +44,8 @@ BuildRequires:  gnupg2
 # Documentation
 BuildRequires:  make
 BuildRequires:  python3-sphinx
+BuildRequires:  python3-markupsafe
+BuildRequires:  oreon-rpm-macros
 
 
 %description
@@ -68,8 +71,9 @@ Static library (.a) version of libuv.
 
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
 gpgv2 --keyring %{SOURCE2} %{SOURCE1} %{SOURCE0}
 %autosetup -n %{name}-v%{version} -p1
 
@@ -81,6 +85,9 @@ gpgv2 --keyring %{SOURCE2} %{SOURCE1} %{SOURCE0}
 %endif
 %cmake_build
 # Build Documentation
+echo '2e9ad7dd851bf45fab9f75cbff4cb493fee9979e8d8c7c9c3ee119022518edd6  %{SOURCE10}' | sha256sum -c -
+tar -xzf %{SOURCE10} -C %{_builddir}
+export PYTHONPATH="%{_builddir}/markupsafe-3.0.4/src${PYTHONPATH:+:$PYTHONPATH}"
 cd docs
 make man
 cd ..
@@ -127,6 +134,3 @@ env UV_TEST_TIMEOUT_MULTIPLIER=10 ./%{__cmake_builddir}/uv_run_tests_a
 %{_libdir}/%{name}.a
 %{_libdir}/pkgconfig/%{name}-static.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.52.1-1
-- Prepare for Oreon 11 (RP1)

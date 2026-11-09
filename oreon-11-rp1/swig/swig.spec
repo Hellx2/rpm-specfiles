@@ -1,5 +1,12 @@
-%global source0_hash 40162a706c56f7592d08fd52ef5511cb7ac191f3593cf07306a0a554c6281fcf
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 7fec50b27deddab5455a9633780b6341eddfb96215a7619e93a76eb27178f653
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%{!?python3_sitelib:%global python3_sitelib %(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))")}
 # We can skip tests
 %bcond_without testsuite
 
@@ -24,34 +31,21 @@
 %{!?rubylang:%global rubylang 1}
 %{!?python3lang:%global python3lang 1}
 
-# PHP drop support for 32-bit builds since Fedora 41.
-%if 0%{?fedora} >= 41 || 0%{?rhel} >= 11
 %ifarch %{ix86}
 %global phplang 0
 %endif
-%endif
 %{!?phplang:%global phplang 1}
 
-# OCaml packages not built on i686 since OCaml 5 / Fedora 39.
 %ifarch %{ix86}
 %{!?ocamllang:%global ocamllang 0}
 %else
 %{!?ocamllang:%global ocamllang 1}
 %endif
 
-%if 0%{?rhel}
-%{!?golang:%global golang 0}
-%{!?guile:%global guile 0}
-%{!?octave:%global octave 0}
-%{!?Rlang:%global Rlang 0}
-%bcond_with build_ccache_swig
-%else
 %{!?guile:%global guile 1}
 %{!?octave:%global octave 1}
-# R-core requires tcl < 9.0.0
-%{!?Rlang:%global Rlang 0}
+%{!?Rlang:%global Rlang 1}
 %bcond_without build_ccache_swig
-%endif
 
 %ifarch %{ix86}
 %{!?javalang:%global javalang 0}
@@ -70,11 +64,11 @@
 
 Summary: Connects C/C++/Objective C to some high-level programming languages
 Name:    swig
-Version: 4.5.0
-Release: 1%{?dist}
+Version:        4.5.1
+Release:        1%{?dist}
 License: GPL-3.0-or-later AND BSD-3-Clause
 URL:     https://www.swig.org/
-Source0:        https://downloads.sourceforge.net/project/swig/swig/swig-%{version}/swig-%{version}.tar.gz
+Source0:        http://downloads.sourceforge.net/project/swig/swig/swig-%{version}/swig-%{version}.tar.gz
 # Define the part of man page sections
 Source1: description.h2m
 %if %{with build_ccache_swig}
@@ -90,6 +84,7 @@ BuildRequires: perl-interpreter, pcre2-devel
 BuildRequires: python%{python3_pkgversion}-devel
 BuildRequires: autoconf, automake, gawk, dos2unix
 BuildRequires: gcc-c++
+BuildRequires: gdb
 BuildRequires: help2man
 BuildRequires: sed
 BuildRequires: perl-devel
@@ -198,7 +193,8 @@ purpose of using "swig" in build-system.requires of a pyproject.toml file.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+echo "%{source0_hash}  %{SOURCE0}" | sha256sum -c -
+
 %autosetup -p1
 
 for all in CHANGES README; do
@@ -208,9 +204,71 @@ for all in CHANGES README; do
 done
 
 %build
+specdir=$PWD/oreon-specs
+wrapdir=$PWD/oreon-cc
+mkdir -p "$specdir" "$wrapdir"
+cp -L %{_rpmconfigdir}/oreon/oreon-hardened-cc1 "$specdir/hardened-cc1"
+cp -L %{_rpmconfigdir}/oreon/oreon-hardened-ld "$specdir/hardened-ld"
+cp -L %{_rpmconfigdir}/oreon/oreon-hardened-ld-errors "$specdir/hardened-ld-errors"
+plugindir=$(/usr/bin/gcc -print-file-name=plugin)
+plugin=
+for cand in "$plugindir/gcc-annobin.so" "$plugindir/annobin.so"; do
+  if [ -e "$cand" ]; then
+    plugin=$cand
+    break
+  fi
+done
+if [ -n "$plugin" ]; then
+  printf '%s\n' '*cc1_options:' "+ -fplugin=$plugin" > "$specdir/annobin-cc1"
+else
+  cp -L %{_rpmconfigdir}/oreon/oreon-annobin-cc1 "$specdir/annobin-cc1"
+fi
+cat > "$wrapdir/ccwrap.py" << 'PY'
+import os, sys
+specdir = os.environ["OREON_SPECDIR"]
+rpm = os.environ["OREON_RPMCONFIG"]
+repl = {
+    rpm + "/redhat/redhat-hardened-cc1": specdir + "/hardened-cc1",
+    rpm + "/oreon/oreon-annobin-cc1": specdir + "/annobin-cc1",
+    rpm + "/redhat/redhat-hardened-ld": specdir + "/hardened-ld",
+    rpm + "/redhat/redhat-hardened-ld-errors": specdir + "/hardened-ld-errors",
+}
+args = []
+for a in sys.argv[1:]:
+    if a.startswith("-specs="):
+        path = a[len("-specs="):]
+        if "annobin-cc1" in path:
+            path = specdir + "/annobin-cc1"
+        else:
+            path = repl.get(path, path)
+        if "/redhat/" in path and not os.path.exists(path):
+            continue
+        a = "-specs=" + path
+    elif a == "-fplugin=annobin" or a.startswith("-fplugin=annobin"):
+        plug = os.environ.get("OREON_ANNOBIN")
+        if plug:
+            a = "-fplugin=" + plug
+    args.append(a)
+os.execv(os.environ["OREON_REAL_CC"], [os.environ["OREON_REAL_CC"], *args])
+PY
+for pair in "gcc:/usr/bin/gcc" "cc:/usr/bin/gcc" "g++:/usr/bin/g++" "c++:/usr/bin/c++"; do
+  name=${pair%%:*}
+  real=${pair#*:}
+  cat > "$wrapdir/$name" << EOF
+#!/bin/sh
+export OREON_SPECDIR="$specdir"
+export OREON_RPMCONFIG="%{_rpmconfigdir}"
+export OREON_ANNOBIN="$plugin"
+export OREON_REAL_CC=$real
+exec /usr/bin/python3 "$wrapdir/ccwrap.py" "\$@"
+EOF
+  chmod +x "$wrapdir/$name"
+done
+export PATH="$wrapdir:$PATH"
+export CC="$wrapdir/gcc"
+export CXX="$wrapdir/g++"
 %if %{golang}
 # Go tests are failing due to binutils changes related to linker setting as
-# documented at https://bugzilla.redhat.com/show_bug.cgi?id=2428281
 # Use workaround decribed in the bugzilla.
 export LDFLAGS="$LDFLAGS -Wl,-z,notext"
 %endif
@@ -266,7 +324,7 @@ export LDFLAGS="$LDFLAGS -Wl,-z,notext"
 
 %if %{with testsuite}
 # Test suite
-make check PY3=1
+make check PY3=1 -j1
 %endif
 
 %install
@@ -400,6 +458,3 @@ _EOF
 %{python3_sitelib}/swig-%{version}.dist-info/
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.4.1-5
-- Prepare for Oreon 11 (RP1)

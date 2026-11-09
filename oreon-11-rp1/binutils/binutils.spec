@@ -1,6 +1,12 @@
-%global source0_hash a389850c2d3919f2cc96fb8b5e7711eacfc819259aaffb11615c9fb9756eaeae
-%global source1_hash none
-%global source2_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+%global source0_hash 154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 
 Summary: A GNU collection of binary utilities
 Name: binutils%{?_with_debug:-debug}
@@ -9,8 +15,8 @@ Name: binutils%{?_with_debug:-debug}
 # A version number of X.XX.90 is a pre-release snapshot.
 # The variable %%{source} (see below) should be set to indicate which of these
 # origins is being used.
-Version: 2.47
-Release: 1%{?dist}
+Version:        2.47
+Release:        1%{?dist}
 License: GPL-3.0-or-later AND (GPL-3.0-or-later WITH Bison-exception-2.2) AND (LGPL-2.0-or-later WITH GCC-exception-2.0) AND BSD-3-Clause AND GFDL-1.3-or-later AND GPL-2.0-or-later AND LGPL-2.1-or-later AND LGPL-2.0-or-later
 URL: https://sourceware.org/binutils
 
@@ -59,12 +65,7 @@ URL: https://sourceware.org/binutils
 
 # Enable support for generating new dtags in the linker
 # Disable if it is necessary to use RPATH instead.
-# Currently enabled for Fedora, disabled for RHEL.
-%if 0%{?fedora} != 0 || (0%{?oreon} >= 11)
 %define enable_new_dtags 1
-%else
-%define enable_new_dtags 0
-%endif
 
 # Enable the compression of debug sections as default behaviour of the
 # assembler and linker.  This option is disabled for now.  The assembler and
@@ -113,8 +114,8 @@ URL: https://sourceware.org/binutils
 # Pre releases come from:       https://sourceware.org/pub/binutils/snapshots/
 #   (Even numbered pre releases include gold)
 # Snapshots come from:          https://snapshots.sourceware.org/binutils/trunk/
-# Tarballs are made by hand following a process outlined in this document:
-#                               
+#  and are turned into commits by following this process:
+# Tarballs are made by hand as and when necessary.
 #
 # Note - the Linux Kernel binutils releases are too unstable and contain
 # too many controversial patches so we stick with the official GNU version
@@ -135,7 +136,7 @@ URL: https://sourceware.org/binutils
 # correctly.  Note %%(echo) is used because you cannot directly set a
 # spec variable to a hexadecimal string value.
 
-%define commit_id %(echo "ba5838a98fb")
+%define commit_id %(echo "f85ff0c4bce")
 
 #----End of Configure Options------------------------------------------------
 
@@ -159,12 +160,7 @@ URL: https://sourceware.org/binutils
 %bcond_without zstd
 
 # Note - in the future the gold linker may become deprecated.
-%ifnarch riscv64
-%bcond_without gold
-%else
-# RISC-V does not have ld.gold thus disable by default.
 %bcond_with gold
-%endif
 
 # Allow the user to override the compiler used to build the binutils.
 # The default build compiler is gcc if %%toolchain is not clang.
@@ -216,28 +212,27 @@ URL: https://sourceware.org/binutils
 # sources instead - but only for GOLD, not for the rest of the binutils.
 
 # FIXME: Delete this once the gold linker is fully deprecated.
-# %%define gold_tarball %%(echo "binutils-with-gold-2.44.50-21e608528c3")
 %define gold_tarball none
 
 #----------------------------------------------------------------------------
 
 %if "%{source}" == "official-release"
-Source0:        https://mirrors.kernel.org/gnu/binutils/binutils-with-gold-%{version}.tar.xz
-# Source0: https://ftp.gnu.org/gnu/binutils/binutils-%%{version}.tar.xz
+# Source0: https://ftp.gnu.org/gnu/binutils/binutils-with-gold-%%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/binutils/binutils-%{version}.tar.xz
 %elif "%{source}" == "even-pre-release"
-Source0:        https://mirrors.kernel.org/gnu/binutils/binutils-with-gold-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/binutils/binutils-%{version}.tar.xz
 %elif "%{source}" == "odd-pre-release"
-Source0:        https://mirrors.kernel.org/gnu/binutils/binutils-with-gold-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/binutils/binutils-%{version}.tar.xz
 %elif "%{source}" == "snapshot"
-Source0:        https://mirrors.kernel.org/gnu/binutils/binutils-with-gold-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/binutils/binutils-%{version}.tar.xz
 %elif "%{source}" == "tarball"
-Source0:        https://mirrors.kernel.org/gnu/binutils/binutils-with-gold-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/binutils/binutils-%{version}.tar.xz
 %endif
 
-Source1:        binutils-2.19.50.0.1-output-format.sed
+Source1: binutils-2.19.50.0.1-output-format.sed
 
 %if "%{gold_tarball}" != "none"
-Source2:        https://mirrors.kernel.org/gnu/binutils/%{gold_tarball}.tar.xz
+Source2: %{gold_tarball}.tar.xz
 %endif
 
 #----------------------------------------------------------------------------
@@ -251,14 +246,11 @@ Source2:        https://mirrors.kernel.org/gnu/binutils/%{gold_tarball}.tar.xz
 #           libtool version 2.4.6).
 Patch01:        binutils-libtool-lib64.patch
 
-# Purpose:  Appends a RHEL or Fedora release string to the generic binutils
 #           version string.
-# Lifetime: Permanent.  This is a RHEL/Fedora specific patch.
 Patch02:        binutils-version.patch
 
 # Purpose:  Exports the demangle.h header file (associated with the libiberty
 #           sources) with the binutils-devel rpm.
-# Lifetime: Permanent.  This is a RHEL/Fedora specific patch.
 Patch03:        binutils-export-demangle.h.patch
 
 # Purpose:  Disables the check in the BFD library's bfd.h header file that
@@ -292,7 +284,7 @@ Patch07:        binutils-do-not-link-with-static-libstdc++.patch
 
 # Purpose:  Allow the binutils to be configured with any (recent) version of
 #            autoconf.
-# Lifetime: Fixed in 2.47 (maybe ?)
+# Lifetime: Fixed in 2.46 (maybe ?)
 Patch08:        binutils-autoconf-version.patch
 
 # Purpose:  Stop libtool from inserting useless runpaths into binaries.
@@ -308,21 +300,21 @@ Patch10:        binutils-testsuite-fixes.patch
 Patch11:        binutils-riscv-testsuite-fixes.patch
 
 # Purpose:  Fix the ar test of non-deterministic archives.
-# Lifetime: Fixed in 2.47
+# Lifetime: Fixed in 2.46
 Patch12:        binutils-fix-ar-test.patch
 
 # Purpose:  Fix a seg fault in the AArch64 linker when building u-boot.
-# Lifetime: Fixed in 2.47
+# Lifetime: Fixed in 2.46
 Patch13:        binutils-aarch64-small-plt0.patch
 
 %if %{with gold}
 
 # Purpose:  Make the GOLD linker ignore the "-z pack-relative-relocs" command line option.
-# Lifetime: Fixed in 2.47 (maybe)
+# Lifetime: Fixed in 2.46 (maybe)
 Patch14:        binutils-gold-pack-relative-relocs.patch
 
 # Purpose:  Let the gold linker ignore --error-execstack and --error-rwx-segments.
-# Lifetime: Fixed in 2.47 (maybe)
+# Lifetime: Fixed in 2.46 (maybe)
 Patch15:        binutils-gold-ignore-execstack-error.patch
 
 # Purpose:  Stop gold from aborting when input sections with the same name
@@ -342,19 +334,24 @@ Patch17:        binutils-gold-warn-unsupported.patch
 Patch18:        binutils-gold-i386-gnu-property-notes.patch
 
 # Purpose:  Stop an abort when using dwp to process a file with no dwo links.
-# Lifetime: Fixed in 2.47 (maybe)
+# Lifetime: Fixed in 2.46 (maybe)
 Patch19:        binutils-gold-empty-dwp.patch
+
+# Purpose:  Enable building the gold linker with the target is s390x-linux.
+# Lifetime: Fixed in 2.48 (maybe)
+Patch20:        binutils-gold-s390-configure.patch
+
 %endif
 
 # Purpose:  Fix ld testsuite failures when enable_textrel is set.
 # Lifetime: Permanent.
-Patch20:        binutils-ld-default-z-text.patch
+Patch21:        binutils-ld-default-z-text.patch
 
 #----------------------------------------------------------------------------
 
 # Purpose:  Remove the Build protected-func-2 without PIE linker tests
 #            as these are currently failing.
-# Lifetime: TEMPORARY - should be fixed by the 2.47 release.
+# Lifetime: TEMPORARY - should be fixed by the 2.46 release.
 Patch98:        binutils-remove-ld-protected-func-2-test.patch
 
 # Purpose:  Suppress the x86 linker's p_align-1 tests due to kernel bug on CentOS-10.
@@ -437,15 +434,6 @@ Requires(preun): %{_sbindir}/alternatives
 # We also need rm.
 Requires(post): coreutils
 
-# %%if %%{with gold}
-# # For now we make the binutils package require the gold sub-package.
-# # That way other packages that have a requirement on "binutils" but
-# # actually want gold will not have to be changed.  In the future, if
-# # we decide to deprecate gold, we can remove this requirement, and
-# # then update other packages as necessary.
-# Requires: binutils-gold >= %%{version}
-# %%endif
-
 # On ARM EABI systems, we do want -gnueabi to be part of the
 # target triple.
 %ifnarch %{arm}
@@ -508,7 +496,6 @@ using libelf instead of BFD.
 %package gold
 Summary: The GOLD linker, a faster alternative to the BFD linker
 # The GOLD linker is now deprecated as it is not being developed upstream.
-# For more details see: 
 Provides: deprecated()
 Requires: binutils >= %{version}
 
@@ -606,6 +593,7 @@ Requires: coreutils
 Requires: zlib-devel
 %endif
 BuildRequires: autoconf automake perl sed coreutils make gcc findutils gcc-c++
+BuildRequires:  oreon-rpm-macros
 ExcludeArch: x86_64-linux-gnu x86_64-redhat-linux i686-linux-gnu i686-redhat-linux
 
 %description -n cross-binutils-x86_64
@@ -617,9 +605,9 @@ use by developers.  It is NOT INTENDED FOR PRODUCTION use.
 #----------------------------------------------------------------------------
 
 %prep
+%oreon_sha256
 
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source2_hash}" = "none" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 $f" >&2; exit 1; }; h=$(sha256sum "$f" | cut -d' ' -f1); test "$h" = "%{source2_hash}" || { echo "oreon: Source2 hash mismatch" >&2; exit 1; }; }
+
 %if "%{gold_tarball}" != "none"
 
 %setup -q -n binutils-%{version} -a 0
@@ -633,9 +621,9 @@ mv ../%{gold_tarball}/elfcpp .
 %autopatch -p1 
 
 %elif "%{source}" == "snapshot"
-%autosetup -p1 -n binutils-with-gold-2.46-ba5838a98fb
+%autosetup -p1 -n binutils-with-gold-%{version}-%{commit_id}
 %elif "%{source}" == "official-release"
-%autosetup -p1 -n binutils-with-gold-%{version}
+%autosetup -p1 -n binutils-%{version}
 %elif "%{source}" == "even-pre-release"
 %autosetup -p1 -n binutils-with-gold-%{version}
 %elif "%{source}" == "odd-pre-release"
@@ -810,16 +798,12 @@ compute_global_configuration()
     CARGS="$CARGS --enable-textrel-check=error"
 %endif
 
-%if "%{source}" != "official-release"
-# Since non official release tarballs are created directly from development
-# sources they will have "development=true" set in the bfd/development.sh file.
-# This enables -Werror by default, which is a problem because there is a
-# known issue with the libiberty library:
+# The binutils build system enables -Werror by default, which is a problem
+# because there is a known issue with the libiberty library sources:
 #   libiberty/cp-demangle.c: In function 'd_demangle_callback.constprop':
 #   libiberty/cp-demangle.c:6794:1: error: stack usage might be unbounded [-Werror=stack-usage=]
-# So we explicitly disable werror for builds from these tarballs.
+# So we explicitly disable werror for builds.
     CARGS="$CARGS --enable-werror=no"
-%endif
 }
 
 # run_target_configuration()
@@ -844,11 +828,12 @@ run_target_configuration()
 
     %set_build_flags
 
-    # RHEL-121799: Builders may want to restrict the number of CPUs used by
+%if %{enable_lto}
     # the LTO compiler.  The normal way to do this is to set RPM_BUILD_NCPUS.
     # But this only affects the -j option passed to make.  By adding -flto=N
     # we can also restrict the number of threads used by the LTO compiler.
     export CFLAGS="$RPM_OPT_FLAGS -flto=$RPM_BUILD_NCPUS"
+%endif
 
 %ifarch %{power64}
     export CFLAGS="$CFLAGS -Wno-error"
@@ -882,12 +867,8 @@ run_target_configuration()
         #
         # Also enable the BPF target so that strip will work on BPF files.
         case $target in
-        s390*)
-            # Note - The s390-linux target is there so that the GOLD linker will
-            # build.  By default, if configured for just s390x-linux, the GOLD
-            # configure system will only include support for 64-bit targets, but
-            # the s390x gold backend uses both 32-bit and 64-bit templates.
-            TARGS="--enable-targets=s390-linux,s390x-linux,x86_64-pep,bpf-unknown-none"
+        s390x*)
+            TARGS="--enable-targets=s390x-linux,x86_64-pep,bpf-unknown-none"
             ;;
         ia64*)
             TARGS="--enable-targets=ia64-linux,x86_64-pep,bpf-unknown-none"
@@ -1073,7 +1054,6 @@ run_tests()
 %endif
 
 # Disable LTO on arm due to:
-# https://bugzilla.redhat.com/show_bug.cgi?id=1918924
 %ifarch %{arm}
 %define enable_lto 0
 %endif
@@ -1211,7 +1191,7 @@ install_binutils()
 #define BFD_HOST_64_BIT long long\
 #else\
 #define BFD_HOST_64_BIT long\
-# endif/' \
+#endif/' \
             -e 's/^#define BFD_HOST_U_64_BIT unsigned \(long \)\?long *$/#define BFD_HOST_U_64_BIT unsigned BFD_HOST_64_BIT/' \
             $local_incdir/bfd.h
 %endif
@@ -1319,7 +1299,7 @@ exit 0
 # Do not run "alternatives --auto ld" here.  Leave the setting to
 # however the user previously had it set.  See BZ 1592069 for more details.
 
-%ldconfig_post
+/sbin/ldconfig
 
 exit 0
 
@@ -1350,7 +1330,6 @@ exit 0
 
 #----------------------------------------------------------------------------
 
-%postun
 %ldconfig_postun
 
 #----------------------------------------------------------------------------
@@ -1510,6 +1489,3 @@ exit 0
 %endif
 
 #----------------------------------------------------------------------------
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.46-3
-- Import

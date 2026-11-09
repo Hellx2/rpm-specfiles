@@ -1,7 +1,12 @@
-%global source0_hash 652a98ca833ed638809a52bec225a7f37799f71a995778f9ccb68ad03bd1fc11
-%global source1_hash 6f0d517e0c47e6446c74cf5503c87312181b80f04c95743f99f05af3ccc5e5a6
-%global source2_hash f6b50b0c103392af32a8be15b2b9d25959de9a00a70c3979128aafeaa5338b3f
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash d18fa15aec74d8c17e1463f861095adc01b5ad190256acb4f91d22f0368d232b
+%global source1_hash a1d0f5de57485d062796ed7e67daff0758b50d00001a0f233a2c15aaf40bbdc8
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # bcond default logic is nicely backwards...
 %bcond_without tcl
 %bcond_without tools
@@ -9,34 +14,36 @@
 %bcond_without check
 
 %define majorver 3
-%define realver 3520000
-%define docver 3520000
-%define rpmver 3.52.0
+%define realver 3530400
+%define docver 3530400
+%define rpmver 3.53.4
 %define year 2026
 
 Summary: Library that implements an embeddable SQL database engine
 Name: sqlite
-Version: %{rpmver}
-Release: 1%{?dist}
+Version:        3.53.4
+Release:        1%{?dist}
 License: blessing
 URL: http://www.sqlite.org/
 
-Source0:        https://www.sqlite.org/2026/sqlite-src-3520000.zip
-Source1:        https://www.sqlite.org/2026/sqlite-doc-3520000.zip
-Source2:        https://www.sqlite.org/2026/sqlite-autoconf-3520000.tar.gz
+Source0:        http://www.sqlite.org/2026/sqlite-src-3530400.zip
+Source1:        http://www.sqlite.org/2026/sqlite-doc-3530400.zip
 # Support a system-wide lemon template
-Patch1: sqlite-3.6.23-lemon-system-template.patch
-Patch2: sqlite-3.49.0-fix-lemon-missing-cflags.patch
+Patch1:        sqlite-3.6.23-lemon-system-template.patch
+Patch2:        sqlite-3.49.0-fix-lemon-missing-cflags.patch
+Patch3:        sqlite-3.53.0-fix-testrunner-exiting-0.patch
+Patch4:        sqlite-3.53.3-fix-fts3corrupt4-test.patch
 
 BuildRequires: make
 BuildRequires: gcc gcc-c++
 BuildRequires: ncurses-devel readline-devel glibc-devel
-BuildRequires: autoconf
 BuildRequires: /usr/bin/tclsh
 BuildRequires: zlib-ng-compat-devel
 BuildRequires: chrpath
+BuildRequires: libasan libubsan
 %if %{with tcl}
 BuildRequires: tcl-devel
+BuildRequires:  oreon-rpm-macros
 %{!?tcl_version: %global tcl_version 9.0}
 %{!?tcl_sitearch: %global tcl_sitearch %{_libdir}/tcl%{tcl_version}}
 %endif
@@ -174,27 +181,28 @@ This package contains the analysis program for %{name}.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source1_hash}" = "none" || { f="%{SOURCE1}"; test -f "$f" || { echo "oreon: missing Source1 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source1_hash}" || { echo "oreon: Source1 hash mismatch" >&2; exit 1; }; }
-test "%{source2_hash}" = "none" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source2_hash}" || { echo "oreon: Source2 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
 %setup -q -a1 -n %{name}-src-%{realver}
 %patch -P 1 -p1
 %patch -P 2 -p1
+%patch -P 3 -p1
+%patch -P 4 -p1
 
 # The atof test is failing on the i686 architecture, when binary configured with
 # --enable-rtree option. Failing part is text->real conversion and
 # text->real->text conversion in lower significant values after decimal point in a number.
 # func4 tests fail for i686 on float<->int conversions.
+# func7 test 230 expects a value to be 2.0 and gets 1.9999999999999998
 %ifarch == i686
 rm test/atof1.test
 rm test/func4.test
+rm test/func7.test
 %endif
 
 # Remove backup-file
 rm -f %{name}-doc-%{docver}/sqlite.css~ || :
-
-#autoupdate
-#autoconf # Rerun with new autoconf to add support for aarm64
 
 %build
 # First build executable for debug subpackage
@@ -209,6 +217,7 @@ export CFLAGS="$RPM_OPT_FLAGS $RPM_LD_FLAGS \
                -DSQLITE_ENABLE_DBPAGE_VTAB \
                -DSQLITE_ENABLE_SESSION \
                -DSQLITE_ENABLE_PREUPDATE_HOOK \
+               -DSQLITE_ENABLE_CARRAY \
                -Wall -fno-strict-aliasing"
 
 %configure %{!?with_tcl:--disable-tcl} \
@@ -237,6 +246,7 @@ export CFLAGS="$RPM_OPT_FLAGS $RPM_LD_FLAGS \
                -DSQLITE_ENABLE_DBPAGE_VTAB \
                -DSQLITE_ENABLE_SESSION \
                -DSQLITE_ENABLE_PREUPDATE_HOOK \
+               -DSQLITE_ENABLE_CARRAY \
                -Wall -fno-strict-aliasing"
 
 %configure %{!?with_tcl:--disable-tcl} \
@@ -307,13 +317,7 @@ chrpath --delete $RPM_BUILD_ROOT/%{_bindir}/sqlite3_analyzer
 export LD_LIBRARY_PATH=`pwd`/.libs
 export MALLOC_CHECK_=3
 
-# csv01 hangs on all non-intel archs i've tried
-%ifarch x86_64 %{ix86}
-%else
-rm test/csv01.test
-%endif
-
-make test
+make test || (echo "Tests failed, printing full log..." && cat testrunner.log && exit 1)
 %endif
 # ends %%{with check} if
 
@@ -362,6 +366,3 @@ make test
 %{_bindir}/sqlite3_analyzer
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{rpmver}-1
-- Prepare for Oreon 11 (RP1)

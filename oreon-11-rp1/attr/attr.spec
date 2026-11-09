@@ -1,34 +1,39 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr B902B5271325F892AC251AD441633B9FE837F581
+%global source0_hash 6c8a2148a7b85043b68492bce43316b0e2e214fc4e628c7ede078e76e216330b
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: Utilities for managing filesystem extended attributes
 Name: attr
-Version: 2.6.0
-Release: 1%{?dist}
+Version:        2.6.0
+Release:        1%{?dist}
 Source0:        https://download.savannah.nongnu.org/releases/attr/attr-%{version}.tar.xz
-Source1:        https://download.savannah.nongnu.org/releases/attr/attr-%{version}.tar.xz.sig
+Source1:        attr-2.6.0.tar.xz.sig
 # Retreived from https://savannah.nongnu.org/people/viewgpg.php?user_id=15000
-# Source2: agruen-key.gpg
+Source2: agruen-key.gpg
 # Retrieved from https://savannah.nongnu.org/people/viewgpg.php?user_id=42032
-Source2: vapier-key.gpg
+# Source2: vapier-key.gpg
 
 # xattr.conf: remove entries for NFSv4 ACLs namespaces (#1031423)
 # https://lists.nongnu.org/archive/html/acl-devel/2019-03/msg00000.html
 # https://lists.nongnu.org/archive/html/acl-devel/2019-03/msg00001.html
 # https://lists.nongnu.org/archive/html/acl-devel/2019-05/msg00000.html
-Patch3:  0003-attr-2.4.48-xattr-conf-nfs4-acls.patch
+Patch3:        0003-attr-2.4.48-xattr-conf-nfs4-acls.patch
 
 License: GPL-2.0-or-later
 URL: https://savannah.nongnu.org/projects/attr
+BuildRequires: gcc
 BuildRequires: gettext
-BuildRequires: libtool
 BuildRequires: make
 BuildRequires: gnupg2
 Requires: libattr%{?_isa} = %{version}-%{release}
 
 # needed for %%check
 BuildRequires: perl(FileHandle)
+BuildRequires:  oreon-rpm-macros
 
 %description
 A set of tools for manipulating extended attributes on filesystem
@@ -72,8 +77,9 @@ which make use of extended attributes.  If you install libattr-devel,
 you'll also want to install attr.
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 # FIXME: root tests are not ready for SELinux
@@ -82,7 +88,6 @@ sed -e 's|test/root/getfattr.test||' \
 
 %build
 %configure
-%make_build -C po ka.gmo
 %make_build
 
 %check
@@ -101,9 +106,6 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/libattr.{l,}a
 
 # drop already installed documentation, we will use an RPM macro to install it
 rm -rf $RPM_BUILD_ROOT%{_docdir}/%{name}*
-
-# temporarily provide attr/xattr.h symlink until users are migrated (#1601482)
-ln -fs ../sys/xattr.h $RPM_BUILD_ROOT%{_includedir}/attr/xattr.h
 
 %find_lang %{name}
 
@@ -129,6 +131,3 @@ ln -fs ../sys/xattr.h $RPM_BUILD_ROOT%{_includedir}/attr/xattr.h
 %{_libdir}/libattr.so.*
 %config(noreplace) %{_sysconfdir}/xattr.conf
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.5.2-8
-- Prepare for Oreon 11 (RP1)

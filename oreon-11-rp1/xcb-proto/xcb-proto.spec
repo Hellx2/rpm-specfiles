@@ -1,20 +1,28 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 2c1bacd2110f4799f74de6ebb714b94cf6f80fb112316b1219480fd22562148c
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           xcb-proto
 Version:        1.17.0
-Release:        9%{?dist}
+Release:        1%{?dist}
 Summary:        XCB protocol descriptions
 
 License:        X11-distribute-modifications-variant
 URL:            https://xcb.freedesktop.org/
-Source0:        https://www.x.org/archive/individual/proto/%{name}-%{version}.tar.xz
+Source0:        https://xorg.freedesktop.org/archive/individual/proto/xcb-proto-%{version}.tar.xz
 
 BuildArch:      noarch
+%{!?python3_sitelib:%global python3_sitelib %(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))")}
 
 BuildRequires:  autoconf automake
 BuildRequires:  libxml2
 BuildRequires:  make
 BuildRequires:  python3-devel
+BuildRequires:  oreon-rpm-macros
 
 %description
 XCB is a project to enable efficient language bindings to the X11 protocol.
@@ -24,7 +32,8 @@ the protocol.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 autoreconf -fiv
 
@@ -53,6 +62,3 @@ autoreconf -fiv
 %{python3_sitelib}/xcbgen
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.17.0-9
-- Prepare for Oreon 11 (RP1)

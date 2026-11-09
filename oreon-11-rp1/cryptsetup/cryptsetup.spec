@@ -1,9 +1,15 @@
-%global source0_hash 443e46f8964c9acc780f455afbb8e23aa0e8ed7ec504cfc59e04f406fa1e8a83
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 3acfa685f2dd7fcc832e0b77bc7093aa7da554a51ce8dafbb4138eaa854eee35
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: Utility for setting up encrypted disks
 Name: cryptsetup
-Version: 2.8.8
-Release: %autorelease
+Version:        2.8.8
+Release:        1%{?dist}
 License: GPL-2.0-or-later WITH cryptsetup-OpenSSL-exception AND LGPL-2.1-or-later WITH cryptsetup-OpenSSL-exception
 URL: https://gitlab.com/cryptsetup/cryptsetup
 BuildRequires: autoconf, automake, libtool, gettext-devel,
@@ -12,13 +18,14 @@ BuildRequires: libuuid-devel, gcc, json-c-devel
 BuildRequires: libpwquality-devel, libblkid-devel
 BuildRequires: make libssh-devel
 BuildRequires: asciidoctor
+BuildRequires:  oreon-rpm-macros
 Requires: cryptsetup-libs = %{version}-%{release}
 Requires: libpwquality >= 1.2.0
 Obsoletes: %{name}-reencrypt <= %{version}
 Provides: %{name}-reencrypt = %{version}
 
 %global upstream_version %{version_no_tilde}
-Source0:        https://www.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-%{version_no_tilde}.tar.xz
+Source0:        https://www.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-%{version}.tar.xz
 
 %description
 The cryptsetup package contains a utility for setting up
@@ -63,7 +70,8 @@ The integritysetup package contains a utility for setting up
 disk integrity protection using dm-integrity kernel module.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n cryptsetup-%{upstream_version} -p 1
 
 %build
@@ -119,6 +127,3 @@ rm -rf %{buildroot}%{_libdir}/%{name}/*.la
 %{_mandir}/man8/cryptsetup-ssh.8.gz
 %{_sbindir}/cryptsetup-ssh
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.8.4-1
-- Prepare for Oreon 11 (RP1)

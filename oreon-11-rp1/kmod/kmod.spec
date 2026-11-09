@@ -1,27 +1,25 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 5a5d5073070cc7e0c7a7a3c6ec2a0e1780850c8b47b3e3892226b93ffcb9cb54
 
-# Fedora does not support CONFIG_MODVERSIONS. Without kabi support
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # weak-modules is useless at best, and can be actively harmful.
-# Since RHEL *does* support this and offers kabi support,
 # turn it on there by default.
-%if 0%{?rhel}
-%bcond_without weak_modules
-%bcond_without dist_conf
-%else
 %bcond_with weak_modules
 %bcond_with dist_conf
-%endif
 
 %bcond_without zlib
 %bcond_without xz
 %bcond_without zstd
 
 Name:		kmod
-Version:	34.2
-Release:	4%{?dist}
+Version:        34.2
+Release:        1%{?dist}
 Summary:	Linux kernel module management utilities
 
-# https://docs.fedoraproject.org/en-US/legal/license-field/#_no_effective_license_analysis
 # GPL-2.0-or-later:
 #   build-aux/compile
 #   build-aux/depcomp
@@ -66,7 +64,7 @@ Summary:	Linux kernel module management utilities
 #   build-aux/install-sh
 License:	GPL-2.0-or-later AND GPL-3.0-or-later AND FSFUL AND FSFULLRWD AND LGPL-2.1-only AND LGPL-2.1-or-later AND X11
 URL:		https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
-Source0:        https://www.kernel.org/pub/linux/utils/kernel/kmod/%{name}-%{version}.tar.xz
+Source0:        https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-%{version}.tar.xz
 Source1:	weak-modules
 Source2:	depmod.conf.dist
 Exclusiveos:	Linux
@@ -84,6 +82,7 @@ BuildRequires:  openssl-devel
 BuildRequires:  make automake libtool
 %if %{with zstd}
 BuildRequires:  libzstd-devel
+BuildRequires:  oreon-rpm-macros
 %endif
 
 Provides:	module-init-tools = 4.0-1
@@ -124,7 +123,8 @@ The kmod-devel package provides header files used for development of
 applications that wish to load or unload Linux kernel modules.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -201,6 +201,3 @@ install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{_sysconfdir}/depmod.d/dist.conf
 %{_libdir}/pkgconfig/libkmod.pc
 %{_libdir}/libkmod.so
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 34.2-4
-- Prepare for Oreon 11 (RP1)

@@ -1,5 +1,11 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash c268cfcd230cc7ed5447fb34ed21bf4977315c7104356a39388b6ba784ad11b0
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           fastfetch
 Version:        2.68.1
 Release:        1%{?dist}
@@ -7,12 +13,11 @@ Summary:        Fast neofetch-like system information tool
 
 License:        MIT
 URL:            https://github.com/fastfetch-cli/fastfetch
-Source0:        %{url}/archive/%{version}/%{name}-%{version}.tar.gz
+Source0:        https://github.com/fastfetch-cli/fastfetch/archive/%{version}/fastfetch-%{version}.tar.gz
 
 BuildRequires:  cmake
 BuildRequires:  python3
 BuildRequires:  gcc
-BuildRequires:  gcc-c++
 BuildRequires:  hwdata-devel
 BuildRequires:  wayland-devel
 BuildRequires:  libXrandr-devel
@@ -34,15 +39,14 @@ BuildRequires:  elfutils-libelf-devel
 BuildRequires:  libddcutil-devel
 %endif
 # vulkan-loader not available in el8 on some arches
-%if 0%{?rhel} == 8
-  %if "%{_arch}" != "s390x" && "%{_arch}" != "ppc64le"
 BuildRequires:  vulkan-loader-devel
-  %endif
-%else
-BuildRequires:  vulkan-loader-devel
-%endif
 BuildRequires:  chafa-devel
 BuildRequires:  yyjson-devel
+BuildRequires:  efl-devel
+BuildRequires:  libva-devel
+BuildRequires:  libvdpau-devel
+BuildRequires:  lua-devel
+BuildRequires:  oreon-rpm-macros
 
 Recommends:     hwdata
 Suggests:       libXrandr
@@ -79,20 +83,25 @@ displaying them in a pretty way. It is written in c to achieve much better
 performance, in return only Linux and Android are supported. It also uses
 mechanisms like multithreading and caching to finish as fast as possible.
 
+
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
 
 %autosetup -p1
+
 
 %build
 %cmake -DBUILD_TESTS=ON -DENABLE_SYSTEM_YYJSON=ON -DBUILD_FLASHFETCH=OFF
 %cmake_build
 
+
 %check
 %ctest
 
+
 %install
 %cmake_install
+
 
 %files
 %license LICENSE
@@ -104,5 +113,4 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 %{_datadir}/zsh/site-functions/_%{name}
 
-%changelog
-%autochangelog
+

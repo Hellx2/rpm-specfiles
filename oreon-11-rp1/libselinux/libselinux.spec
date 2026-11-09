@@ -1,36 +1,43 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 63191CE94183098689CAB8DB7EF137EC935B0EAF
+%global source0_hash 73d419c6e20e874adaa4019372cbd097eecf4d276e13f27ec5e67d35c0bd203c
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %define ruby_inc %(pkg-config --cflags ruby)
 %define libsepolver 3.11-1
 
 Summary: SELinux library and simple utilities
 Name: libselinux
-Version: 3.11
-Release: 1%{?dist}
-License: LicenseRef-Fedora-Public-Domain
+Version:        3.11
+Release:        1%{?dist}
+License: LicenseRef-Oreon-Public-Domain
 # https://github.com/SELinuxProject/selinux/wiki/Releases
 Source0:        https://github.com/SELinuxProject/selinux/releases/download/%{version}/libselinux-%{version}.tar.gz
-Source1:        https://github.com/SELinuxProject/selinux/releases/download/%{version}/libselinux-%{version}.tar.gz.asc
-Source2:        https://github.com/perfinion.gpg
+Source1:        libselinux-3.11.tar.gz.asc
+Source2:        bachradsusi.gpg
 Source3: selinuxconlist.8
 Source4: selinuxdefcon.8
 
 Url: https://github.com/SELinuxProject/selinux/wiki
-# $ git clone https://github.com/fedora-selinux/selinux.git
 # $ cd selinux
 # $ git format-patch -N 3.11 -- libselinux
 # $ i=1; for j in 00*patch; do printf "Patch%04d: %s\n" $i $j; i=$((i+1));done
 # Patch list start
-Patch0001: 0001-Use-SHA-2-instead-of-SHA-1.patch
+Patch0001:        0001-Use-SHA-2-instead-of-SHA-1.patch
+Patch0002:        0002-libselinux-Replace-PyString_FromString-with-PyUnicod.patch
+Patch0003:        0003-libselinux-restorecon_xattr-reset-dir_xattr_list-on-.patch
+Patch0004:        0004-Add-support-for-UTF-8-in-file-context-specifications.patch
 # Patch list end
 BuildRequires: gcc make
 BuildRequires: ruby-devel ruby libsepol-static >= %{libsepolver} swig pcre2-devel
-BuildRequires: python3 python3-devel python3-setuptools python3-pip
+BuildRequires: python3 python3-devel python3-setuptools python3-pip python3-build
 BuildRequires: (python3-wheel if python3-setuptools < 71)
 BuildRequires: systemd
 BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 Requires: libsepol%{?_isa} >= %{libsepolver} pcre2
 Conflicts: filesystem < 3, selinux-policy-base < 3.13.1-138
 
@@ -96,8 +103,9 @@ The libselinux-static package contains the static libraries
 needed for developing SELinux applications. 
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p 2 -n libselinux-%{version}
 
 %build
@@ -225,6 +233,3 @@ rm -f %{buildroot}%{_mandir}/man8/togglesebool*
 %files ruby
 %{ruby_vendorarchdir}/selinux.so
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.10-1
-- Prepare for Oreon 11 (RP1)

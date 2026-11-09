@@ -1,15 +1,21 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 599ebf9996710fea71622e6e184f3a8ad5b43d0e5fa8c4e407123c88a59a6d55
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Name:       libxcb
-Version:    1.17.0
-Release:    7%{?dist}
+Version:        1.17.0
+Release:        1%{?dist}
 Summary:    A C binding to the X11 protocol
 License:    X11
 URL:        http://xcb.freedesktop.org/
 
-Source0:        http://xcb.freedesktop.org/dist/%{name}-%{version}.tar.xz
+Source0:        http://xcb.freedesktop.org/dist/libxcb-%{version}.tar.xz
 
 # This is stolen straight from the pthread-stubs source:
 # http://cgit.freedesktop.org/xcb/pthread-stubs/blob/?id=6900598192bacf5fd9a34619b11328f746a5956d
@@ -27,6 +33,7 @@ BuildRequires:  pkgconfig(xau) >= 0.99.2
 BuildRequires:  pkgconfig(xcb-proto) >= 1.16
 BuildRequires:  pkgconfig(xorg-macros) >= 1.18
 BuildRequires:  python3 python3-devel
+BuildRequires:  oreon-rpm-macros
 
 %description
 The X protocol C-language Binding (XCB) is a replacement for Xlib featuring a
@@ -49,7 +56,8 @@ BuildArch:  noarch
 The %{name}-doc package contains documentation for the %{name} library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -121,6 +129,3 @@ rm -f %{buildroot}%{_pkgdocdir}/COPYING
 %license COPYING
 %{_pkgdocdir}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.17.0-7
-- Prepare for Oreon 11 (RP1)

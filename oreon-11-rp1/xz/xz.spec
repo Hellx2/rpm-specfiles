@@ -1,27 +1,29 @@
-%global source0_hash ce09c50a5962786b83e5da389c90dd2c15ecd0980a258dd01f70f9e7ce58a8f1
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-# Not needed for f21+ and probably RHEL8+
+%global source0_hash 3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0
+%global source2_hash 7b44485541eefe7cecb8bcf30682904bb6c3d70aae21bbfffc5fca742cb6f56f
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %{!?_licensedir:%global license %%doc}
 
 Summary:	LZMA compression utilities
 Name:		xz
 Epoch:		1
-Version:	5.8.4
-Release:	1%{?dist}
+Version:        5.8.3
+Release:        1%{?dist}
 
 # liblzma - 0BSD
 # xz{,dec}, lzma{dec,info} - 0BSD
-#    - getopt_long - LGPL-2.1-or-later - not built in Fedora
 # xz{grep,diff,less,more} - GPL-2.0-or-later
-# docs - BSD0 AND LicenseRef-Fedora-Public-Domain
-# man pages and translations - 0BSD AND LicenseRef-Fedora-Public-Domain
-# See: https://gitlab.com/fedora/legal/fedora-license-data/-/issues/547
-License:	0BSD AND GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
+License:	0BSD AND GPL-2.0-or-later AND LicenseRef-Oreon-Public-Domain
 
 # official upstream release
-Source0:        https://github.com/tukaani-project/%{name}/releases/download/v%{version}/%{name}-%{version}.tar.gz
-Source1:        https://github.com/tukaani-project/%{name}/releases/download/v%{version}/%{name}-%{version}.tar.gz.sig
-Source2:	https://tukaani.org/misc/lasse_collin_pubkey.txt
+Source0:        https://github.com/tukaani-project/xz/releases/download/v%{version}/xz-%{version}.tar.gz
+Source1:        xz-5.8.3.tar.gz.sig
+Source2:        https://tukaani.org/misc/lasse_collin_pubkey.txt
 
 Source100:	colorxzgrep.sh
 Source101:	colorxzgrep.csh
@@ -39,6 +41,7 @@ BuildRequires:	gcc
 BuildRequires:	gnupg2
 BuildRequires:	perl-interpreter
 BuildRequires:	autoconf automake libtool gettext-devel
+BuildRequires:  oreon-rpm-macros
 
 
 %description
@@ -82,7 +85,7 @@ Devel libraries and headers for liblzma.
 %package 	lzma-compat
 Summary:	Older LZMA format compatibility binaries
 # Just a set of symlinks to some files in the 'xz' package.
-License:	0BSD AND GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
+License:	0BSD AND GPL-2.0-or-later AND LicenseRef-Oreon-Public-Domain
 Requires:	%{name}%{?_isa} = %{epoch}:%{version}-%{release}
 Obsoletes:	lzma < %{version}
 Provides:	lzma = %{version}
@@ -93,8 +96,10 @@ commands that deal with the older LZMA format.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 autoreconf -fi
 
@@ -139,6 +144,7 @@ LD_LIBRARY_PATH=$PWD/src/liblzma/.libs make check
 %exclude %_pkgdocdir/examples*
 %{_bindir}/*xz*
 %{_mandir}/man1/*xz*
+%lang(ar) %{_mandir}/ar/man1/*xz*
 %lang(de) %{_mandir}/de/man1/*xz*
 %lang(fr) %{_mandir}/fr/man1/*xz*
 %lang(it) %{_mandir}/it/man1/*xz*
@@ -173,6 +179,7 @@ LD_LIBRARY_PATH=$PWD/src/liblzma/.libs make check
 %files lzma-compat
 %{_bindir}/*lz*
 %{_mandir}/man1/*lz*
+%lang(ar) %{_mandir}/ar/man1/*lz*
 %lang(de) %{_mandir}/de/man1/*lz*
 %lang(fr) %{_mandir}/fr/man1/*lz*
 %lang(it) %{_mandir}/it/man1/*lz*
@@ -184,6 +191,3 @@ LD_LIBRARY_PATH=$PWD/src/liblzma/.libs make check
 %lang(uk) %{_mandir}/uk/man1/*lz*
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 5.8.2-2
-- Prepare for Oreon 11 (RP1)

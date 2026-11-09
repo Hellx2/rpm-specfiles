@@ -1,52 +1,48 @@
-%global source0_hash af9ec878f831b7c27d33e775c668ec79d569aa781861c995a0fbadc1bdb666cf
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-Name: htop
-Version: 3.5.3
-Release: %autorelease
-Summary: Interactive process viewer
-License: GPL-2.0-or-later
-URL: https://htop.dev/
-Source0: https://github.com/htop-dev/htop/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+%global source0_hash a8b164386494cb85bb255a415a3f5f80afe7a0c4491da5d113b3a0f951087e65
 
-BuildRequires: desktop-file-utils
-BuildRequires: ncurses-devel
-%if 0%{?rhel} == 8
-BuildRequires: platform-python
-BuildRequires: /usr/bin/pathfix.py
-%else
-BuildRequires: python
-%endif
-BuildRequires: libtool
-BuildRequires: make
-BuildRequires: lm_sensors-devel
-BuildRequires: hwloc-devel
-BuildRequires: libcap-devel
-BuildRequires: libnl3-devel
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+Name:           htop
+Version:        3.5.3
+Release:        1%{?dist}
+Summary:        Interactive process viewer
+License:        GPL-2.0-or-later
+URL:            https://htop.dev/
+Source0:        https://github.com/htop-dev/htop/releases/download/%{version}/htop-%{version}.tar.xz
+
+BuildRequires:  desktop-file-utils
+BuildRequires:  gcc
+BuildRequires:  hwloc-devel
+BuildRequires:  libcap-devel
+BuildRequires:  libnl3-devel
+BuildRequires:  libtool
+BuildRequires:  lm_sensors-devel
+BuildRequires:  make
+BuildRequires:  ncurses-devel
+BuildRequires:  oreon-rpm-macros
 
 %description
 htop is an interactive text-mode process viewer for Linux, similar to
 top(1).
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
 
 %autosetup -p1
-
-%if 0%{?rhel} == 8
-pathfix.py -pni "/usr/libexec/platform-python" scripts/
-%endif
 
 %build
 autoreconf -vfi
 
 %configure \
-	--enable-openvz \
-	--enable-vserver \
-	--enable-hwloc \
-	--enable-unicode \
-	--enable-sensors \
-	--enable-delayacct \
-	--enable-capabilities
+    --enable-capabilities \
+    --enable-delayacct \
+    --enable-hwloc \
+    --enable-sensors \
+    --enable-unicode
 
 %make_build
 
@@ -55,8 +51,10 @@ autoreconf -vfi
 
 desktop-file-validate %{buildroot}/%{_datadir}/applications/%{name}.desktop
 
+%check
+
 %files
-%doc AUTHORS ChangeLog README
+%doc AUTHORS ChangeLog README.md
 %license COPYING
 %{_bindir}/htop
 %{_datadir}/pixmaps/htop.png
@@ -64,5 +62,3 @@ desktop-file-validate %{buildroot}/%{_datadir}/applications/%{name}.desktop
 %{_datadir}/applications/%{name}.desktop
 %{_mandir}/man1/htop.1*
 
-%changelog
-%autochangelog

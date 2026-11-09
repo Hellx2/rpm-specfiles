@@ -1,5 +1,12 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 2a5cfc5ae259e4e97f86b68dfffc152cdaffe94e2060b770cb827238d769fc05
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 %undefine	_changelog_trimtime
 
 %global git_snapshot 0
@@ -23,17 +30,17 @@
 #%%global	betaver	rc4
 #%%define	prerelease	1
 
-%global	baserelease	4
+%global	baserelease	5
 
 Name:		oniguruma
-Version:	%{mainver}%{?postver:.%postver}%{?gitversion:^%{?gitversion}}
-Release:	%{?prerelease:0.}%{baserelease}%{?dist}
+Version:        6.9.10
+Release:        1%{?dist}
 Summary:	Regular expressions library
 
 # SPDX confirmed
 License:	BSD-2-Clause
 URL:		https://github.com/kkos/oniguruma/
-Source0:        https://github.com/kkos/oniguruma/releases/download/v6.9.10%{?betaver:_%betaver}/onig-6.9.10%{?postver:.%postver}%{?betaver:-%betaver}%{?gitversion:-%{?gitversion}}.tar.gz
+Source0:        https://github.com/kkos/oniguruma/releases/download/v%{version}/onig-%{version}.tar.gz
 Source1:	create-tarball-from-git.sh
 
 BuildRequires:	make
@@ -41,6 +48,7 @@ BuildRequires:	gcc
 %if 0%{?git_snapshot}
 BuildRequires:  automake
 BuildRequires:  libtool
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description
@@ -60,7 +68,8 @@ developing applications that use %{name}.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n onig-%{mainver}%{?gitversion:-%{?gitversion}}
 %{__sed} -i.multilib -e 's|-L@libdir@||' onig-config.in
 
@@ -125,6 +134,3 @@ autoreconf -fi
 %{_includedir}/onig*.h
 %{_libdir}/pkgconfig/%{name}.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{mainver}%{?postver:.%postver}%{?gitversion:^%{?gitversion}}-1
-- Prepare for Oreon 11 (RP1)

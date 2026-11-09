@@ -1,30 +1,41 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash fc2c2ff4f03bf1a110f6ba2cadb874f51a7c0ce4fa0261d2bbe3371548ddbc88
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           python-systemd
 Version:        236
-Release:        %autorelease
+Release:        1%{?dist}
 Summary:        Python module wrapping libsystemd functionality
 
 License:        LGPL-2.1-or-later
 URL:            https://github.com/systemd/python-systemd
-Source0:        https://github.com/systemd/python-systemd/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
+Source0:        https://github.com/systemd/python-systemd/archive/v%{version}.tar.gz#/python-systemd-%{version}.tar.gz
 
-Patch:          https://github.com/systemd/python-systemd/pull/140.patch
-
-BuildRequires:  make
+BuildRequires:  meson
 BuildRequires:  gcc
 BuildRequires:  systemd-devel
 BuildRequires:  python3-devel
-BuildRequires:  python3-setuptools
-BuildRequires:  python3-sphinx
 BuildRequires:  web-assets-devel
-BuildRequires:  python3-pytest
+BuildRequires:  oreon-rpm-macros
 
 %global _description %{expand:
 Python module for native access to the libsystemd facilities. Functionality
 includes sending of structured messages to the journal and reading journal
 files, querying machine and boot identifiers and a lists of message identifiers
 provided by systemd. Other functionality provided the library is also wrapped.}
+
+# generated BuildRequires, refresh with: orbscli plan bake
+BuildRequires: (python3dist(tomli) if python3-devel < 3.11)
+BuildRequires: pyproject-rpm-macros
+BuildRequires: python3dist(meson-python)
+BuildRequires: python3dist(packaging)
+BuildRequires: python3dist(pip) >= 19
+BuildRequires: python3dist(pytest)
+BuildRequires: python3dist(sphinx)
 
 %description %_description
 
@@ -46,38 +57,32 @@ Requires:       js-jquery
 %{summary}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
-sed -i 's/py\.test/pytest/' Makefile
+# do not test coverage
+sed -i -e 's/"pytest-cov"//' pyproject.toml
 
 %build
-make PYTHON=%{__python3} build
-make PYTHON=%{__python3} SPHINX_BUILD=sphinx-build-3 sphinx-html
-rm -r build/html/.buildinfo build/html/.doctrees
+%pyproject_wheel -Csetup-args="-Ddocs=true"
 
 %install
-%make_install PYTHON=%{__python3}
+%pyproject_install
+%pyproject_save_files -L systemd
+
 mkdir -p %{buildroot}%{_pkgdocdir}
-cp -rv build/html %{buildroot}%{_pkgdocdir}/
-ln -vsf %{_jsdir}/jquery/latest/jquery.min.js %{buildroot}%{_pkgdocdir}/html/_static/jquery.js
+mv %{buildroot}/usr/doc/python-systemd/html %{buildroot}%{_pkgdocdir}/
+ln -vsf --relative %{_jsdir}/jquery/latest/jquery.min.js %{buildroot}%{_pkgdocdir}/html/_static/jquery.js
 cp -p README.md NEWS %{buildroot}%{_pkgdocdir}/
 
 %check
-# if the socket is not there, skip doc tests
-test -f /run/systemd/journal/stdout || \
-     sed -i 's/--doctest[^ ]*//g' pytest.ini
-make PYTHON=%{__python3} check
+%pytest -v %{buildroot}%{python3_sitearch}/systemd/test/
 
-%files -n python3-systemd
+%files -n python3-systemd -f %{pyproject_files}
 %license LICENSE.txt
 %doc %{_pkgdocdir}
 %exclude %{_pkgdocdir}/html
-%{python3_sitearch}/systemd/
-%{python3_sitearch}/systemd_python*.egg-info
 
 %files doc
 %doc %{_pkgdocdir}/html
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 235-1
-- Import

@@ -1,8 +1,15 @@
-%global source0_hash 340be509137103677ea30798d6ffe64a991148dae333b79a5bc0744e219fde2f
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash d170d0265e1e5030c574c8613a1fecc047413282b94c2bc4cf2e99477d82ee93
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 Name: rdma-core
-Version: 65.0
-Release: %autorelease
+Version:        64.0
+Release:        1%{?dist}
 Summary: RDMA core userspace libraries and daemons
 
 # Almost everything is licensed under the OFA dual GPLv2, 2 Clause BSD license
@@ -11,9 +18,10 @@ Summary: RDMA core userspace libraries and daemons
 #  providers/hfi1verbs Uses the 3 Clause BSD license
 License: GPL-2.0-only OR BSD-2-Clause AND BSD-3-Clause
 Url: https://github.com/linux-rdma/rdma-core
-Source:        https://github.com/linux-rdma/rdma-core/releases/download/v%{version}/%{name}-%{version}.tar.gz
-Patch9998: 9998-kernel-boot-Do-not-perform-device-rename-on-OPA-devi.patch
-Patch9999: 9999-udev-keep-NAME_KERNEL-as-default-interface-naming-co.patch
+Source0:        https://github.com/linux-rdma/rdma-core/releases/download/v%{version}/rdma-core-%{version}.tar.gz
+Patch0001:        0001-Revert-dracut-do-not-install-dracut-module-in-non-ho.patch
+Patch9998:        9998-kernel-boot-Do-not-perform-device-rename-on-OPA-devi.patch
+Patch9999:        9999-udev-keep-NAME_KERNEL-as-default-interface-naming-co.patch
 # Do not build static libs by default.
 %define with_static %{?_with_static: 1} %{?!_with_static: 0}
 
@@ -33,35 +41,20 @@ BuildRequires: valgrind-devel
 %endif
 BuildRequires: systemd
 BuildRequires: systemd-devel
-%if 0%{?fedora} >= 32 || 0%{?rhel} >= 8 || (0%{?oreon} >= 11)
 %define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: %{?!_without_pyverbs: 1} %{?_without_pyverbs: 0}}
-%else
-%define with_pyverbs %{?_with_pyverbs: 1} %{?!_with_pyverbs: 0}
-%endif
 %if %{with_pyverbs}
 BuildRequires: python3-devel
 BuildRequires: python3-Cython
 %else
-%if 0%{?rhel} >= 8 || 0%{?fedora} >= 30 || (0%{?oreon} >= 11)
 BuildRequires: python3
-%else
-BuildRequires: python
-%endif
 %endif
 
-%if 0%{?rhel} >= 8 || 0%{?fedora} >= 30 || %{with_pyverbs} || (0%{?oreon} >= 11)
 BuildRequires: python3-docutils
-%else
-BuildRequires: python-docutils
-%endif
 
-%if 0%{?fedora} >= 21 || 0%{?rhel} >= 8 || (0%{?oreon} >= 11)
 BuildRequires: perl-generators
-%endif
 
 Requires: %{name}-common = %{version}-%{release}
 Requires: pciutils
-# Red Hat/Fedora previously shipped redhat/ as a stand-alone
 # package called 'rdma', which we're supplanting here.
 Provides: rdma = %{version}-%{release}
 Obsoletes: rdma < %{version}-%{release}
@@ -69,33 +62,17 @@ Conflicts: infiniband-diags <= 1.6.7
 
 # Since we recommend developers use Ninja, so should packagers, for consistency.
 %define CMAKE_FLAGS %{nil}
-%if 0%{?fedora} >= 23 || 0%{?rhel} >= 8 || (0%{?oreon} >= 11)
 # Ninja was introduced in FC23
 BuildRequires: ninja-build
 %define CMAKE_FLAGS -GNinja
-%if 0%{?fedora} >= 33 || 0%{?rhel} >= 9 || (0%{?oreon} >= 11)
 %define make_jobs ninja-build -C %{_vpath_builddir} -v %{?_smp_mflags}
 %define cmake_install DESTDIR=%{buildroot} ninja-build -C %{_vpath_builddir} install
-%else
-%define make_jobs ninja-build -v %{?_smp_mflags}
-%define cmake_install DESTDIR=%{buildroot} ninja-build install
-%endif
-%else
-# Fallback to make otherwise
-BuildRequires: make
-%define make_jobs make VERBOSE=1 %{?_smp_mflags}
-%define cmake_install DESTDIR=%{buildroot} make install
-%endif
 
-%if 0%{?fedora} >= 25 || 0%{?rhel} == 8 || (0%{?oreon} >= 11)
 # pandoc was introduced in FC25, Centos8
 BuildRequires: pandoc
-%endif
 
-%if 0%{?fedora} >= 34 || (0%{?oreon} >= 11)
 # self obsoletes to remove i686 multilib package when updating to F34
 Obsoletes: rdma-core < %{version}-%{release}
-%endif
 
 %description
 RDMA core userspace infrastructure and documentation, including initialization
@@ -134,6 +111,7 @@ Obsoletes: libibmad-devel < %{version}-%{release}
 # pkg-config breaks.
 BuildRequires: pkgconfig(libnl-3.0)
 BuildRequires: pkgconfig(libnl-route-3.0)
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description devel
@@ -186,9 +164,7 @@ Provides: libocrdma = %{version}-%{release}
 Obsoletes: libocrdma < %{version}-%{release}
 Provides: librxe = %{version}-%{release}
 Obsoletes: librxe < %{version}-%{release}
-%if 0%{?fedora} >= 34 || (0%{?oreon} >= 11)
 Obsoletes: libibverbs-core < %{version}-%{release}
-%endif
 
 %description -n libibverbs
 libibverbs is a library that allows userspace processes to use RDMA
@@ -304,14 +280,11 @@ easy, object-oriented access to IB verbs.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
-%if 0%{?fedora} || (0%{?oreon} >= 11)
+%patch 0001 -p1
 %patch 9998 -p1
-%endif
-%if 0%{?rhel} || (0%{?oreon} >= 11)
-%patch 9999 -p1
-%endif
 
 %build
 
@@ -363,7 +336,6 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 
 mkdir -p %{buildroot}/%{_sysconfdir}/rdma
 
-# Red Hat specific glue
 %global dracutlibdir %{_prefix}/lib/dracut
 %global sysmodprobedir %{_prefix}/lib/modprobe.d
 mkdir -p %{buildroot}%{_libexecdir}
@@ -491,6 +463,7 @@ fi
 %{_mandir}/man3/efadv*
 %{_mandir}/man3/hnsdv*
 %{_mandir}/man3/ibv_*
+%{_mandir}/man3/ionic_dv*
 %{_mandir}/man3/rdma*
 %{_mandir}/man3/umad*
 %{_mandir}/man3/*_to_ibv_rate.*
@@ -500,6 +473,7 @@ fi
 %{_mandir}/man3/mlx4dv*
 %{_mandir}/man7/efadv*
 %{_mandir}/man7/hnsdv*
+%{_mandir}/man7/ionicdv*
 %{_mandir}/man7/manadv*
 %{_mandir}/man7/mlx5dv*
 %{_mandir}/man7/mlx4dv*
@@ -628,6 +602,7 @@ fi
 %{_libdir}/libmlx4.so.*
 %config(noreplace) %{_sysconfdir}/libibverbs.d/*.driver
 %doc %{_pkgdocdir}/libibverbs.md
+%{_sysusersdir}/rdma.conf
 
 %files -n libibverbs-utils
 %{_bindir}/ibv_*
@@ -718,6 +693,3 @@ fi
 %{_pkgdocdir}/tests/*.py
 %endif
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 61.0-1
-- Import

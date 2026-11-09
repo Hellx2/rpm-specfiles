@@ -1,26 +1,29 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-Name: ed
-Version: 1.22.6
-Release: %autorelease
+%global source0_hash 3f33b22135219c39c3c695f7b7171c2567d3e2a17c798c0a90607320cbb268f2
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: The GNU line editor
+Name: ed
+Version:        1.22.6
+Release:        1%{?dist}
 
 # The entire source is GPLv2 except doc/ed.info and doc/ed.texi, which are GFDL
 License: GPL-2.0-only AND GFDL-1.3-no-invariants-or-later
 URL:     https://www.gnu.org/software/ed/
-Source0:        https://mirrors.kernel.org/gnu/ed/%{name}-%{version}.tar.lz
-Source1:        https://mirrors.kernel.org/gnu/ed/%{name}-%{version}.tar.lz.sig
-Source2: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x25B62C9821501AA0#./antoniodiazdiaz-keyring-2026.asc
+Source0:        https://mirror.cs.odu.edu/gnu/ed/ed-%{version}.tar.lz
+Source1:        ed-1.22.6.tar.lz.sig
+Source2:        antoniodiazdiaz-keyring-2026.asc
 
 BuildRequires: gcc
 BuildRequires: make
-%if 0%{?rhel} || (0%{?oreon} >= 11)
-BuildRequires: bsdtar
-%else
 BuildRequires: lzip
-%endif
 # for gpg verification
 BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 
 %description
 ed is a line-oriented text editor, used to create, display, and modify text
@@ -28,16 +31,11 @@ files (both interactively and via shell scripts). For most purposes, ed has been
 replaced in normal usage by full-screen editors (emacs and vi, for example).
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
 
-%if 0%{?rhel} || (0%{?oreon} >= 11)
-# no lzip in RHEL; bsdtar can handle it but not from within %%setup.
-%setup -q -c -T
-bsdtar -xf %{SOURCE0} -C %{_builddir}
-%else
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
+
 %autosetup
-%endif
 
 %build
 %set_build_flags
@@ -72,6 +70,3 @@ rm -vrf %{buildroot}%{_infodir}/dir
 %{_mandir}/man1/red.1*
 %{_infodir}/ed.info*
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.22.5-1
-- Import

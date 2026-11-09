@@ -1,23 +1,27 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 0591f9fa0339f0d15e75326d0365871c2d4e2ed8aa1ff759b3a55d3734b7d197
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name: lm_sensors
-Version: 3-6-2
-Release: 1%{?dist}
+Version:        3.6.0
+Release:        1%{?dist}
 Summary: Hardware monitoring tools
 
 %define upstream_version %(echo %{version} | sed -e 's/\\./-/g')
 
 # Some man pages are licensed Linux-man-pages-copyleft-var and Linux-man-pages-copyleft (lib/sensors.conf.5,
 # prog/sensors/sensors.1). Files from dist-git are licensed
-# MIT (according to the Fedora Project Contributor Agreement
-# https://docs.fedoraproject.org/en-US/legal/fedora-linux-license/).
 # lib/* are LGPL-2.1-or-later (in subpackage)
 # The rest is GPL-2.0-or-later.
 License: GPL-2.0-or-later AND Linux-man-pages-copyleft-var AND Linux-man-pages-copyleft AND MIT
 
 URL: http://github.com/lm-sensors/lm-sensors/
 
-Source0:        https://github.com/lm-sensors/lm-sensors/archive/refs/tags/V%{upstream_version}.tar.gz#/lm-sensors-%{upstream_version}.tar.gz
+Source0:        https://github.com/lm-sensors/lm-sensors/archive/V3-6-0/lm-sensors-3-6-0.tar.gz
 Source1: lm_sensors.sysconfig
 # This one was taken from PLD-linux, Thanks!
 Source2: sensord.sysconfig
@@ -29,15 +33,15 @@ Source7: lm_sensors.service
 Source8: lm_sensors-wrapper
 
 # Downstream-only:
-Patch0: 0001-Revert-unnecessary-soname-bump.patch
+Patch0:        0001-Revert-unnecessary-soname-bump.patch
 
 # Upstream patch:
-Patch1: 0001-Change-PIDFile-path-from-var-run-to-run.patch
-Patch2: lm_sensors-3.6.0-allow_no_sensors.patch
+Patch1:        0001-Change-PIDFile-path-from-var-run-to-run.patch
+Patch2:        lm_sensors-3.6.0-allow_no_sensors.patch
 # Upstream commit 5deee7d0c301df779:
-Patch3: lm_sensors-3.6.0-sensors-detect-Add-support-for-AMD-CPU-Family-19h.patch
+Patch3:        lm_sensors-3.6.0-sensors-detect-Add-support-for-AMD-CPU-Family-19h.patch
 # rrdtool has constified all argv
-Patch4: lm_sensors-3.6.0-rrd-const-argv.patch
+Patch4:        lm_sensors-3.6.0-rrd-const-argv.patch
 
 Requires: /usr/sbin/modprobe
 %ifarch %{ix86} x86_64
@@ -50,6 +54,7 @@ BuildRequires: perl-generators
 BuildRequires: rrdtool-devel
 BuildRequires: gcc
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 
 %description
@@ -90,15 +95,14 @@ database, and warns of sensor alarms.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n lm-sensors-%{upstream_version}
 %patch -P0 -p1
 %patch -P1 -p1
 %patch -P2 -p1
 %patch -P3 -p1
-%if 0%{?fedora} >= 40 || 0%{?rhel} >= 10
 %patch -P4 -p1
-%endif
 
 # Remove currently unused files to make sure we've got the license right
 rm -f prog/init/sysconfig-lm_sensors-convert prog/hotplug/unhide_ICH_SMBus
@@ -223,6 +227,3 @@ fi
 %{_libexecdir}/%{name}/sensord-service-wrapper
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.6.0-24
-- Prepare for Oreon 11 (RP1)

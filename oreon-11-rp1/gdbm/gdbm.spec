@@ -1,22 +1,29 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_with largefile
 
 Summary: A GNU set of database routines which use extensible hashing
 Name: gdbm
-Version: 1.26
-Release: 1%{?dist}
+Version:        1.23
+Release:        1%{?dist}
 Epoch: 1
 License: GPL-3.0-or-later
 URL: http://www.gnu.org/software/gdbm/
 
-Source:        https://mirrors.kernel.org/gnu/gdbm/gdbm-%{version}.tar.gz
+Source0:        https://mirror.cs.odu.edu/gnu/gdbm/gdbm-%{version}.tar.gz
 
 BuildRequires: gcc
 BuildRequires: libtool
 BuildRequires: gettext
 BuildRequires: readline-devel
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 # when -libs subpkg was introduced
 Obsoletes: gdbm < 1:1.14.1-4
@@ -57,7 +64,8 @@ Install gdbm-devel if you are developing C programs which will use the
 gdbm database library.  You'll also need to install the gdbm package.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 
 %build
@@ -71,7 +79,6 @@ export CFLAGS
     --disable-rpath \
     --enable-libgdbm-compat
 
-# get rid of rpath (as per https://fedoraproject.org/wiki/Packaging:Guidelines#Beware_of_Rpath)
 # currently --disable-rpath doesn't work for gdbm_dump|load, gdbmtool and libgdbm_compat.so.4
 # https://puszcza.gnu.org.ua/bugs/index.php?359
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -118,6 +125,3 @@ make check
 %{_infodir}/*.info*
 %{_mandir}/man3/*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.23-11
-- Prepare for Oreon 11 (RP1)

@@ -1,12 +1,18 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 3243ffbc8ea4d4ac22ddc7dd2a1dc54c57874c40648b60ff97009763554eaf13
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Set this so that find-lang.sh will recognize the .po files.
 %global gettext_domain mit-krb5
 # Guess where the -libs subpackage's docs are going to go.
 %define libsdocdir %{?_pkgdocdir:%(echo %{_pkgdocdir} | sed -e s,krb5,krb5-libs,g)}%{!?_pkgdocdir:%{_docdir}/%{name}-libs-%{version}}
 # Figure out where the default ccache lives and how we set it.
 %global configure_default_ccache_name 1
-%global configured_default_ccache_name KEYRING:persistent:%{uid}
+%global configured_default_ccache_name KEYRING:persistent:%%{uid}
 
 %global krb5_release %{autorelease}
 
@@ -34,12 +40,12 @@
 
 Summary: The Kerberos network authentication system
 Name: krb5
-Version: %{krb5_version}
-Release: %{krb5_release}
+Version:        1.22.2
+Release:        1%{?dist}
 
 # rharwood has trust path to signing key and verifies on check-in
-Source0:        https://web.mit.edu/kerberos/dist/krb5/1.22/krb5-1.22.2%{?krb5_pre_release}.tar.gz
-Source1:        https://web.mit.edu/kerberos/dist/krb5/1.22/krb5-1.22.2%{?krb5_pre_release}.tar.gz.asc
+Source0:        https://web.mit.edu/kerberos/dist/krb5/1.22/krb5-%{version}.tar.gz
+Source1:        krb5-1.22.2.tar.gz.asc
 
 Source2: kprop.service
 Source3: kadmin.service
@@ -56,13 +62,11 @@ Source13: kadmind.logrotate
 Source14: krb5-krb5kdc.conf
 Source15: %{name}-tests
 
-# FIXME Backport bug fixes to https://<url>/<repo>/<branch>
+# Backport bug fixes to https://github.com/gssapi/krb5-downstream
 # This will give us CI and makes it easy to generate patchsets.
 #
 # Generate the patchset using:
-#   git format-patch -l1 --stdout -N > krb5-1.22-redhat.patch
-# Where N is the number of patches
-Patch0:        krb5-1.22-redhat.patch
+Patch0:        krb5-1.22-oreon.patch
 
 License: Brian-Gladman-2-Clause AND BSD-2-Clause AND (BSD-2-Clause OR GPL-2.0-or-later) AND BSD-2-Clause-first-lines AND BSD-3-Clause AND BSD-4-Clause AND CMU-Mach-nodoc AND FSFULLRWD AND HPND AND HPND-export2-US AND HPND-export-US AND HPND-export-US-acknowledgement AND HPND-export-US-modify AND ISC AND MIT AND MIT-CMU AND OLDAP-2.8 AND OpenVision
 URL: https://web.mit.edu/kerberos/www/
@@ -115,12 +119,7 @@ to install this package.
 
 %package libs
 Summary: The non-admin shared libraries used by Kerberos 5
-%if 0%{?fedora} > 35 || 0%{?rhel} >= 9
 Requires: openssl-libs >= 1:3.0.0
-%else
-Requires: openssl-libs >= 1:1.1.1d-4
-Requires: openssl-libs < 1:3.0.0
-%endif
 Requires: coreutils
 Requires: keyutils-libs >= 1.5.8
 Requires: /etc/crypto-policies/back-ends/krb5.config
@@ -143,6 +142,7 @@ Requires: logrotate
 Requires: words
 # for run-time, and for parts of the test suite
 BuildRequires: libverto-module-base
+BuildRequires:  oreon-rpm-macros
 Requires: libverto-module-base
 Requires: libkadm5%{?_isa} = %{version}-%{release}
 Provides: krb5-kdb-version = %{kdbversion}
@@ -226,12 +226,7 @@ Requires: lmdb-devel
 Requires: openldap-devel
 Requires: pam-devel
 Requires: redhat-rpm-config
-%if 0%{?fedora} > 35 || 0%{?rhel} >= 9
 Requires: openssl-devel >= 1:3.0.0
-%else
-Requires: openssl-devel >= 1:1.1.1d-4
-Requires: openssl-devel < 1:3.0.0
-%endif
 
 # Test dependencies
 Requires: dejagnu
@@ -261,7 +256,8 @@ FOR TESTING PURPOSE ONLY
 Test sources for krb5 build, with pre-defined compilation parameters
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -S git_am -n %{name}-%{version}%{?dashpre}
 ln NOTICE LICENSE
 
@@ -454,8 +450,6 @@ install -pdm 755 %{buildroot}/%{_libdir}/krb5/plugins/authdata
 sed -r -i -e 's|^libdir=/usr/lib(64)?$|libdir=/usr/lib|g' %{buildroot}%{_bindir}/krb5-config
 
 # Workaround krb5-config reading too much from LDFLAGS.
-# https://bugzilla.redhat.com/show_bug.cgi?id=1997021
-# https://bugzilla.redhat.com/show_bug.cgi?id=2048909
 sed -i -r -e 's/^(LDFLAGS=).*/\1/' %{buildroot}%{_bindir}/krb5-config
 
 # Install processed man pages.
@@ -499,6 +493,7 @@ cp -p --parents -t "%{buildroot}%{_datarootdir}/%{name}-tests/%{_arch}/" \
                 -e 's|^\./\([^:]\+\): \+text/.\+$|\1|p' \
                 -e 's|^\./\([^:]\+\): \+application/x-pem-file.\+$|\1|p' \
                 -e 's|^\./\([^:]\+\): \+application/json.\+$|\1|p' \
+                -e 's|^\./\([^:]\+\): \+application/x-wine-extension-ini.\+$|\1|p' \
           | grep -Ev '~$')
 popd
 
@@ -722,6 +717,3 @@ exit 0
 %{_libexecdir}/%{name}-tests-%{_arch}
 %{_datarootdir}/%{name}-tests/%{_arch}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{krb5_version}-1
-- Prepare for Oreon 11 (RP1)

@@ -1,9 +1,15 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: C library for multiple-precision floating-point computations
 Name: mpfr
-Version: 4.2.2
-Release: 3%{?dist}
+Version:        4.2.2
+Release:        1%{?dist}
 URL: https://www.mpfr.org/
 VCS: git:https://gitlab.inria.fr/mpfr/mpfr.git
 
@@ -12,8 +18,9 @@ BuildRequires: gcc
 BuildRequires: gmp-devel
 BuildRequires: make
 BuildRequires: texinfo
+BuildRequires:  oreon-rpm-macros
 
-Source:        https://www.mpfr.org/%{name}-%{version}/%{name}-%{version}.tar.xz
+Source0:        https://www.mpfr.org/mpfr-%{version}/mpfr-%{version}.tar.xz
 
 # Upstream post-release patches.  This currently contains:
 #Patch0: https://www.mpfr.org/%%{name}-%%{version}/allpatches
@@ -47,7 +54,8 @@ BuildArch: noarch
 Documentation for the MPFR library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -100,6 +108,3 @@ export LD_LIBRARY_PATH=%{buildroot}%{_libdir}
 %{_pkgdocdir}/examples
 %{_infodir}/mpfr.info*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.2.2-3
-- Prepare for Oreon 11 (RP1)

@@ -1,16 +1,21 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr C68187379B23DE9EFC46651E2C80FF56C6830A0E
+%global source0_hash fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf
+%global source2_hash aec028b1e736a566b62b4d149c281aef661369f6a124fbe87277cba2e2ef1ab9
 
-%bcond mingw %[0%{?fedora} && !0%{?flatpak}]
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%bcond mingw 1
 
 Summary:        Library for accessing USB devices
 Name:           libusb1
 Version:        1.0.30
-Release:        %autorelease
+Release:        1%{?dist}
 Source0:        https://github.com/libusb/libusb/releases/download/v%{version}/libusb-%{version}.tar.bz2
-Source1:        https://github.com/libusb/libusb/releases/download/v%{version}/libusb-%{version}.tar.bz2.asc
-Source2:        https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xc68187379b23de9efc46651e2c80ff56c6830a0e#/%{name}.keyring
+Source1:        libusb-1.0.30.tar.bz2.asc
+Source2:        https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xc68187379b23de9efc46651e2c80ff56c6830a0e#/libusb1.keyring
 License:        LGPL-2.1-or-later
 URL:            http://libusb.info
 BuildRequires:  systemd-devel doxygen libtool
@@ -27,6 +32,7 @@ BuildRequires:  mingw32-filesystem >= 95
 BuildRequires:  mingw32-gcc-c++
 BuildRequires:  mingw64-filesystem >= 95
 BuildRequires:  mingw64-gcc-c++
+BuildRequires:  oreon-rpm-macros
 # mingw-libusbx was removed in F42
 Provides:       mingw-libusbx = %{version}-%{release}
 Obsoletes:      mingw-libusbx < %{version}-%{release}
@@ -93,23 +99,19 @@ MinGW Windows %{name} library.
 %endif
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
-%autosetup -p1 -n libusb-%{version}
-chmod -x examples/*.c
-mkdir -p m4
-sed -i '/AM_LDFLAGS = -static/d' tests/Makefile.am
-autoscan
-aclocal
-autoconf
-automake --add-missing
+%oreon_sha256
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
 
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
+%autosetup -p1 -n libusb-%{version}
 
 %build
 mkdir %{_target_os}
 pushd %{_target_os}
 %define _configure ../configure
 %configure --disable-static --enable-examples-build
+sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
+sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 %{make_build}
 pushd doc
 make docs
@@ -130,10 +132,10 @@ popd
 pushd %{_target_os}
 %{make_install}
 mkdir -p $RPM_BUILD_ROOT%{_bindir}
-install -m 755 tests/.libs/init_context $RPM_BUILD_ROOT%{_bindir}/libusb-test-init_context
-install -m 755 tests/.libs/set_option $RPM_BUILD_ROOT%{_bindir}/libusb-test-set_option
-install -m 755 tests/.libs/stress $RPM_BUILD_ROOT%{_bindir}/libusb-test-stress
-install -m 755 tests/.libs/stress_mt $RPM_BUILD_ROOT%{_bindir}/libusb-test-stress_mt
+install -m 755 tests/init_context $RPM_BUILD_ROOT%{_bindir}/libusb-test-init_context
+install -m 755 tests/set_option $RPM_BUILD_ROOT%{_bindir}/libusb-test-set_option
+install -m 755 tests/stress $RPM_BUILD_ROOT%{_bindir}/libusb-test-stress
+install -m 755 tests/stress_mt $RPM_BUILD_ROOT%{_bindir}/libusb-test-stress_mt
 install -m 755 tests/.libs/umockdev $RPM_BUILD_ROOT%{_bindir}/libusb-test-umockdev
 install -m 755 examples/.libs/testlibusb \
     $RPM_BUILD_ROOT%{_bindir}/libusb-test-libusb
@@ -208,6 +210,3 @@ popd
 %{mingw64_libdir}/pkgconfig/libusb-1.0.pc
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0.29-1
-- Prepare for Oreon 11 (RP1)

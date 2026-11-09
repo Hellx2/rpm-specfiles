@@ -1,29 +1,36 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 0605f8d8a2f4668cb16e279ebcad8002cc83f44610633157e9c4b8fc183a479b
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Force out of source build
 %undefine __cmake_in_source_build
 
 %global somajor 0
 
 Name:           libeconf
-Version:        0.8.4
+Version:        0.7.9
 Release:        1%{?dist}
 Summary:        Enhanced config file parser library
 
 License:        MIT
 URL:            https://github.com/openSUSE/libeconf
-Source0:        https://github.com/openSUSE/libeconf/archive/refs/tags/v0.7.9.tar.gz#/libeconf-0.7.9.tar.gz
+Source0:        https://github.com/openSUSE/libeconf/archive/refs/tags/v%{version}/libeconf-%{version}.tar.gz
 
 ### Patches ###
 # This should be a temporary workaround. I don't have enough time to check what's happening, but since we aren't shipping the html documentation it's fine to stop installing it
-Patch0101:      0001-cmake-no-install-html.patch
+Patch0101:        0001-cmake-no-install-html.patch
 # Intermittent failure of a test in aarch64, thus temporarily disabling the failing test suite
-Patch0102:      0002-disable-test.patch
+Patch0102:        0002-disable-test.patch
 
 
 BuildRequires:  cmake >= 3.12
 BuildRequires:  gcc
 BuildRequires:  make
+BuildRequires:  oreon-rpm-macros
 
 %description
 libeconf is a highly flexible and configurable library to parse and manage
@@ -50,7 +57,8 @@ configuration files from applications that use %{name}.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 
@@ -84,9 +92,3 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %{_bindir}/econftool
 %{_mandir}/man8/econftool.8*
 
-%changelog
-* Thu Apr 09 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.7.9-4
-- Fix Source0 GitHub archive URL for spectool
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.7.9-3
-- Prepare for Oreon 11 (RP1)

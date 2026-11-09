@@ -1,5 +1,11 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Add readline edditing in pcre2test tool
 %bcond_without pcre2_enables_readline
 
@@ -10,8 +16,8 @@
 # This is stable release:
 #%%global rcversion RC1
 Name:       pcre2
-Version:    10.48
-Release:    %{?rcversion:0.}1%{?rcversion:.%rcversion}%{?dist}.1
+Version:        10.49
+Release:        1%{?dist}
 %global     myversion %{version}%{?rcversion:-%rcversion}
 Summary:    Perl-compatible regular expression library
 # the library:                          BSD with exceptions
@@ -48,16 +54,16 @@ Summary:    Perl-compatible regular expression library
 # testdata:                             Public Domain
 License:    BSD-3-Clause AND FSFULLR AND X11 AND GPL-2.0-or-later AND FSFAP AND FSFUL AND GPL-3.0-or-later
 URL:        https://www.pcre.org/
-Source0:        https://github.com/PCRE2Project/pcre2/releases/download/pcre2-%{version}/pcre2-%{myversion}.tar.bz2
-Source1:        https://github.com/PCRE2Project/pcre2/releases/download/pcre2-%{version}/pcre2-%{myversion}.tar.bz2.sig
+Source0:        https://github.com/PCRE2Project/pcre2/releases/download/pcre2-%{version}/pcre2-%{version}.tar.bz2
+Source1:        pcre2-10.49.tar.bz2.sig
 # This New-Public-Key was retrieved using
 # gpg --keyserver keyserver.ubuntu.com --recv-keys A95536204A3BB489715231282A98E77EB6F24CA8
 # gpg --export --armor A95536204A3BB489715231282A98E77EB6F24CA8 > New-Public-Key
 # The GPG key changed with the new upstream maintainer
 # More in https://github.com/PCRE2Project/pcre2/blob/master/SECURITY.md
-Source2:        https://ftp.pcre.org/pub/pcre/New-Public-Key
+Source2:        New-Public-Key
 # Do no set RPATH if libdir is not /usr/lib
-Patch0:     pcre2-10.10-Fix-multilib.patch
+Patch0:        pcre2-10.10-Fix-multilib.patch
 
 BuildRequires:  autoconf
 BuildRequires:  automake
@@ -70,6 +76,7 @@ BuildRequires:  make
 BuildRequires:  readline-devel
 %endif
 BuildRequires:  sed
+BuildRequires:  oreon-rpm-macros
 Requires:       %{name}-syntax = %{version}-%{release}
 Provides:       bundled(sljit)
 
@@ -149,8 +156,9 @@ Requires:   %{name}-utf16 = %{version}-%{release}
 Utilities demonstrating PCRE2 capabilities like pcre2grep or pcre2test.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -n %{name}-%{myversion} -p1
 # Because of multilib patch
 libtoolize --copy --force
@@ -264,6 +272,3 @@ make %{?_smp_mflags} check VERBOSE=yes
 %{_mandir}/man1/pcre2grep.*
 %{_mandir}/man1/pcre2test.*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 10.47-1
-- Prepare for Oreon 11 (RP1)

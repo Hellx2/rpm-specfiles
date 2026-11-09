@@ -1,30 +1,19 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr E3F42FCE156830A80358E6E94FD1AEC3365AF7BF
+%global source0_hash 931b44eabdd5f7d170803f3476397c8e9dea07209589e1194ff8379429991ccb
 
-%if  0%{?rhel} && 0%{?rhel} <= 7
-  # There is no python3-gobject-base in RHEL 7. But it exists in EPEL 7.
-  %global meson_python_flags -Dwith_py2=true -Dwith_py3=true
-  %global build_python2 1
-  %global build_python3 1
-%else
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
   %global meson_python_flags -Dwith_py2=false -Dwith_py3=true
   %global build_python2 0
   %global build_python3 1
-%endif
 
-%if (0%{?fedora} && 0%{?fedora} <= 50) || (0%{?rhel} && 0%{?rhel} <= 10)
-  # Support RHEL 8 module builds with an invalid buildorder.
   %global meson_accept_overflowed_buildorder_flag -Daccept_overflowed_buildorder=true
-%else
-  %global meson_accept_overflowed_buildorder_flag -Daccept_overflowed_buildorder=false
-%endif
 
 %global upstream_name libmodulemd
 
-%if (0%{?rhel} && 0%{?rhel} <= 7)
-  %global v2_suffix 2
-%endif
 
 Name:           %{upstream_name}%{?v2_suffix}
 Version:        2.15.3
@@ -40,15 +29,11 @@ Summary:        Module metadata manipulation library
 # xml_specs/reduced/tests/good/module_stream_build_license.xml: MIT AND GPL-3.0-or-later
 License:        MIT
 SourceLicense:  %{license} AND GPL-3.0-only AND GPL-3.0-or-later AND GPL-2.0-or-later AND Apache-2.0
-URL:            https://github.com/fedora-modularity/libmodulemd
-Source0:        https://github.com/fedora-modularity/libmodulemd/releases/download/2.15.3/modulemd-2.15.2.tar.xz
-Source1:        modulemd-2.15.2.tar.xz.asc
+URL:            https://github.com/oreon-modularity/libmodulemd
+Source0:        https://github.com/fedora-modularity/libmodulemd/releases/download/%{version}/modulemd-%{version}.tar.xz
+Source1:        modulemd-2.15.3.tar.xz.asc
 # Key exported from Petr Pisar's keyring
 Source2:        gpgkey-E3F42FCE156830A80358E6E94FD1AEC3365AF7BF.gpg
-# Adapt tests to glib2-2.87.0, in upstream after 2.15.3, bug #2423153
-Patch0:         modulemd-2.15.2-tests-Adapt-to-glib-2.87.0.patch
-# Adapt tests to pygobject 3.55.0, in upstream after 2.15.3, bug #2440570
-Patch1:         modulemd-2.15.2-tests-Adapt-to-pygobject-3.55.0.patch
 
 BuildRequires:  gnupg2
 BuildRequires:  meson >= 0.47
@@ -68,17 +53,13 @@ BuildRequires:  python-gobject-base
 %if %{build_python3}
 BuildRequires:  python%{python3_pkgversion}-devel
 BuildRequires:  python%{python3_pkgversion}-gobject-base
+BuildRequires:  oreon-rpm-macros
 %endif
-%if 0%{?fedora} >= 40 && 0%{?fedora} < 42
-# glib2 version with g_once_init_enter_pointer symbol, bug #2265336
-Requires:       glib2 >= 2.79.0-2
-%endif
-Requires:       libyaml%{?_isa}
 
 
 %description
 C library for manipulating module metadata files.
-See https://github.com/fedora-modularity/libmodulemd/blob/main/README.md for
+See https://github.com/oreon-modularity/libmodulemd/blob/main/README.md for
 more details.
 
 
@@ -87,7 +68,6 @@ more details.
 Summary:        Python 2 bindings for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       python-gobject-base
-Requires:       python-six
 
 %description -n python2-%{name}
 Python 2 bindings for %{name}.
@@ -99,12 +79,6 @@ Python 2 bindings for %{name}.
 Summary:        Python 3 bindings for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       python%{python3_pkgversion}-gobject-base
-%if (0%{?rhel} && 0%{?rhel} <= 7)
-# The py3_dist macro on EPEL 7 doesn't work right at the moment
-Requires:       python3.6dist(six)
-%else
-Requires:       %{py3_dist six}
-%endif
 
 %description -n python%{python3_pkgversion}-%{name}
 Python %{python3_pkgversion} bindings for %{name}.
@@ -114,10 +88,6 @@ Python %{python3_pkgversion} bindings for %{name}.
 %package devel
 Summary:        Development files for libmodulemd
 Requires:       %{name}%{?_isa} = %{version}-%{release}
-%if (0%{?rhel} && 0%{?rhel} <= 7)
-Conflicts:      libmodulemd1-devel
-Conflicts:      libmodulemd-devel
-%endif
 
 
 %description devel
@@ -125,8 +95,9 @@ Development files for %{name}.
 
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1 -n modulemd-%{version}
 
 
@@ -151,15 +122,6 @@ export LC_CTYPE=C.utf8
 %install
 %meson_install
 
-%if ( 0%{?rhel} && 0%{?rhel} <= 7)
-# Don't conflict with modulemd-validator from 1.x included in the official
-# RHEL 7 repos
-mv %{buildroot}%{_bindir}/modulemd-validator \
-   %{buildroot}%{_bindir}/modulemd-validator%{?v2_suffix}
-
-mv %{buildroot}%{_mandir}/man1/modulemd-validator.1 \
-   %{buildroot}%{_mandir}/man1/modulemd-validator%{?v2_suffix}.1
-%endif
 
 
 %ldconfig_scriptlets
@@ -198,6 +160,3 @@ mv %{buildroot}%{_mandir}/man1/modulemd-validator.1 \
 %endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.15.2-7
-- Prepare for Oreon 11 (RP1)

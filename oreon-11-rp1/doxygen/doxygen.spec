@@ -1,34 +1,34 @@
-%global source0_hash 201ce33b514ea87cc1697c0dcf829692c2695c1812683a9cc622194b05e263a8
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%if 0%{?fedora}
+%global source0_hash a1deed70a6785bbec95a2b2a9e419dc7f7b223a9d74a8644ae611c8e2dcdd354
+%global source2_hash 3a7bf3435f7c2ff0beba96422c3356396bcc6601a808e186d9ef6ad1231ebdf9
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global xapian_core_support ON
 %global build_wizard ON
 %global system_spdlog ON
 %global system_fmt ON
-%else
-%global xapian_core_support OFF
-%global build_wizard OFF
-%global system_spdlog OFF
-%global system_fmt OFF
-%endif
 %global build_search %{xapian_core_support}
 %global clang_support ON
 %global system_sqlite3 ON
 %global build_doc OFF
-# Fedora split texlive-* specs are not in oreon-11-rp1 yet; latex meta needs them.
-%bcond_with doxygen_latex 0
 
 Summary: A documentation system for C/C++
 Name:    doxygen
 Epoch:   2
-Version: 1.18.0
-Release: 1%{?dist}
+Version:        1.18.0
+Release:        1%{?dist}
 # No version is specified.
 License: GPL-2.0-or-later
 Url: https://github.com/doxygen
-Source0:        https://www.doxygen.nl/files/%{name}-%{version}.src.tar.gz
+Source0:        https://www.doxygen.nl/files/doxygen-%{version}.src.tar.gz
 # this icon is part of kdesdk
 Source1: doxywizard.desktop
+# these icons are part of doxygen and converted from doxywizard.ico
+Source2: doxywizard-icons.tar.bz2
 Source3: README.rpm-packaging
 Source4: doxygen-unbundler
 
@@ -36,9 +36,7 @@ Source4: doxygen-unbundler
 
 BuildRequires: %{_bindir}/python3
 BuildRequires: perl-interpreter, perl-open
-%if %{with doxygen_latex}
 BuildRequires: texlive-bibtex
-%endif
 BuildRequires: web-assets-devel
 # Building an RPM package typically needs unbundling of Javascript assets.
 Requires: (js-doxygen if redhat-rpm-config)
@@ -66,7 +64,15 @@ BuildRequires: tex(ifpdf.sty)
 BuildRequires: tex(adjustbox.sty)
 BuildRequires: tex(amssymb.sty)
 BuildRequires: tex(stackengine.sty)
+BuildRequires: tex(xltabular.sty)
+BuildRequires: tex(tabularray.sty)
+BuildRequires: tex(enumitem.sty)
+BuildRequires: tex(alphalph.sty)
 BuildRequires: tex(ulem.sty)
+# regexpatch.sty is still missing in texlive on eln
+%if "%{build_doc}" == "ON"
+BuildRequires: tex(regexpatch.sty)
+%endif
 # From doc/doxygen_manual.tex
 BuildRequires: tex(ifthen.sty)
 BuildRequires: tex(array.sty)
@@ -105,6 +111,8 @@ BuildRequires: texlive-epstopdf
 BuildRequires: ghostscript
 BuildRequires: gettext
 BuildRequires: graphviz
+# fonts
+BuildRequires: texlive-collection-fontsrecommended
 %endif
 
 %if "%{build_wizard}" == "ON"
@@ -116,9 +124,6 @@ BuildRequires: flex
 BuildRequires: bison
 BuildRequires: cmake
 BuildRequires: git
-%if "%{build_wizard}" == "ON"
-BuildRequires: ImageMagick
-%endif
 
 %if "%{?xapian_core_support}" == "ON"
 BuildRequires: xapian-core-devel
@@ -175,6 +180,7 @@ Summary: A GUI for creating and editing configuration files
 Requires: %{name} = %{epoch}:%{version}-%{release}
 BuildRequires: qt6-qtbase-devel
 BuildRequires: qt6-qtsvg-devel
+BuildRequires:  oreon-rpm-macros
 
 %description doxywizard
 Doxywizard is a GUI for creating and editing configuration files that
@@ -182,14 +188,12 @@ are used by doxygen.
 %endif
 
 %if ! 0%{?_module_build}
-%if %{with doxygen_latex}
 %package latex
 Summary: Support for producing latex/pdf output from doxygen
 Requires: %{name} = %{epoch}:%{version}-%{release}
 Requires: tex(latex)
 Requires: tex(dvips)
 Requires: texlive-wasy
-%if 0%{?fedora} > 17 || 0%{?rhel} > 6
 # From doc/manual.sty
 Requires: tex(helvet.sty)
 Requires: tex(sectsty.sty)
@@ -257,26 +261,20 @@ Requires: texlive-makeindex
 Requires: texlive-epstopdf
 # fonts
 Requires: texlive-collection-fontsrecommended
-%endif
+BuildArch: noarch
 
 %description latex
 %{summary}.
 %endif
-%endif
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f"  | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%autosetup -p1
+%oreon_sha256
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
+
+%autosetup -p1 -a2
 
 cp %{SOURCE3} .
-%if "%{build_wizard}" == "ON"
-ICON=addons/doxywizard/doxywizard.ico
-convert "$ICON" -thumbnail 16x16 doxywizard-6.png
-convert "$ICON" -thumbnail 32x32 doxywizard-5.png
-convert "$ICON" -thumbnail 48x48 doxywizard-4.png
-convert "$ICON" -thumbnail 128x128 doxywizard-3.png
-%endif
 
 %build
 %cmake \
@@ -294,6 +292,9 @@ convert "$ICON" -thumbnail 128x128 doxywizard-3.png
 	-Duse_sys_fmt=%{system_fmt}
 
 %cmake_build %{?_smp_mflags}
+%if "%{build_doc}" == "ON"
+%cmake_build %{?_smp_mflags} --target docs
+%endif
 
 %install
 %cmake_install
@@ -329,19 +330,22 @@ install -m644 -D --target-directory=%{buildroot}%{_jsdir}/doxygen templates/html
 mkdir -p %{buildroot}%{_rpmconfigdir}/macros.d
 cat > %{buildroot}%{_rpmconfigdir}/macros.d/macros.doxygen <<'EOF'
 %%doxygen_js_requires() Requires: js-doxygen >= %{version}-%{release}
-%%doxygen_unbundle_buildroot() %%{_rpmconfigdir}/redhat/doxygen-unbundler "%{_jsdir}" "%%{buildroot}" %%[ %%# == 0 ? "%%{_docdir}" : "%%1"]
-%%doxygen_unbundle() %{_rpmconfigdir}/redhat/doxygen-unbundler "%{_jsdir}" "" %%*
+%%doxygen_unbundle_buildroot() %%{_rpmconfigdir}/oreon/doxygen-unbundler "%{_jsdir}" "%%{buildroot}" %%[ %%# == 0 ? "%%{_docdir}" : "%%1"]
+%%doxygen_unbundle() %{_rpmconfigdir}/oreon/doxygen-unbundler "%{_jsdir}" "" %%*
 EOF
 
  # Install the unbundler script.
-install -m755 -D --target-directory=%{buildroot}%{_rpmconfigdir}/redhat %{SOURCE4}
+install -m755 -D --target-directory=%{buildroot}%{_rpmconfigdir}/oreon %{SOURCE4}
 
 %check
-# 012_cite needs bibtex in mock, oreon has no texlive-bibtex in base yet
-%ctest -E 012_cite
+%ctest
 
 %files
 %doc LANGUAGE.HOWTO README.md README.rpm-packaging
+%if "%{build_doc}" == "ON"
+%doc %{__cmake_builddir}/latex/doxygen_manual.pdf
+%doc %{__cmake_builddir}/html
+%endif
 %license LICENSE
 %if ! 0%{?_module_build}
 %if "%{xapian_core_support}" == "ON"
@@ -356,7 +360,7 @@ install -m755 -D --target-directory=%{buildroot}%{_rpmconfigdir}/redhat %{SOURCE
 %{_mandir}/man1/doxysearch.1*
 %endif
 %{_rpmconfigdir}/macros.d/macros.doxygen
-%{_rpmconfigdir}/redhat/doxygen-unbundler
+%{_rpmconfigdir}/oreon/doxygen-unbundler
 %if "%{build_wizard}" == "ON"
 %files doxywizard
 %{_bindir}/doxywizard
@@ -369,12 +373,7 @@ install -m755 -D --target-directory=%{buildroot}%{_rpmconfigdir}/redhat %{SOURCE
 %{_jsdir}/doxygen/*
 
 %if ! 0%{?_module_build}
-%if %{with doxygen_latex}
 %files latex
 # intentionally left blank
 %endif
-%endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.16.1-3
-- Prepare for Oreon 11 (RP1)

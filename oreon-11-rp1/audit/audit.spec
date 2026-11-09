@@ -1,13 +1,18 @@
-%global source0_hash 866a659c91746ee4436fa6f99d4f80768fc1a3aa92e6ec2081e353fcfc79589f
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 42876d195ee2ded19e5f72d7664096eee314928aa36ad346719ba5b25818fc84
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: User space tools for kernel auditing
 Name: audit
-Version: 4.1.3
-Release: 2%{?dist}
+Version:        4.2.1
+Release:        2%{?dist}
 License: GPL-2.0-or-later AND LGPL-2.0-or-later
 URL: https://github.com/linux-audit/audit-userspace/
-Source0:        https://github.com/linux-audit/audit-userspace/archive/refs/tags/v4.1.3.tar.gz#/audit-userspace-4.1.3.tar.gz
-Source1: https://www.gnu.org/licenses/lgpl-2.1.txt
+Source0:        https://github.com/linux-%{name}/audit-userspace/archive/refs/tags/v%{version}.tar.gz
 BuildRequires: make gcc
 BuildRequires: autoconf automake libtool
 BuildRequires: kernel-headers >= 5.0
@@ -65,7 +70,7 @@ and libauparse can be used by python3.
 %package -n audispd-plugins
 Summary: Plugins for the audit event dispatcher
 License: GPL-2.0-or-later
-BuildRequires: krb5-devel libcap-ng-devel
+BuildRequires: krb5-devel libcap-ng-devel openssl-devel
 Requires: %{name}%{?_isa} = %{version}-%{release}
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
 
@@ -78,6 +83,7 @@ like relay events to remote machines.
 Summary: z/OS plugin for the audit event dispatcher
 License: GPL-2.0-or-later
 BuildRequires: openldap-devel libcap-ng-devel
+BuildRequires:  oreon-rpm-macros
 Requires: %{name}%{?_isa} = %{version}-%{release}
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
 
@@ -98,9 +104,9 @@ Recommends: %{name} = %{version}-%{release}
 The audit rules package contains the rules and utilities to load audit rules.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n %{name}-userspace-%{version}
-cp %{SOURCE1} .
 
 %build
 autoreconf -fv --install
@@ -135,7 +141,7 @@ touch -r ./audit.spec $RPM_BUILD_ROOT/etc/libaudit.conf
 touch -r ./audit.spec $RPM_BUILD_ROOT/usr/share/man/man5/libaudit.conf.5.gz
 
 %check
-make check
+make %{?_smp_mflags} check
 # Get rid of make files so that they don't get packaged.
 rm -f rules/Makefile*
 
@@ -163,14 +169,9 @@ fi
 files=`ls /etc/audit/rules.d/ 2>/dev/null | wc -w`
 if [ "$files" -eq 0 ] ; then
     echo "No rules detected, adding default"
-%if 0%{?rhel}
-    if [ -e %{_datadir}/%{name}-rules/10-base-config.rules ] ; then
-        install -m 0640 -o 0 -g 0 -p %{_datadir}/%{name}-rules/10-base-config.rules /etc/audit/rules.d/audit.rules
-%else
     # FESCO asked for audit to be off by default. #1117953
     if [ -e %{_datadir}/%{name}-rules/10-no-audit.rules ] ; then
         install -m 0640 -o 0 -g 0 -p %{_datadir}/%{name}-rules/10-no-audit.rules /etc/audit/rules.d/audit.rules
-%endif
     else
         install -m 0640 -o 0 -g 0 /dev/null /etc/audit/rules.d/audit.rules
     fi
@@ -197,7 +198,7 @@ fi
 
 %files libs
 %{!?_licensedir:%global license %%doc}
-%license lgpl-2.1.txt
+%license COPYING.LIB
 %{_libdir}/libaudit.so.1*
 %{_libdir}/libauparse.so.0*
 %{_libdir}/libauplugin.so.1*
@@ -253,8 +254,12 @@ fi
 %attr(750,root,root) %{_libexecdir}/initscripts/legacy-actions/auditd/rotate
 %attr(750,root,root) %{_libexecdir}/initscripts/legacy-actions/auditd/state
 %attr(750,root,root) %{_libexecdir}/initscripts/legacy-actions/auditd/stop
-%attr(644,root,root) %{_sysconfdir}/bash_completion.d/audit.bash_completion
-%ghost %{_runstatedir}/run/auditd.state
+%attr(644,root,root) %{_datadir}/bash-completion/completions/auditctl
+%{_datadir}/bash-completion/completions/ausearch
+%{_datadir}/bash-completion/completions/aureport
+%{_datadir}/bash-completion/completions/augenrules
+%ghost %attr(0644,root,root) %{_runstatedir}/audit/auditd.pid
+%ghost %attr(0640,root,root) %{_runstatedir}/audit/auditd.state
 %attr(-,root,-) %dir %{_var}/log/audit
 %attr(750,root,root) %dir /etc/audit/plugins.d
 %config(noreplace) %attr(640,root,root) /etc/audit/auditd.conf
@@ -303,9 +308,3 @@ fi
 %config(noreplace) %attr(640,root,root) /etc/audit/zos-remote.conf
 %attr(750,root,root) %{_sbindir}/audispd-zos-remote
 
-%changelog
-* Thu Apr 09 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.1.3-2
-- HTTPS Source0 on GitHub for spectool
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.1.3-1
-- Prepare for Oreon 11 (RP1)

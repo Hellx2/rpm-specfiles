@@ -1,27 +1,31 @@
-%global source0_hash none
-%global source3_hash 1dcc9ceae8b128f3c0b3f654decd0e1e891afc6ff81098f227ef260449dae208
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 96c65cc96a2fe9fe9293cc496482c34bd2eed8a8b560db94506659cd2e5b87ca
+%global source1_hash 3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04
+%global source2_hash 8f50ad958916d6a8f79fba2363501475571acce752757f9126fe9d2f17dd920d
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_without  dafsa
 
 Name:           publicsuffix-list
-Version:        20260116
-Release:        %autorelease
+Version:        20260624
+Release:        1%{?dist}
 Summary:        Cross-vendor public domain suffix database
 
 License:        MPL-2.0
 URL:            https://publicsuffix.org/
-Source0:        https://publicsuffix.org/list/public_suffix_list.dat
+Source0:        https://raw.githubusercontent.com/publicsuffix/list/18ecca5d54471f21918798da451dd8d03a18f3c7/public_suffix_list.dat
 Source1:        https://www.mozilla.org/media/MPL/2.0/index.txt
-Source2:        https://github.com/publicsuffix/list/raw/main/tests/test_psl.txt
-# Bootstrap: DAFSA generator (same script as libpsl's psl-make-dafsa subpackage) so we
-# do not need that RPM installed before publicsuffix-list-dafsa exists.
-%global libpsl_tools_ver 0.21.5
-Source3:        https://github.com/rockdaboot/libpsl/releases/download/0.21.5/libpsl-0.21.5.tar.gz
+Source2:        https://raw.githubusercontent.com/publicsuffix/list/18ecca5d54471f21918798da451dd8d03a18f3c7/tests/test_psl.txt
 
 BuildArch:      noarch
 
 %if %{with dafsa}
-BuildRequires:  python3
+BuildRequires:  psl-make-dafsa
+BuildRequires:  oreon-rpm-macros
 %endif
 
 
@@ -51,22 +55,19 @@ for runtime loading.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source3_hash}" = "none" || { f="%{SOURCE3}"; test -f "$f" || { echo "oreon: missing Source3 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source3_hash}" || { echo "oreon: Source3 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
+
 %setup -c -T
 cp -av %{SOURCE0} .
 install -m 644 -p -v %{SOURCE1} COPYING
-%if %{with dafsa}
-tar xf %{SOURCE3} libpsl-%{libpsl_tools_ver}/src/psl-make-dafsa
-install -m755 libpsl-%{libpsl_tools_ver}/src/psl-make-dafsa ./psl-make-dafsa-bootstrap
-sed -i '1s|.*|#!/usr/bin/python3|' ./psl-make-dafsa-bootstrap
-%endif
 
 
 %build
 %if %{with dafsa}
 LC_CTYPE=C.UTF-8 \
-./psl-make-dafsa-bootstrap --output-format=binary \
+psl-make-dafsa --output-format=binary \
   public_suffix_list.dat public_suffix_list.dafsa
 %endif
 
@@ -95,6 +96,3 @@ ln -s public_suffix_list.dat $RPM_BUILD_ROOT/%{_datadir}/publicsuffix/effective_
 %endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 20260116-1
-- Prepare for Oreon 11 (RP1)

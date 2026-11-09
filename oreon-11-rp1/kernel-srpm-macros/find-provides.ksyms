@@ -6,24 +6,7 @@ export LC_ALL=C
 # Prevent elfutils from trying to download debuginfos
 unset DEBUGINFOD_URLS
 
-for module in $(grep -E '/lib/modules/.+\.ko(\.gz|\.bz2|\.xz|\.zst)?$|/lib/modules/.+/modules[^/]+\.ksyms\.prov$' || true) "$@"; do
-    [ -n "$module" ] || continue
-    [ -f "$module" ] || continue
-
-    # kernel package precomputes Provides into modules*.ksyms.prov
-    case "$module" in
-    *.ksyms.prov)
-        cat -- "$module"
-        continue
-        ;;
-    esac
-
-    # skip in-tree modules (bulk prov files cover these). out-of-tree under
-    # updates/extra/weak-updates still go through per-.ko scanning.
-    if printf '%s' "$module" | grep -qE '/lib/modules/[^/]+/(kernel|internal|partner)/'; then
-        continue
-    fi
-
+for module in $(grep -E '/lib/modules/.+\.ko(\.gz|\.bz2|\.xz|\.zst)?$') "$@"; do
     dep_pfx="ksym"
     # For built-in kmods, "kernel()" syntax is used instead of "ksym()"
     printf "%s" "$module" | grep -v "^${RPM_BUILD_ROOT}/\?lib/modules/[1-9][^/]*/kernel" > /dev/null \
@@ -143,14 +126,10 @@ for module in $(grep -E '/lib/modules/.+\.ko(\.gz|\.bz2|\.xz|\.zst)?$|/lib/modul
 
       match($0, /^([0-9a-f]+) [gl]...... (.*)	[0-9a-f]+ __crc_(.*)$/, a) {
           if (a[2] == "*ABS*") {
-              crc = strtonum("0x" a[1]);
-              if (crc != 0)
-                  printf("%s(%s) = 0x%08x\n", dep_pfx, a[3], crc);
+              printf("%s(%s) = 0x%08x\n", dep_pfx, a[3], strtonum("0x" a[1]));
           } else {
               if (!(a[2] in sectdata)) { readsect(a[2]) }
-              crc = substr(sectdata[a[2]], (strtonum("0x" a[1]) * 2) + 1, 8);
-              if (crc != "" && crc != "00000000")
-                  printf("%s(%s) = 0x%08s\n", dep_pfx, a[3], crc);
+              printf("%s(%s) = 0x%08s\n", dep_pfx, a[3], substr(sectdata[a[2]], (strtonum("0x" a[1]) * 2) + 1, 8))
           }
       }'
 

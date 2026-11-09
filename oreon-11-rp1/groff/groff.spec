@@ -1,11 +1,17 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 74e2819795b6aff431aeac983d63a9c8968eeaba2a2eba7df8ba4c7b41e7cfd8
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %{!?with_x:%global with_x 1}
 
 Summary: A document formatting system
 Name: groff
-Version: 1.24.1
-Release: 1%{?dist}
+Version:        1.24.1
+Release:        1%{?dist}
 # Everything is under GPL-3.0-or-later, except for the following files:
 # MIT license
 #  -- tmac/hyphen.den
@@ -46,21 +52,15 @@ Release: 1%{?dist}
 #     contrib/grap2graph/grap2graph.sh
 #     contrib/pic2graph/pic2graph.sh
 #     contrib/eqn2graph/eqn2graph.sh
-License: GPL-3.0-or-later AND GFDL-1.3-or-later AND BSD-4-Clause-UC AND MIT AND X11 AND LicenseRef-Public-Domain
+License: GPL-3.0-or-later AND GFDL-1.3-or-later AND BSD-4-Clause-UC AND MIT AND X11 AND LicenseRef-Oreon-Public-Domain
 URL: http://www.gnu.org/software/groff/
-
-Provides: nroff-i18n = %{version}-%{release}
-Provides: bundled(gnulib)
-
-Source:        https://mirrors.kernel.org/gnu/groff/groff-%{version}.tar.gz
+Source0:        https://mirror.cs.odu.edu/gnu/groff/groff-%{version}.tar.gz
 
 # resolves: #530788
 Patch0:        0001-missing-groff-x11-info-message-when-gxditview-not-fo.patch
 Patch1:        0002-load-site-font-and-site-tmac-from-etc-groff.patch
 # resolves: #709413, #720058, #720057
 Patch2:        0003-various-security-fixes.patch
-# resolves: #987069
-Patch3:        0004-don-t-use-usr-bin-env-in-shebang.patch
 # allow to specify custom docdir
 Patch4:        0005-do-not-overwrite-docdir.patch
 # Revert upstream change of mapping special characters for UTF-8 devices
@@ -79,6 +79,9 @@ BuildRequires: gcc, gcc-c++
 BuildRequires: bison, texinfo
 # psutils is required for the "psselect" command
 BuildRequires: git, netpbm-progs, perl-generators, psutils, ghostscript
+
+Provides: nroff-i18n = %{version}-%{release}
+Provides: bundled(gnulib)
 
 %global __requires_exclude %{?__requires_exclude:%__requires_exclude|}^perl\\([^.]*\\.pl\\)
 
@@ -124,6 +127,7 @@ Summary: Parts of the groff formatting system that require X Windows System
 Requires: groff-base = %{version}-%{release}
 BuildRequires: libXaw-devel, libXmu-devel
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 Provides: groff-gxditview = %{version}-%{release}
 Obsoletes: groff-gxditview < 1.20.1
 
@@ -145,7 +149,8 @@ text processor package. It contains examples, documentation for PIC
 language and documentation for creating PDF files.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 git init
 git config user.email groff-owner@fedoraproject.org
@@ -188,7 +193,6 @@ done
 rm -f %{buildroot}%{_pkgdocdir}/pdf/mom-pdf.pdf
 ln -s ../examples/mom/mom-pdf.pdf %{buildroot}%{_pkgdocdir}/pdf/mom-pdf.pdf
 
-# rename groff downloadable postscript fonts to meet Fedora Font Packaging guidelines,
 # as these files are more PS instructions, than general-purpose fonts (bz #477394)
 for file in $(find %{buildroot}%{_datadir}/%{name}/%{version}/font/devps -name "*.pfa"); do
     mv ${file} ${file}_
@@ -204,7 +208,6 @@ pushd %{buildroot}%{_pkgdocdir}
     find -name "*.ps"   | xargs sed -i "/^%%%%CreationDate: /d"
 popd
 
-# /bin/sed moved to /usr/bin/sed in Fedora
 sed --in-place 's|#! /bin/sed -f|#! /usr/bin/sed -f|' %{buildroot}%{_datadir}/groff/%{version}/font/devps/generate/symbol.sed
 
 %pre
@@ -253,12 +256,10 @@ fi
 
 %files
 # data
-%{_datadir}/%{name}/%{version}/font/devcp1047/
 %{_datadir}/%{name}/%{version}/font/devdvi/
 %{_datadir}/%{name}/%{version}/font/devlbp/
 %{_datadir}/%{name}/%{version}/font/devlj4/
 %{_datadir}/%{name}/%{version}/oldfont/
-%{_datadir}/%{name}/%{version}/pic/
 %{_datadir}/%{name}/%{version}/tmac/62bit.tmac
 %{_datadir}/%{name}/%{version}/tmac/dvi.tmac
 %{_datadir}/%{name}/%{version}/tmac/e.tmac
@@ -276,13 +277,11 @@ fi
 %{_datadir}/%{name}/%{version}/tmac/ms.tmac
 %{_datadir}/%{name}/%{version}/tmac/mse.tmac
 %{_datadir}/%{name}/%{version}/tmac/om.tmac
-%{_datadir}/%{name}/%{version}/tmac/pdfmark.tmac
 %{_datadir}/%{name}/%{version}/tmac/refer-me.tmac
 %{_datadir}/%{name}/%{version}/tmac/refer-mm.tmac
 %{_datadir}/%{name}/%{version}/tmac/refer-ms.tmac
 %{_datadir}/%{name}/%{version}/tmac/refer.tmac
 %{_datadir}/%{name}/%{version}/tmac/s.tmac
-%{_datadir}/%{name}/%{version}/tmac/spdf.tmac
 %{_datadir}/%{name}/%{version}/tmac/trace.tmac
 %{_datadir}/%{name}/%{version}/tmac/zh.tmac
 # programs
@@ -298,7 +297,6 @@ fi
 %{_bindir}/indxbib
 %{_bindir}/lkbib
 %{_bindir}/lookbib
-%{_bindir}/pdfroff
 %{_bindir}/pfbtops
 %{_bindir}/pic2graph
 %{_bindir}/refer
@@ -316,7 +314,6 @@ fi
 %{_mandir}/man1/indxbib.*
 %{_mandir}/man1/lkbib.*
 %{_mandir}/man1/lookbib.*
-%{_mandir}/man1/pdfroff.*
 %{_mandir}/man1/pfbtops.*
 %{_mandir}/man1/pic2graph.*
 %{_mandir}/man1/refer.*
@@ -357,7 +354,6 @@ fi
 %{_datadir}/%{name}/%{version}/tmac/an.tmac
 %{_datadir}/%{name}/%{version}/tmac/andoc.tmac
 %{_datadir}/%{name}/%{version}/tmac/composite.tmac
-%{_datadir}/%{name}/%{version}/tmac/cp1047.tmac
 %{_datadir}/%{name}/%{version}/tmac/cs.tmac
 %{_datadir}/%{name}/%{version}/tmac/de.tmac
 %{_datadir}/%{name}/%{version}/tmac/den.tmac
@@ -378,13 +374,15 @@ fi
 %{_datadir}/%{name}/%{version}/tmac/hyphen.sv
 %{_datadir}/%{name}/%{version}/tmac/hyphen.en
 %{_datadir}/%{name}/%{version}/tmac/hyphen.it
+%{_datadir}/%{name}/%{version}/tmac/hyphen.es
+%{_datadir}/%{name}/%{version}/tmac/hyphen.pl
+%{_datadir}/%{name}/%{version}/tmac/hyphen.ru
 %{_datadir}/%{name}/%{version}/tmac/hyphenex.cs
 %{_datadir}/%{name}/%{version}/tmac/hyphenex.en
 %{_datadir}/%{name}/%{version}/tmac/ja.tmac
 %{_datadir}/%{name}/%{version}/tmac/ptx.tmac
 %{_datadir}/%{name}/%{version}/tmac/it.tmac
 %{_datadir}/%{name}/%{version}/tmac/rfc1345.tmac
-%{_datadir}/%{name}/%{version}/tmac/sanitize.tmac
 %{_datadir}/%{name}/%{version}/tmac/sboxes.tmac
 %{_datadir}/%{name}/%{version}/tmac/latin1.tmac
 %{_datadir}/%{name}/%{version}/tmac/latin2.tmac
@@ -408,6 +406,12 @@ fi
 %{_datadir}/%{name}/%{version}/tmac/tty-char.tmac
 %{_datadir}/%{name}/%{version}/tmac/tty.tmac
 %{_datadir}/%{name}/%{version}/tmac/www.tmac
+%{_datadir}/%{name}/%{version}/tmac/ru.tmac
+%{_datadir}/%{name}/%{version}/tmac/es.tmac
+%{_datadir}/%{name}/%{version}/tmac/pl.tmac
+%{_datadir}/%{name}/%{version}/tmac/koi8-r.tmac
+%{_datadir}/%{name}/%{version}/tmac/psfig.tmac
+%{_datadir}/%{name}/%{version}/tmac/chem.pic
 # programs
 %{_bindir}/eqn
 %{_bindir}/groff
@@ -499,11 +503,7 @@ fi
 %doc %{_pkgdocdir}/*.ms
 %doc %{_pkgdocdir}/groff*
 %doc %{_pkgdocdir}/me-revisions
-%doc %{_pkgdocdir}/automake.pdf
 %doc %{_pkgdocdir}/examples/
 %doc %{_pkgdocdir}/html/
 %doc %{_pkgdocdir}/pdf/
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.23.0-12
-- Import

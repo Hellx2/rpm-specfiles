@@ -1,21 +1,25 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr B1D2BD1375BECB784CF4F8C4D73CF638C53C06BE
+%global source0_hash 1d8a444a223cc5464240777346e125de51d8e6abf0b8bac742ac84609167dc87
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary:	The ASN.1 library used in GNUTLS
 Name:		libtasn1
-Version:	4.21.0
-Release:	%autorelease
+Version:        4.21.0
+Release:        1%{?dist}
 
 # The libtasn1 library is LGPLv2+, utilities are GPLv3+
 License:	GPL-3.0-or-later AND LGPL-2.1-or-later
 URL:		https://www.gnu.org/software/libtasn1/
-Source0:	https://mirrors.kernel.org/gnu/libtasn1/%name-%version.tar.gz
-Source1:	https://mirrors.kernel.org/gnu/libtasn1/%name-%version.tar.gz.sig
+Source0:        https://mirror.cs.odu.edu/gnu/libtasn1/libtasn1-%{version}.tar.gz
+Source1:        libtasn1-4.21.0.tar.gz.sig
 #Source2:	gpgkey-1F42418905D8206AA754CCDC29EE58B996865171.gpg
 #Source2:	gpgkey-99415CE1905D0E55A9F88026860B7FBB32F8119D.gpg
 Source2:        gpgkey-B1D2BD1375BECB784CF4F8C4D73CF638C53C06BE.gpg
-Patch1:		libtasn1-3.4-rpath.patch
+Patch1:        libtasn1-3.4-rpath.patch
 
 BuildRequires:	gnupg2
 BuildRequires:	gcc
@@ -26,7 +30,7 @@ BuildRequires:	valgrind-devel
 %endif
 BuildRequires:  make
 BuildRequires:  gtk-doc
-# Wildcard bundling exception https://fedorahosted.org/fpc/ticket/174
+BuildRequires:  oreon-rpm-macros
 Provides: bundled(gnulib) = 20260101
 
 %package devel
@@ -59,8 +63,8 @@ data.
 
 
 %prep
-test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" 2>/dev/null | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
 gpgv2 --keyring %{SOURCE2} %{SOURCE1} %{SOURCE0}
 %setup -q
 
@@ -101,6 +105,3 @@ make check
 %{_mandir}/man3/*asn1*
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.21.0-1
-- Prepare for Oreon 11 (RP1)

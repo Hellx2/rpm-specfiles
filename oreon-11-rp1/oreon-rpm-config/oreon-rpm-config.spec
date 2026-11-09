@@ -1,80 +1,73 @@
-%global source0_hash none
-%global source_date_epoch_from_changelog 0
-%global __spec_install_post %{?__debug_package:%{__debug_install_post}}%{nil}
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-#                        TO WHOM IT MAY CONCERN
-#
-# Don't add patches, dist-git is the upstream repository for this package.
+%global source0_hash b154b405aae8e92a661805e2eed3c9e0d63403533aa70b556ab52f8836cd3dfd
+%global debug_package %{nil}
+%global rrcdir /usr/lib/rpm/oreon
 
-Summary: Oreon-specific rpm configuration files
 Name: oreon-rpm-config
 Version: 345
-Release: 4%{?dist}
-# config.guess, config.sub are GPL-3.0-or-later WITH Autoconf-exception-generic
+Release: 13%{?dist}
+Summary: Oreon rpm build configuration
 License: GPL-1.0-or-later AND GPL-2.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic
 URL: https://github.com/oreonhq/rpm-specfiles
-
-Provides: redhat-rpm-config = %{version}-%{release}
-Provides: system-rpm-config = %{version}-%{release}
-Obsoletes: redhat-rpm-config < %{version}-%{release}
-
-# Core rpm settings
 Source0: macros
 Source1: rpmrc
-
-# gcc specs files for hardened builds
-Source50: redhat-hardened-cc1
-Source51: redhat-hardened-ld
-Source52: redhat-hardened-ld-errors
-# clang config spec files
-Source53: redhat-hardened-clang.cfg
-Source54: redhat-hardened-clang-ld.cfg
-
-# gcc specs files for annobin builds
-Source60: redhat-annobin-cc1
-Source61: redhat-annobin-select-gcc-built-plugin
-Source62: redhat-annobin-select-annobin-built-plugin
-Source63: redhat-annobin-plugin-select.sh
-
-Source100: macros.fedora-misc-srpm
-Source102: macros.mono-srpm
-Source103: macros.nodejs-srpm
-Source104: macros.ldc-srpm
-Source105: macros.valgrind-srpm
-Source108: macros.dotnet-srpm
-Source109: macros.hare-srpm
-
-Source150: macros.build-constraints
-Source151: macros.dwz
-Source152: macros.fedora-misc
-Source155: macros.ldconfig
-Source156: macros.vpath
-Source157: macros.shell-completions
-Source158: macros.rpmautospec
-
-Source201: brp-mangle-shebangs
-
-Source300: find-provides
-Source304: find-requires
-
-Source400: dist.sh
-
-Source500: https://git.savannah.gnu.org/cgit/config.git/plain/config.guess
-Source501: https://git.savannah.gnu.org/cgit/config.git/plain/config.sub
-
-Source602: libsymlink.attr
-
-Source700: brp-ldconfig
-Source701: brp-strip-lto
-
-Source800: common.lua
-
-Source900: buildflags.md
+Source2: oreon-hardened-cc1
+Source3: oreon-hardened-ld
+Source4: oreon-hardened-ld-errors
+Source5: oreon-hardened-clang.cfg
+Source6: oreon-hardened-clang-ld.cfg
+Source7: oreon-annobin-cc1
+Source8: oreon-annobin-select-gcc-built-plugin
+Source9: oreon-annobin-select-annobin-built-plugin
+Source10: oreon-annobin-plugin-select.sh
+Source11: macros.oreon-misc-srpm
+Source12: macros.mono-srpm
+Source13: macros.nodejs-srpm
+Source14: macros.ldc-srpm
+Source15: macros.valgrind-srpm
+Source16: macros.dotnet-srpm
+Source17: macros.hare-srpm
+Source18: macros.build-constraints
+Source19: macros.dwz
+Source20: macros.oreon-misc
+Source21: macros.ldconfig
+Source22: macros.vpath
+Source23: macros.shell-completions
+Source24: macros.rpmautospec
+Source25: brp-mangle-shebangs
+Source26: find-provides
+Source27: find-requires
+Source28: dist.sh
+Source29: config.guess
+Source30: config.sub
+Source31: libsymlink.attr
+Source32: brp-ldconfig
+Source33: brp-strip-lto
+Source34: common.lua
+Source35: buildflags.md
+Source36: macros.oreon-vendor-compat
 
 BuildArch: noarch
-BuildRequires: perl-generators
-Requires: coreutils
+Provides: system-rpm-config = %{version}-%{release}
+Obsoletes: rpmautospec-rpm-macros < 0.6.3-2
+# replaces the base buildroot rpm config, which ships the same macro files
+Provides: redhat-rpm-config = %{version}-%{release}
+Obsoletes: redhat-rpm-config < %{version}-%{release}
 
+BuildRequires: oreon-rpm-macros
+
+Requires: coreutils
+Requires: rpm >= 4.19.91
+Requires: dwz >= 0.4
+Requires: zip
+Requires: %{_bindir}/find
+Requires: %{_bindir}/file
+Requires: %{_bindir}/grep
+Requires: %{_bindir}/sed
+Requires: %{_bindir}/xargs
+Requires: (gcc-plugin-annobin if gcc)
 Requires: efi-srpm-macros
 Requires: cmake-srpm-macros
 Requires: fonts-srpm-macros
@@ -93,94 +86,91 @@ Requires: package-notes-srpm-macros
 Requires: pyproject-srpm-macros
 Requires: filesystem-srpm-macros
 
-Requires: rpm >= 4.19.91
-Requires: dwz >= 0.4
-Requires: zip
-Requires: (annobin-plugin-gcc if gcc)
-Requires: (gcc-plugin-annobin if gcc)
-Requires: (gpgverify if gnupg2)
-
-Requires: %{_bindir}/find
-Requires: %{_bindir}/file
-Requires: %{_bindir}/grep
-Requires: %{_bindir}/sed
-Requires: %{_bindir}/xargs
-
-Conflicts: gcc < 8.0.1-0.22
-
-Obsoletes: rpmautospec-rpm-macros < 0.6.3-2
-
-%global rrcdir /usr/lib/rpm/redhat
-
 %description
-Oreon rpm configuration. Sets distro-wide -O3, LTO, and x86_64 tuning macros
-while keeping -march=x86-64 so binaries run on all 64-bit cpus. Still provides
-redhat-rpm-config for BuildRequires compatibility.
+Distro rpm macros, compiler flags, and build-root policy scripts.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
 %setup -c -T
 cp -p %{sources} .
+
+%build
 
 %install
 mkdir -p %{buildroot}%{rrcdir}
 install -p -m 644 -t %{buildroot}%{rrcdir} macros rpmrc
-install -p -m 444 -t %{buildroot}%{rrcdir} redhat-hardened-*
-install -p -m 444 -t %{buildroot}%{rrcdir} redhat-annobin-*
-install -p -m 755 -t %{buildroot}%{rrcdir} config.*
-install -p -m 755 -t %{buildroot}%{rrcdir} dist.sh
-install -p -m 755 -t %{buildroot}%{rrcdir} brp-*
-install -p -m 755 -t %{buildroot}%{rrcdir} find-*
+install -p -m 444 -t %{buildroot}%{rrcdir} oreon-hardened-*
+install -p -m 444 -t %{buildroot}%{rrcdir} oreon-annobin-cc1 oreon-annobin-select-gcc-built-plugin oreon-annobin-select-annobin-built-plugin
+install -p -m 755 -t %{buildroot}%{rrcdir} oreon-annobin-plugin-select.sh
+install -p -m 755 -t %{buildroot}%{rrcdir} config.guess config.sub dist.sh
+install -p -m 755 -t %{buildroot}%{rrcdir} brp-ldconfig brp-mangle-shebangs brp-strip-lto
+install -p -m 755 -t %{buildroot}%{rrcdir} find-provides find-requires
 
 mkdir -p %{buildroot}%{_rpmconfigdir}/macros.d
 install -p -m 644 -t %{buildroot}%{_rpmconfigdir}/macros.d macros.*
+mkdir -p %{buildroot}%{_sysconfdir}/rpm
+ln -s %{_rpmconfigdir}/oreon/macros %{buildroot}%{_sysconfdir}/rpm/macros.oreon-vendor
+ln -s %{rrcdir}/rpmrc %{buildroot}%{_sysconfdir}/rpmrc
+mv %{buildroot}%{_rpmconfigdir}/macros.d/macros.oreon-vendor-compat %{buildroot}%{_sysconfdir}/rpm/
 
 mkdir -p %{buildroot}%{_fileattrsdir}
-install -p -m 644 -t %{buildroot}%{_fileattrsdir} *.attr
+install -p -m 644 -t %{buildroot}%{_fileattrsdir} libsymlink.attr
 
-mkdir -p %{buildroot}%{_rpmluadir}/fedora/{rpm,srpm}
+mkdir -p %{buildroot}%{_rpmluadir}/oreon/rpm
+mkdir -p %{buildroot}%{_rpmluadir}/oreon/srpm
+mkdir -p %{buildroot}%{_rpmluadir}/fedora
+install -p -m 644 -t %{buildroot}%{_rpmluadir}/oreon common.lua
 install -p -m 644 -t %{buildroot}%{_rpmluadir}/fedora common.lua
+mkdir -p %{buildroot}%{_rpmconfigdir}/redhat
+install -p -m 644 oreon-hardened-cc1 %{buildroot}%{_rpmconfigdir}/redhat/redhat-hardened-cc1
 
-%triggerin -- annobin-plugin-gcc gcc-plugin-annobin gcc
-%{rrcdir}/redhat-annobin-plugin-select.sh
+install -p -m 644 %{SOURCE35} .
+
+%triggerin -- gcc-plugin-annobin gcc
+%{rrcdir}/oreon-annobin-plugin-select.sh
 %end
 
-%triggerpostun -- annobin-plugin-gcc gcc-plugin-annobin
-%{rrcdir}/redhat-annobin-plugin-select.sh
+%triggerpostun -- gcc-plugin-annobin
+%{rrcdir}/oreon-annobin-plugin-select.sh
 %end
 
 %files
+%doc buildflags.md
 %dir %{rrcdir}
 %{rrcdir}/brp-ldconfig
 %{rrcdir}/brp-mangle-shebangs
 %{rrcdir}/brp-strip-lto
-%{rrcdir}/config.*
+%{rrcdir}/config.guess
+%{rrcdir}/config.sub
 %{rrcdir}/dist.sh
 %{rrcdir}/find-provides
 %{rrcdir}/find-requires
 %{rrcdir}/macros
-%{rrcdir}/redhat-hardened-*
+%{rrcdir}/oreon-hardened-cc1
+%{rrcdir}/oreon-hardened-clang.cfg
+%{rrcdir}/oreon-hardened-clang-ld.cfg
+%{rrcdir}/oreon-hardened-ld
+%{rrcdir}/oreon-hardened-ld-errors
 %{rrcdir}/rpmrc
-%{_fileattrsdir}/*.attr
+%attr(0755,-,-) %{rrcdir}/oreon-annobin-plugin-select.sh
+%verify(owner group mode) %{rrcdir}/oreon-annobin-cc1
+%{rrcdir}/oreon-annobin-select-gcc-built-plugin
+%{rrcdir}/oreon-annobin-select-annobin-built-plugin
+%{_fileattrsdir}/libsymlink.attr
 %{_rpmconfigdir}/macros.d/macros.*-srpm
 %{_rpmconfigdir}/macros.d/macros.build-constraints
 %{_rpmconfigdir}/macros.d/macros.dwz
-%{_rpmconfigdir}/macros.d/macros.fedora-misc
+%{_rpmconfigdir}/macros.d/macros.oreon-misc
 %{_rpmconfigdir}/macros.d/macros.ldconfig
 %{_rpmconfigdir}/macros.d/macros.rpmautospec
 %{_rpmconfigdir}/macros.d/macros.shell-completions
 %{_rpmconfigdir}/macros.d/macros.vpath
-%dir %{_rpmluadir}/fedora
-%dir %{_rpmluadir}/fedora/srpm
-%dir %{_rpmluadir}/fedora/rpm
-%{_rpmluadir}/fedora/*.lua
-
-%attr(0755,-,-) %{rrcdir}/redhat-annobin-plugin-select.sh
-%verify(owner group mode) %{rrcdir}/redhat-annobin-cc1
-%{rrcdir}/redhat-annobin-select-gcc-built-plugin
-%{rrcdir}/redhat-annobin-select-annobin-built-plugin
-
-%doc buildflags.md
-
-%changelog
-%autochangelog
+%{_sysconfdir}/rpm/macros.oreon-vendor
+%{_sysconfdir}/rpmrc
+%{_sysconfdir}/rpm/macros.oreon-vendor-compat
+%dir %{_rpmluadir}/oreon
+%dir %{_rpmluadir}/oreon/srpm
+%dir %{_rpmluadir}/oreon/rpm
+%{_rpmluadir}/oreon/common.lua
+%{_rpmluadir}/fedora/common.lua
+%{_rpmconfigdir}/redhat/redhat-hardened-cc1

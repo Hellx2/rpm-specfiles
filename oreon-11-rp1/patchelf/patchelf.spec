@@ -1,5 +1,11 @@
-%global source0_hash 1451d01ee3a21100340aed867d0b799f46f0b1749680028d38c3f5d0128fb8a7
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 491108728f120ce05b539934b41a750235031a6df8abc6b47e57aff7de15094d
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # hardening breaks the set-interpreter-long test on i686, x86_64, ppc64le, s390x
 %undefine _hardened_build
 
@@ -11,12 +17,7 @@ Summary:        A utility for patching ELF binaries
 # Automatically converted from old format: GPLv3+ - review is highly recommended.
 License:        GPL-3.0-or-later
 URL:            http://nixos.org/patchelf.html
-Source0:        https://github.com/NixOS/%{name}/archive/%{version}/%{name}-%{version}.tar.gz
-
-# Allocate PHT & SHT at the end of the *.elf file
-# This is needed after a change in binutils, see https://bugzilla.redhat.com/2321588
-# Rebased form https://github.com/NixOS/patchelf/commit/43b75fbc9f
-Patch:          0001-Allocate-PHT-SHT-at-the-end-of-the-.elf-file.patch
+Source0:        https://github.com/NixOS/patchelf/releases/download/%{version}/patchelf-%{version}.tar.gz
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -26,6 +27,7 @@ BuildRequires:  automake
 BuildRequires:  coreutils
 BuildRequires:  libacl-devel
 BuildRequires:  libattr-devel
+BuildRequires:  oreon-rpm-macros
 
 %description
 PatchELF is a simple utility for modifying an existing ELF executable
@@ -33,7 +35,7 @@ or library.  It can change the dynamic loader ("ELF interpreter")
 of an executable and change the RPATH of an executable or library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
 
 %autosetup -p1
 
@@ -41,7 +43,6 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 rm src/elf.h
 
 %build
-autoreconf -fi
 %configure
 %make_build
 
@@ -64,5 +65,3 @@ rm -rf %{buildroot}/usr/share/doc/%{name}
 %dir %{_datadir}/zsh/site-functions
 %{_datadir}/zsh/site-functions/_patchelf
 
-%changelog
-%autochangelog

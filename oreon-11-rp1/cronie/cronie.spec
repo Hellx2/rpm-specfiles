@@ -1,5 +1,11 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash f1da374a15ba7605cf378347f96bc8b678d3d7c0765269c8242cfe5b0789c571
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond selinux 1
 %bcond pam 1
 %bcond audit 1
@@ -7,25 +13,25 @@
 
 Summary:   Cron daemon for executing programs at set times
 Name:      cronie
-Version:   1.7.2
-Release:   %autorelease
+Version:        1.7.2
+Release:        1%{?dist}
 License:   GPL-2.0-or-later AND BSD-3-Clause AND BSD-2-Clause AND ISC AND LGPL-2.1-or-later
 URL:       https://github.com/cronie-crond/cronie
 Source0:        https://github.com/cronie-crond/cronie/releases/download/cronie-%{version}/cronie-%{version}.tar.gz
 Source1:   cronie-tmpfiles.conf
 Source2:   cronie-anacron-tmpfiles.conf
 
-Patch:     0001-do-no-leak-file-descriptors.patch
+Patch:        0001-do-no-leak-file-descriptors.patch
 # https://github.com/cronie-crond/cronie/issues/193
-Patch:     make_error_func_prototype_complete.patch
+Patch:        make_error_func_prototype_complete.patch
 # https://github.com/cronie-crond/cronie/pull/200
-Patch:     fix_range_parsing.patch
+Patch:        fix_range_parsing.patch
 # https://github.com/cronie-crond/cronie/pull/201
-Patch:     move_parsing_code.patch
+Patch:        move_parsing_code.patch
 # https://github.com/cronie-crond/cronie/pull/206
-Patch:     crontab-fix-backup-failure.patch
+Patch:        crontab-fix-backup-failure.patch
 # https://github.com/cronie-crond/cronie/pull/210
-Patch:     forward-XDG_SESSION_CLASS-to-PAM-for-session-classification.patch
+Patch:        forward-XDG_SESSION_CLASS-to-PAM-for-session-classification.patch
 
 Requires:  dailyjobs
 
@@ -44,14 +50,12 @@ Buildrequires: audit-libs-devel >= 1.4.1
 BuildRequires:    gcc
 BuildRequires:    systemd
 BuildRequires:    make
-Obsoletes:        %{name}-sysvinit < %{version}-%{release}
+BuildRequires:  oreon-rpm-macros
+Obsoletes:        %{name}-sysvinit
+
 Requires(post):   coreutils sed
 
-%if 0%{?fedora} && 0%{?fedora} < 28 || 0%{?rhel} && 0%{?rhel} < 8 || (0%{?oreon} >= 11)
-%{?systemd_requires}
-%else
-%{?systemd_ordering} # does not exist on Fedora27/RHEL7
-%endif
+%{?systemd_ordering}
 
 
 %description
@@ -91,7 +95,8 @@ Old style of running {hourly,daily,weekly,monthly}.jobs without anacron. No
 extra features.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -213,6 +218,3 @@ exit 0
 %files noanacron
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/cron.d/dailyjobs
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.7.2-1
-- Import

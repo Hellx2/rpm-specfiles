@@ -1,21 +1,28 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 8bd24b4f23a3065d6e5b26e98aba9ce783ea4fd781069c1b35d149694e90ca3e
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           npth
 Version:        1.8
-Release:        %autorelease
+Release:        1%{?dist}
 Summary:        The New GNU Portable Threads library
 License:        LGPL-2.1-or-later
 URL:            https://git.gnupg.org/cgi-bin/gitweb.cgi?p=npth.git
-Source0:        https://gnupg.org/ftp/gcrypt/npth/%{name}-%{version}.tar.bz2
-Source1:        https://gnupg.org/ftp/gcrypt/npth/%{name}-%{version}.tar.bz2.sig
-# Full dist signing keys (npth .sig files may carry multiple signatures)
-Source2:        https://gnupg.org/signature_key.asc
+Source0:        https://gnupg.org/ftp/gcrypt/npth/npth-%{version}.tar.bz2
+Source1:        npth-1.8.tar.bz2.sig
+# Keyring generated from https://gnupg.org/signature_key.asc
+Source2:        gpgkey-6DAA6E64A76D2840571B4902528897B826403ADA.gpg
 # Manual page is re-used and changed pth-config.1 from pth-devel package
 Source3:        npth-config.1
 
 BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  gnupg2
+BuildRequires:  oreon-rpm-macros
 
 %description
 nPth is a non-preemptive threads implementation using an API very similar
@@ -33,8 +40,9 @@ This package contains libraries and header files for
 developing applications that use %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }gpg --batch --dearmor --output %{_builddir}/gnupg-signature-keyring.gpg %{SOURCE2}
-%{gpgverify} --keyring='%{_builddir}/gnupg-signature-keyring.gpg' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup
 
 %build
@@ -63,6 +71,3 @@ make check
 %{_mandir}/man1/%{name}-config.1*
 %{_datadir}/aclocal/%{name}.m4
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.8-1
-- Prepare for Oreon 11 (RP1)

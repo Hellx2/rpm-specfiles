@@ -1,18 +1,28 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 82ad632d31ee05da13b537c124f819eb88e18851d9cb0c30ae0552084811588c
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           hiredis
-Version:        1.4.1
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Minimalistic C client library for Redis
+# Automatically converted from old format: BSD - review is highly recommended.
 License:        LicenseRef-Callaway-BSD
 URL:            https://github.com/redis/hiredis
-Source0:        https://github.com/redis/hiredis/archive/v%{version}/%{name}-%{version}.tar.gz
-Patch0:         hiredis-envvar.patch
+Source0:        https://github.com/redis/hiredis/archive/v%{version}/hiredis-%{version}.tar.gz
+# Make test.sh use REDIS_SERVER everywhere
+# https://github.com/redis/hiredis/pull/1276
+Patch0:        hiredis-envvar.patch
 BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  openssl-devel
 %ifnarch %{ix86}
 BuildRequires:  valkey
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description 
@@ -27,12 +37,13 @@ This package contains libraries and header files for
 developing applications that use %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
-%make_build PREFIX="%{_prefix}" LIBRARY_PATH="%{_lib}" \
-            LDFLAGS="%{?__global_ldflags}" USE_SSL=1
+%make_build PREFIX="%{_prefix}" LIBRARY_PATH="%{_lib}"     \
+            DEBUG="%{optflags}" LDFLAGS="%{?__global_ldflags}" USE_SSL=1
 
 %install
 %make_install PREFIX="%{_prefix}" LIBRARY_PATH="%{_lib}" USE_SSL=1
@@ -59,6 +70,3 @@ make check REDIS_SERVER=valkey-server
 %{_libdir}/pkgconfig/hiredis.pc
 %{_libdir}/pkgconfig/hiredis_ssl.pc
 
-%changelog
-* Sat Apr 18 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.2.0-9
-- Import for Oreon 11

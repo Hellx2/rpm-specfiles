@@ -1,17 +1,22 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 6fcf18b75d305d99d04d2e42982ed5b787a081af2842220ed63287a2d6a10988
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: A library for password generation and password quality checking
 Name: libpwquality
-Version: 1.4.5
-Release: 15%{?dist}
+Version:        1.4.5
+Release:        1%{?dist}
 URL: https://github.com/libpwquality/libpwquality/
 Source0:        https://github.com/libpwquality/libpwquality/releases/download/libpwquality-%{version}/libpwquality-%{version}.tar.bz2
 
 # Use setuptools instead of distutils
 # This fixes the build with Python 3.12+
-# https://bugzilla.redhat.com/2165572
 # Upstream PR: https://github.com/libpwquality/libpwquality/pull/74
-Patch1: setuptools.patch
+Patch1:        setuptools.patch
 
 # The package is BSD licensed with option to relicense as GPLv2+
 # - this option is redundant as the BSD license allows that anyway.
@@ -31,6 +36,7 @@ BuildRequires: gettext
 BuildRequires: pam-devel
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
+BuildRequires:  oreon-rpm-macros
 
 %description
 This is a library for password quality checks and generation
@@ -59,7 +65,8 @@ for easy password quality checking and generation of random
 pronounceable passwords from Python applications.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -110,6 +117,3 @@ mkdir %{buildroot}%{_secconfdir}/pwquality.conf.d
 %{python3_sitearch}/*.so
 %{python3_sitearch}/*.egg-info
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.4.5-15
-- Prepare for Oreon 11 (RP1)

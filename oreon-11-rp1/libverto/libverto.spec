@@ -1,15 +1,21 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 8d1756fd704f147549f606cd987050fb94b0b1ff621ea6aa4d6bf0b74450468a
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global homepage https://github.com/latchset/libverto
 
 Name:           libverto
 Version:        0.3.2
-Release:        12%{?dist}
+Release:        1%{?dist}
 Summary:        Main loop abstraction library
 
 License:        MIT
 URL:            %{homepage}
-Source0:        https://github.com/latchset/libverto/releases/download/0.3.2/libverto-0.3.2.tar.gz
+Source0:        https://github.com/latchset/libverto/releases/download/%{version}/libverto-%{version}.tar.gz
 
 BuildRequires:  autoconf
 BuildRequires:  automake
@@ -21,6 +27,7 @@ BuildRequires:  libevent-devel
 BuildRequires:  libev-devel
 
 BuildRequires:  git
+BuildRequires:  oreon-rpm-macros
 
 Obsoletes:      libverto-tevent < 0.3.0-2
 Obsoletes:      libverto-tevent-devel < 0.3.0-2
@@ -106,7 +113,8 @@ This package provides %{name}-module-base since it supports io, timeout
 and signal.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -S git
 
 %build
@@ -160,6 +168,3 @@ find $RPM_BUILD_ROOT -name '*.la' -exec rm -f {} ';'
 %{_libdir}/%{name}-libev.so
 %{_libdir}/pkgconfig/%{name}-libev.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.3.2-12
-- Prepare for Oreon 11 (RP1)

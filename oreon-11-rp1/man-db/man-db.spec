@@ -1,19 +1,26 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 8afebb6f7eb6bb8542929458841f5c7e6f240e30c86358c1fbcefbea076c87d9
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global cache /var/cache/man
 
 Summary: Tools for searching and reading man pages
 Name: man-db
-Version: 2.13.1
-Release: 4%{?dist}
+Version:        2.13.1
+Release:        1%{?dist}
 # GPLv2+ .. man-db
 # GPLv3+ .. gnulib
 License: GPL-2.0-or-later AND GPL-3.0-or-later
 URL: http://www.nongnu.org/man-db/
 
-Source0:        http://download.savannah.gnu.org/releases/%{name}/%{name}-%{version}.tar.xz
-Source1:        http://download.savannah.gnu.org/releases/%{name}/%{name}-%{version}.tar.xz.asc
-# Colin Watson signing key (also https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xac0a4ff12611b6fccf01c111393587d97d86500b)
+Source0:        http://download.savannah.gnu.org/releases/man-db/man-db-%{version}.tar.xz
+Source1:        man-db-2.13.1.tar.xz.asc
+# Man-db GPG key is stored in a different name which makes it hard to fetch
+# It was downloaded here: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xac0a4ff12611b6fccf01c111393587d97d86500b
 Source2: 0xac0a4ff12611b6fccf01c111393587d97d86500b
 
 Source3: man-db.crondaily
@@ -24,7 +31,6 @@ Source6: man-db-restart-cache-update.service
 Obsoletes: man < 2.0
 Provides: man = %{version}
 Provides: man-pages-reader = %{version}
-# FPC exception for gnulib - copylib - https://fedorahosted.org/fpc/ticket/174
 Provides: bundled(gnulib)
 
 Requires: coreutils, grep, groff-base, gzip, less
@@ -34,6 +40,7 @@ BuildRequires: systemd
 BuildRequires: gdbm-devel, gettext, groff, less, libpipeline-devel, zlib-devel
 BuildRequires: po4a, perl-interpreter, perl-version
 BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 Recommends: glibc-gconv-extra
 
 Requires(post): %{_sbindir}/update-alternatives
@@ -60,8 +67,9 @@ BuildArch: noarch
 This package provides periodic update of man-db cache.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 %build
@@ -236,9 +244,3 @@ fi
 %files cron
 %config(noreplace) %{_sysconfdir}/cron.daily/man-db.cron
 
-%changelog
-* Fri Apr 03 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.13.1-4
-- Ship Colin Watson GPG key next to the spec for gpgverify
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.13.1-3
-- Prepare for Oreon 11 (RP1)

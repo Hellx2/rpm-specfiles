@@ -1,13 +1,17 @@
-%global source0_hash e076c851eec0972486ec842164fdc54547f9d17abd3d1449de8b120f5d299143
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 529634c40910895a9a1f3c5c1e65da2ca9ed72fb158dfc4bcc89efdf05e39b72
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
-Version: 7.2
-Release: 1%{?dist}
+Version:        7.3
+Release:        1%{?dist}
 # The test suite is GPLv2+, the bundled headers are GPLv2 with Linux syscall
 # exception, all the rest is LGPLv2.1+.
-%if 0%{?fedora} >= 35 || 0%{?centos} >= 9 || 0%{?rhel} >= 9
-# https://docs.fedoraproject.org/en-US/legal/license-field/#_no_effective_license_analysis
 # BSD-2-Clause:
 #   bundled/linux/include/uapi/linux/tee.h
 # BSD-3-Clause:
@@ -93,46 +97,32 @@ Release: 1%{?dist}
 #   tests-m32/Makefile.in (dist only)
 #   tests-mx32/Makefile.in (dist only)
 License: LGPL-2.1-or-later AND GPL-2.0-or-later AND GPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND (GPL-1.0-or-later WITH Linux-syscall-note) AND (GPL-2.0-or-later WITH Linux-syscall-note) AND (GPL-2.0-only WITH Linux-syscall-note) AND (LGPL-2.0-or-later WITH Linux-syscall-note) AND (LGPL-2.1-or-later WITH Linux-syscall-note) AND ((GPL-2.0-only WITH Linux-syscall-note) OR Linux-OpenIB) AND ((GPL-2.0-only WITH Linux-syscall-note) OR MIT) AND ((GPL-2.0-or-later WITH Linux-syscall-note) OR BSD-3-Clause) AND ISC AND X11 AND FSFAP AND FSFUL AND FSFULLR AND FSFULLRWD
-%else
-License: LGPL-2.1+ and GPL-2.0+
-%endif
 # Some distros require Group tag to be present,
 # some require Group tag to be absent,
 # some do not care about Group tag at all,
 # and we have to cater for all of them.
-%if 0%{?fedora} < 28 && 0%{?centos} < 8 && 0%{?rhel} < 8 && 0%{?suse_version} < 1500
-Group: Development%{?suse_version:/Tools}/Debuggers
-%endif
 URL: https://strace.io
-%if 0%{?fedora} >= 12 || 0%{?centos} >= 6 || 0%{?rhel} >= 6 || 0%{?suse_version} >= 1200
-Source:        https://strace.io/files/%{version}/strace-%{version}.tar.xz
+Source0:        https://strace.io/files/%{version}/strace-%{version}.tar.xz
 BuildRequires: xz
-%else
-Source:        https://strace.io/files/%{version}/strace-%{version}.tar.xz
-%endif
 BuildRequires: gcc gzip make
 
 # Install Bluetooth headers for AF_BLUETOOTH sockets decoding.
-%if 0%{?fedora} >= 18 || 0%{?centos} >= 6 || 0%{?rhel} >= 8 || 0%{?suse_version} >= 1200
 BuildRequires: pkgconfig(bluez)
-%endif
+BuildRequires:  oreon-rpm-macros
 
 # Install elfutils-devel or libdw-devel to enable strace -k option.
 # Install binutils-devel to enable symbol demangling.
-%if 0%{?fedora} >= 20 || 0%{?centos} >= 6 || 0%{?rhel} >= 6
 %define buildrequires_stacktrace BuildRequires: elfutils-devel binutils-devel
 %define buildrequires_selinux BuildRequires: libselinux-devel
-%endif
-%if 0%{?suse_version} >= 1100
-%define buildrequires_stacktrace BuildRequires: libdw-devel binutils-devel
-%define buildrequires_selinux BuildRequires: libselinux-devel
-%endif
 %{?buildrequires_stacktrace}
 %{?buildrequires_selinux}
 
+# rhbz#2461721
+Recommends: yama-ptrace-enable
+
 # OBS compatibility
 %{?!buildroot:BuildRoot: %_tmppath/buildroot-%name-%version-%release}
-%define maybe_use_defattr %{?suse_version:%%defattr(-,root,root)}
+%define maybe_use_defattr %{nil}
 
 # Fallback definitions for make_build/make_install macros
 %{?!__make:       %global __make %_bindir/make}
@@ -151,11 +141,12 @@ Install strace if you need a tool to track the system calls made and
 received by a process.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 echo -n %version-%release > .tarball-version
 echo -n 2026 > .year
-echo -n 2025-11-13 > doc/.strace.1.in.date
+echo -n 2026-06-25 > doc/.strace.1.in.date
 echo -n 2025-07-02 > doc/.strace-log-merge.1.in.date
 
 %build
@@ -186,13 +177,11 @@ wait
 %check
 width=$(echo __LONG_WIDTH__ |%__cc -E -P -)
 skip_32bit=0
-%if 0%{?fedora} >= 35 || 0%{?rhel} > 9
 skip_32bit=1
-%endif
 
 if [ "${width}" != 32 ] || [ "${skip_32bit}" != 1 ]; then
 	%{buildroot}%{_bindir}/strace -V
-	%make_build -k check VERBOSE=1
+	%make_build -k check VERBOSE=1 CFLAGS="${CFLAGS} -Wno-error=stringop-overread -Wno-error=stringop-overflow -Wno-error=format-overflow"
 	echo 'BEGIN OF TEST SUITE INFORMATION'
 	tail -n 99999 -- tests*/test-suite.log tests*/ksysent.gen.log
 	find tests* -type f -name '*.log' -print0 |
@@ -207,6 +196,3 @@ fi
 %{_bindir}/strace-log-merge
 %{_mandir}/man1/*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 6.19-1
-- Prepare for Oreon 11 (RP1)

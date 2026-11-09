@@ -1,28 +1,21 @@
-%global source0_hash 45672fec165cb4cc1358a2d76b5d57d22876dcb97ab169427ac385cbe1d5597a
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-# python3 is not available on RHEL <= 7
-%if 0%{?fedora} || 0%{?rhel} > 7
+%global source0_hash ed14656883b23a364b4057c05595d93252da9bc473d30106519519d0da141283
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_without python3
-%else
-%bcond_with python3
-%endif
-
-# python2 is not available on RHEL > 7
-%if 0%{?fedora} > 31 || 0%{?rhel} > 7
-%bcond_with python2
-%else
-%bcond_without python2
-%endif
 
 Summary: Utility for determining file types
 Name: file
-Version: 5.48
-Release: 1%{?dist}
+Version:        5.48
+Release:        1%{?dist}
 
 # Main license is BSD-2-Clause-Darwin
 # Shipped exceptions:
 # * some src/*.{c.h} - BSD-2-Clause
-# Not shipped in Fedora:
 # * src/mygetopt.h - BSD-4-Clause
 # * src/strcasestr.h - BSD-3-Clause
 # * src/strlc{at,py}.c - ISC
@@ -30,28 +23,29 @@ Release: 1%{?dist}
 License: BSD-2-Clause-Darwin AND BSD-2-Clause
 
 Source0:        http://ftp.astron.com/pub/file/file-%{version}.tar.gz
-Source1:        http://ftp.astron.com/pub/file/file-%{version}.tar.gz.asc
+Source1:        file-5.48.tar.gz.asc
 
 # gpg --keyserver hkp://keys.gnupg.net --recv-keys BE04995BA8F90ED0C0C176C471112AB16CB33B3A
 # gpg --output christoskey.asc --armor --export christos@zoulas.com
 Source2: christoskey.asc
 
 # Upstream says it's up to distributions to add a way to support local-magic.
-Patch0: file-localmagic.patch
+Patch0:        file-localmagic.patch
 
 # not yet upstream
-Patch1: file-4.17-rpm-name.patch
-Patch2: file-5.04-volume_key.patch
+Patch1:        file-4.17-rpm-name.patch
+Patch2:        file-5.04-volume_key.patch
 
 # revert upstream commits (rhbz#2167964)
 # 1. https://github.com/file/file/commit/e1233247bbe4d2d66b891224336a23384a93cce1
 # 2. https://github.com/file/file/commit/f7a65dbf1739a8f8671621e41c5648d1f7e9f6ae
-Patch3: file-5.45-readelf-limit-revert.patch
+Patch3:        file-5.45-readelf-limit-revert.patch
 
-Patch4: file-5.46-fix-tests-rpm-magic.patch
+Patch4:        file-5.46-fix-tests-rpm-magic.patch
 
-# Fix tabs->spaces in python/magic.py (upstream 5.48 used tabs; rhbz#2419719)
-Patch5: file-5.47-python-magic-close-fix-whitespace.patch
+# Disable Landlock execute restrictions so external decompressors can run
+# Upstream: https://github.com/file/file/commit/dcf3495219a0ccae60f10c00e6b16696c6fe3977
+Patch5:        file-5.49-landlock-execute.patch
 
 URL: https://www.darwinsys.com/file/
 Requires: file-libs%{?_isa} = %{version}-%{release}
@@ -61,6 +55,12 @@ BuildRequires: automake
 BuildRequires: libtool
 BuildRequires: make
 BuildRequires: gnupg2
+
+# generated BuildRequires, refresh with: orbscli plan bake
+BuildRequires: pyproject-rpm-macros
+BuildRequires: python3dist(packaging)
+BuildRequires: python3dist(pip) >= 19
+BuildRequires: python3dist(setuptools) >= 40.8
 
 %description
 The file command is used to identify a particular file according to the
@@ -90,26 +90,11 @@ Requires: file-devel = %{version}-%{release}
 %description static
 The file-static package contains the static version of the libmagic library.
 
-%if %{with python2}
-%package -n python2-magic
-Summary: Python 2 bindings for the libmagic API
-BuildRequires: python2-devel
-BuildRequires: python2-setuptools
-BuildArch: noarch
-Requires: file-libs = %{version}-%{release}
-%{?python_provide:%python_provide python2-magic}
-
-%description -n python2-magic
-This package contains the Python 2 bindings to allow access to the
-libmagic API. The libmagic library is also used by the familiar
-file(1) command.
-%endif
-
 %if %{with python3}
 %package -n python3-file-magic
 Summary: Python 3 bindings for the libmagic API
 BuildRequires: python3-devel
-BuildRequires: python3-setuptools
+BuildRequires:  oreon-rpm-macros
 BuildArch: noarch
 Requires: file-libs = %{version}-%{release}
 Conflicts: python3-magic
@@ -121,18 +106,14 @@ file(1) command.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 iconv -f iso-8859-1 -t utf-8 < doc/libmagic.man > doc/libmagic.man_
 touch -r doc/libmagic.man doc/libmagic.man_
 mv doc/libmagic.man_ doc/libmagic.man
-
-%if %{with python3}
-rm -rf %{py3dir}
-cp -a python %{py3dir}
-%endif
 
 %build
 # Fix config.guess to find aarch64 - #925339
@@ -145,13 +126,10 @@ sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
 sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
 export LD_LIBRARY_PATH=$PWD/src/.libs
 %make_build
-%if %{with python2}
-cd python
-CFLAGS="%{optflags}" %{__python2} setup.py build
-%endif
 %if %{with python3}
-cd %{py3dir}
-CFLAGS="%{optflags}" %{__python3} setup.py build
+cd python
+%pyproject_wheel
+cd ..
 %endif
 
 %install
@@ -172,13 +150,11 @@ cat magic/Magdir/* > ${RPM_BUILD_ROOT}%{_datadir}/misc/magic
 ln -s misc/magic ${RPM_BUILD_ROOT}%{_datadir}/magic
 ln -s ../magic ${RPM_BUILD_ROOT}%{_datadir}/file/magic
 
-%if %{with python2}
-cd python
-%{__python2} setup.py install -O1 --skip-build --root ${RPM_BUILD_ROOT}
-%endif
 %if %{with python3}
-cd %{py3dir}
-%{__python3} setup.py install -O1 --skip-build --root ${RPM_BUILD_ROOT}
+cd python
+%pyproject_install
+%pyproject_save_files magic
+cd ..
 %endif
 %{__install} -d ${RPM_BUILD_ROOT}%{_datadir}/%{name}
 
@@ -187,7 +163,7 @@ cd %{py3dir}
 %check
 export LD_LIBRARY_PATH=$PWD/src/.libs
 %ifarch s390x
-# efi-signature-list-sha256: New in 5.48 (commit 2a457644). EFI Signature List magic
+# efi-signature-list-sha256: New in 5.47 (commit 2a457644). EFI Signature List magic
 # in magic/Magdir/efi uses little-endian types; on big-endian s390x file reports
 # "data" instead of the expected string and the test fails. Remove on s390x until
 # upstream makes the EFI magic endian-safe.
@@ -220,27 +196,8 @@ make -C tests check
 %files static
 %{_libdir}/libmagic.a
 
-%if %{with python2}
-%files -n python2-magic
-%license COPYING
-%doc python/README.md python/example.py
-%{python2_sitelib}/magic.py
-%{python2_sitelib}/magic.pyc
-%{python2_sitelib}/magic.pyo
-%if 0%{?fedora} || 0%{?rhel} >= 6
-%{python2_sitelib}/*egg-info
-%endif
-%endif
-
 %if %{with python3}
-%files -n python3-file-magic
-%license COPYING
+%files -n python3-file-magic -f %{pyproject_files}
 %doc python/README.md python/example.py
-%{python3_sitelib}/magic.py
-%{python3_sitelib}/*egg-info
-%{python3_sitelib}/__pycache__/*
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 5.47-1
-- Prepare for Oreon 11 (RP1)

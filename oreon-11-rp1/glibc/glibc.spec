@@ -1,7 +1,13 @@
-%global source0_hash d9c86c6b5dbddb43a3e08270c5844fc5177d19442cf5b8df4be7c07cd5fa3831
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global glibcsrcdir glibc-2.43
-%global glibcversion 2.43
+%global source0_hash ae553b76193e605bc40040558270fa6185ba752e3d3085df716ed4566dc54558
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%global glibcsrcdir glibc-67dd5150c6c1f76262b7d76ecbc296c564376c74
+%global glibcversion 2.44
 # Pre-release tarballs are pulled in from git using a command that is
 # effectively:
 #
@@ -13,7 +19,7 @@
 # Conversly, glibc_autorequires is set for development snapshots, where
 # dependencies based on symbol versions are inaccurate.
 %{lua: if string.match(rpm.expand("%glibcsrcdir"), "^glibc%-[0-9.]+$") then
-    rpm.define("glibc_release_url https://ftp.gnu.org/gnu/glibc/")
+    rpm.define("glibc_release_url https://mirror.cs.odu.edu/gnu/glibc/")
   end
   local major, minor = string.match(rpm.expand("%glibcversion"),
                                     "^([0-9]+)%.([0-9]+)%.9000$")
@@ -146,7 +152,7 @@ end}
 ##############################################################################
 Summary: The GNU libc libraries
 Name: glibc
-Version: %{glibcversion}
+Version:        2.44
 
 # We'll use baserelease here for two reasons:
 # - It is known to rpmdev-bumpspec, so it will be properly handled for mass-
@@ -154,8 +160,8 @@ Version: %{glibcversion}
 # - It allows using the Release number without the %%dist tag in the dependency
 #   generator to make the generated requires interchangeable between Rawhide
 #   and ELN (.elnYY < .fcXX).
-%global baserelease 8
-Release: %{baserelease}%{?dist}
+%global baserelease 2
+Release:        1%{?dist}
 
 # Licenses:
 #
@@ -209,16 +215,14 @@ Release: %{baserelease}%{?dist}
 #
 # SPDX references:
 # https://spdx.org/licenses
-# https://docs.fedoraproject.org/en-US/legal/allowed-licenses
-# https://gitlab.com/fedora/legal/fedora-license-data
 #
 # SPDX license string based on evaluation of glibc-2.39 sources by
 # ScanCode toolkit (https://github.com/nexB/scancode-toolkit),
 # and accounting for exceptions listed above:
-License: LGPL-2.1-or-later AND SunPro AND LGPL-2.1-or-later WITH GCC-exception-2.0 AND BSD-3-Clause AND GPL-2.0-or-later AND LGPL-2.1-or-later WITH GNU-compiler-exception AND GPL-2.0-only AND ISC AND LicenseRef-Fedora-Public-Domain AND HPND AND CMU-Mach AND LGPL-2.0-or-later AND Unicode-3.0 AND GFDL-1.1-or-later AND GPL-1.0-or-later AND FSFUL AND MIT AND Inner-Net-2.0 AND X11 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND GFDL-1.3-only AND GFDL-1.1-only AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Texinfo-exception
+License: LGPL-2.1-or-later AND SunPro AND LGPL-2.1-or-later WITH GCC-exception-2.0 AND BSD-3-Clause AND GPL-2.0-or-later AND LGPL-2.1-or-later WITH GNU-compiler-exception AND GPL-2.0-only AND ISC AND LicenseRef-Oreon-Public-Domain AND HPND AND CMU-Mach AND LGPL-2.0-or-later AND Unicode-3.0 AND GFDL-1.1-or-later AND GPL-1.0-or-later AND FSFUL AND MIT AND Inner-Net-2.0 AND X11 AND GPL-2.0-or-later WITH GCC-exception-2.0 AND GFDL-1.3-only AND GFDL-1.1-only AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Texinfo-exception
 
 URL: http://www.gnu.org/software/glibc/
-Source0: %{?glibc_release_url:%{glibc_release_url}%{glibcsrcdir}.tar.xz}%{!?glibc_release_url:https://ftp.gnu.org/gnu/glibc/%{glibcsrcdir}.tar.xz}
+Source0:        https://github.com/bminor/glibc/archive/67dd5150c6c1f76262b7d76ecbc296c564376c74.tar.gz
 Source1: bench.mk
 Source2: glibc-bench-compare
 Source3: glibc.req.in
@@ -315,8 +319,8 @@ rpm.define("__debug_install_post bash " .. wrapper
 # turn off the rpmbuild check.
 %global _binaries_in_noarch_packages_terminate_build 0
 # Variant of %%dist that contains just the distribution release, no affixes.
-%{?fedora:%global sysroot_dist fc%{fedora}}
-%{?rhel:%global sysroot_dist el%{rhel}}
+%global sysroot_dist or11
+
 %{?!sysroot_dist:%global sysroot_dist root}
 # The name of the sysroot package.
 %global sysroot_package_arch sysroot-%{_arch}-%{sysroot_dist}-%{name}
@@ -346,10 +350,11 @@ rpm.define("__debug_install_post bash " .. wrapper
 # - See each individual patch file for origin and upstream status.
 # - For new patches follow template.patch format.
 ##############################################################################
-Patch13: glibc-fedora-localedata-rh61908.patch
-Patch17: glibc-cs-path.patch
-Patch23: glibc-python3.patch
-Patch24: glibc-rh2426825.patch
+Patch13:        glibc-oreon-localedata-rh61908.patch
+Patch17:        glibc-cs-path.patch
+Patch18:        glibc-rh2426825.patch
+Patch19:        glibc-rh2457183-1.patch
+Patch20:        glibc-rh2457183-2.patch
 
 ##############################################################################
 # Continued list of core "glibc" package information:
@@ -427,6 +432,7 @@ BuildRequires: python3 python3-devel
 
 # This GCC version is needed for -fstack-clash-protection support.
 BuildRequires: gcc >= 7.2.1-6
+BuildRequires: annobin-plugin-gcc
 %global enablekernel 3.2
 Conflicts: kernel < %{enablekernel}
 %define target %{_target_cpu}-redhat-linux
@@ -536,9 +542,7 @@ BuildRequires: kernel-headers >= 3.2
 Provides: glibc-headers = %{version}-%{release}
 Provides: glibc-headers(%{_target_cpu})
 Obsoletes: glibc-headers < %{version}-%{release}
-# For backwards compatibility with alternative Fedora approach to
 # work around multilib issue in composes.
-%if 0%{?fedora}
 %ifarch x86_64
 Provides: glibc-headers-x86 = %{version}-%{release}
 Obsoletes: glibc-headers-x86 < %{version}-%{release}
@@ -546,7 +550,6 @@ Obsoletes: glibc-headers-x86 < %{version}-%{release}
 %ifarch s390x
 Provides: glibc-headers-s390 = %{version}-%{release}
 Obsoletes: glibc-headers-s390 < %{version}-%{release}
-%endif
 %endif
 
 %description devel
@@ -574,6 +577,7 @@ Requires: %{name} = %{version}-%{release}
 # upstream in some way that doesn't depend on generating docs to validate the
 # texinfo.  I expect it's simply the wrong dependency for that target.
 BuildRequires: texinfo >= 5.0
+BuildRequires:  oreon-rpm-macros
 
 %description doc
 The glibc-doc package contains The GNU C Library Reference Manual in info
@@ -818,6 +822,7 @@ local locales =  {
   { code="hif", name="Fiji Hindi", regions={ "FJ" } },
   { code="hne", name="Chhattisgarhi", regions={ "IN" } },
   { code="hr", name="Croatian", regions={ "HR" } },
+  { code="hrx", name="Hunsrickisch", regions={ "BR" } },
   { code="hsb", name="Upper Sorbian", regions={ "DE" } },
   { code="ht", name="Haitian Creole", regions={ "HT" } },
   { code="hu", name="Hungarian", regions={ "HU" } },
@@ -1059,9 +1064,7 @@ This package contains all iconv converter modules built in %{name}.
 # installed. Note that this doesn't make the migration that smooth, the
 # databases still need rebuilding because the formats were different.
 # The nss_db package was deprecated in F16 and onwards:
-# https://lists.fedoraproject.org/pipermail/devel/2011-July/153665.html
 # The different database format does cause some issues for users:
-# https://lists.fedoraproject.org/pipermail/devel/2011-December/160497.html
 %package -n nss_db
 Summary: Name Service Switch (NSS) module using hash-indexed files
 Requires: %{name}%{_isa} = %{version}-%{release}
@@ -1188,7 +1191,8 @@ distribution build enviroment. Regular users can install both 32-bit and
 # Prepare for the build.
 ##############################################################################
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f"  | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n %{glibcsrcdir} -p1
 
 ##############################################################################
@@ -1275,6 +1279,8 @@ inherit_flags.cc_main = string_to_array [[
 -mtune=z13
 -mtune=z14
 -mtune=z15
+-mtune=z16
+-mtune=z17
 -mtune=zEC12
 ]]
 
@@ -1330,7 +1336,6 @@ shell_build_flags('cflags') -- Set $glibc_flags_cflags.
 # -D_FORTIFY_SOURCE.  The object files need to be marked as to be
 # skipped in annobin annotations.  (The -specs= variant of activating
 # annobin does not work here because of flag ordering issues.)
-# See <https://bugzilla.redhat.com/show_bug.cgi?id=1668822>.
 BuildFlagsNonshared="-fplugin=annobin -fplugin-arg-annobin-disable -Wa,--generate-missing-build-notes=yes"
 %endif
 
@@ -1390,7 +1395,6 @@ build()
 	# We enable DT_GNU_HASH and DT_HASH for ld.so and DSOs to improve
 	# compatibility with applications that expect DT_HASH e.g. Epic Games
 	# Easy Anti-Cheat.  This is temporary as applications move to
-	# supporting only DT_GNU_HASH.  This was initially enabled in Fedora
 	# 37.  We also enable package notes via _package_note_flags for all
 	# binaries (DSOs and programs).
 	# We must use 'env' because it is the only way to pass, via the
@@ -1400,7 +1404,7 @@ build()
 	env LDFLAGS.so="-Wl,--hash-style=both" \
 		LDFLAGS-rtld="-Wl,--hash-style=both" \
 		LDFLAGS="$LDFLAGS %{?_package_note_flags}" \
-		%make_build -r %{glibc_make_flags}
+		%make_build -s -r %{glibc_make_flags}
 	popd
 }
 
@@ -1461,7 +1465,7 @@ done
 %ifarch x86_64
 # Install for the glibc32 package.
 pushd build-%{target}-32
-%make_build install_root=%{glibc_sysroot} install
+%make_build -s install_root=%{glibc_sysroot} install
 popd
 pushd %{glibc_sysroot}
 rm -rf etc var usr/bin usr/lib/gconv usr/libexec usr/sbin usr/share
@@ -1475,8 +1479,8 @@ cp -a %{glibc_sysroot}%{_includedir} glibc32-headers
 
 # Build and install:
 pushd build-%{target}
-%make_build install_root=%{glibc_sysroot} install
-%make_build install_root=%{glibc_sysroot} \
+%make_build -s install_root=%{glibc_sysroot} install
+%make_build -s install_root=%{glibc_sysroot} \
 	install-locale-files -C ../localedata objdir=`pwd`
 popd
 # Locale creation via install-locale-files does not group identical files
@@ -1523,7 +1527,7 @@ mv %{glibc_sysroot}/usr/sbin/{iconvconfig,zic} %{glibc_sysroot}/%{_bindir}/
 #	ln -s SUBDIR_UP/foo.so DESTDIR/SUBDIR/foo.so.
 #	When you call this function it is expected that you are in the root
 #	of the build directory, and that the default build directory is:
-#	"../build-%%{target}" (relatively).
+#	"../build-%{target}" (relatively).
 #	The primary use of this function is to install alternate runtimes
 #	into the build directory and avoid duplicating this code for each
 #	runtime.
@@ -1572,7 +1576,6 @@ popd
 ##############################################################################
 
 # On riscv64 libraries end up installed into the lp64d/ subdirectory
-# by default, but in Fedora that's a compatibility symlink (owned by
 # the filesystem package) that we don't want to show up in paths.
 # Let's move everything out.
 %ifarch riscv64
@@ -1594,7 +1597,6 @@ rm -f %{glibc_sysroot}%{_libdir}/libnss1-*
 rm -f %{glibc_sysroot}%{_libdir}/libnss-*.so.1
 
 # This statically linked binary is no longer necessary in a world where
-# the default Fedora install uses an initramfs, and further we have rpm-ostree
 # which captures the whole userspace FS tree.
 # Further, see https://github.com/projectatomic/rpm-ostree/pull/1173#issuecomment-355014583
 rm -f %{glibc_sysroot}/{usr/,}sbin/sln
@@ -1714,7 +1716,7 @@ chmod 644 %{glibc_sysroot}/etc/ld.so.conf
 mkdir -p %{glibc_sysroot}/etc/ld.so.conf.d
 truncate -s 0 %{glibc_sysroot}/etc/gai.conf
 
-# Include %%{_libdir}/gconv/gconv-modules.cache
+# Include %{_libdir}/gconv/gconv-modules.cache
 truncate -s 0 %{glibc_sysroot}%{_libdir}/gconv/gconv-modules.cache
 chmod 644 %{glibc_sysroot}%{_libdir}/gconv/gconv-modules.cache
 
@@ -1733,7 +1735,7 @@ touch -r inet/etc.rpc %{glibc_sysroot}/etc/rpc
 %if %{with benchtests}
 # Build benchmark binaries.  Ignore the output of the benchmark runs.
 pushd build-%{target}
-make BENCH_DURATION=1 bench-build
+make -s BENCH_DURATION=1 bench-build
 popd
 
 # Copy over benchmark binaries.
@@ -1944,7 +1946,7 @@ run_tests () {
   # This hides a test suite build failure, which should be fatal.  We
   # check "Summary of test results:" below to verify that all tests
   # were built and run.
-  %make_build check |& tee rpmbuild.check.log >&2
+  %make_build -s check |& tee rpmbuild.check.log >&2
   test -n tests.sum
   if ! grep -Eq '^\s+=== Summary of results ===$' rpmbuild.check.log ; then
     echo "FAIL: test suite build of target: $(basename "$(pwd)")" >& 2
@@ -2402,12 +2404,3 @@ update_gconv_modules_cache ()
 %{_prefix}/lib/audit/*
 %endif
 
-%changelog
-* Mon Apr 13 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.43.9000-8
-- Bump baserelease to 8 so published glibc satisfies automatic Requires from builds done with 2.43.9000-8+ (e.g. qt6-qtdeclarative)
-
-* Wed Apr 1 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{glibcversion}-1
-- Snapshot Source0 GitHub archive URL (spectool-friendly), glibcsrcdir = glibc-%%{glibc_git_full} to match archive prefix
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{glibcversion}-1
-- Prepare for Oreon 11 (RP1)

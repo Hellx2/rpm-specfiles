@@ -1,5 +1,12 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 8b5536d280142ecf6cdfe15d12a21ba1c65e300bbf7b28a8d0cdb849575797de
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%define __debug_install_post %{__find_debuginfo} -j1 %{?_missing_build_ids_terminate_build:--strict-build-id} %{?_no_recompute_build_ids:-n} %{?_include_minidebuginfo:-m} %{?_include_gdb_index:-i} %{?_unique_build_ids:--build-id-seed "%{VERSION}-%{RELEASE}"} %{?_unique_debug_names:--unique-debug-suffix "-%{VERSION}-%{RELEASE}.%{_arch}"} %{?_unique_debug_srcs:--unique-debug-src-base "%{name}-%{VERSION}-%{RELEASE}.%{_arch}"} %{?_find_debuginfo_dwz_opts} %{?_find_debuginfo_opts} %{?_find_debuginfo_vendor_opts} %{?_debugsource_packages:-S debugsourcefiles.list} "%{builddir}/%{?buildsubdir}"
 # ======================
 # Bootstrap conditionals
 # ======================
@@ -10,7 +17,6 @@
 #
 # We also use the previous build of Python in "make regen-all".
 #
-# Procedure: https://fedoraproject.org/wiki/SIGs/Python/UpgradingPython
 #
 # Bootstrap enabled:
 # - disables regen-all with the same Python version
@@ -21,7 +27,7 @@
 # Whether to use RPM build wheels from the python-{pip,setuptools,wheel}-wheel packages
 # Uses upstream bundled prebuilt wheels otherwise
 # Only F44+ has a pip new enough to work with Python 3.15
-%bcond rpmwheels %[%{without bootstrap} && (0%{?fedora} > 43 || 0%{?rhel})]
+%bcond rpmwheels %{without bootstrap}
 
 # Expensive optimizations (mainly, profile-guided optimizations)
 # We don't have to switch it off for bootstrap, but it speeds up the first build,
@@ -48,12 +54,16 @@ URL: https://www.python.org/
 
 #  WARNING  When rebasing to a new Python version,
 #           remember to update the python3-docs package as well
-%global general_version %{pybasever}.0
-%global prerel a7
+%global general_version %{pybasever}.2
+#global prerel ...
 %global upstream_version %{general_version}%{?prerel}
-Version: %{general_version}%{?prerel:~%{prerel}}
-Release: 1%{?dist}
+Version:        3.15.2
+Release:        1%{?dist}
 License: Python-2.0.1
+
+# The PYC magic number, see Include/internal/pycore_magic_number.h
+# May be set to %%{nil} or undefined during alpha development; must be defined from beta onwards
+%global magic_number 3666
 
 # ==================================
 # Conditionals controlling the build
@@ -66,9 +76,7 @@ License: Python-2.0.1
 %bcond main_python %["%{?__default_python3_pkgversion}" == "%{pybasever}"]
 
 # If this is *not* Main Python, should it contain `Provides: python(abi) ...`?
-# In Fedora no package shall depend on an alternative Python via this tag, so we do not provide it.
-# In ELN/RHEL/CentOS we want to allow building against alternative stacks, so the Provide is enabled.
-%bcond python_abi_provides_for_alt_pythons %{undefined fedora}
+%bcond python_abi_provides_for_alt_pythons 0
 
 # Extra build for debugging the interpreter or C-API extensions
 # (the -debug subpackages)
@@ -83,14 +91,17 @@ License: Python-2.0.1
 # Only possible on certain architectures: https://peps.python.org/pep-0744/#support
 # The freethreading build (when enabled) does not support JIT yet:
 # https://github.com/python/cpython/issues/133171
-%bcond jit %["%{_arch}" == "x86_64" || "%{_arch}" == "aarch64"]
+%bcond jit %[("%{_arch}" == "x86_64" || "%{_arch}" == "aarch64") && %{without bootstrap}]
 # Whether to build the JIT stencils (or else use the prebuilt ones)
-# We can only do this on Fedora 43+, where clang 21 is available
-# We don't do it in RHEL, see https://github.com/fedora-eln/eln/issues/207
-%bcond jit_build_stencils %[%{with jit} && 0%{?fedora} >= 43]
+# On F43 it should be possible to build stencils, but the pregenerated stencils
+# for aarch64 debug build don't match the built ones
+# (the build never reaches optimized build - no data there),
+# hence the increased lower bound in the bcond.
+# https://discuss.python.org/t/building-the-jit-with-pre-built-stencils/91838/17
+%bcond jit_build_stencils %[%{with jit}]
 %if %{with jit}
 # When built with JIT, it still needs to be enabled on runtime via PYTHON_JIT=1
-%global jit_flag --enable-experimental-jit=yes-off
+%global jit_flag --enable-experimental-jit=yes-off %{!?with_jit_build_stencils:--enable-prebuilt-jit-stencils}
 %endif
 
 # Main interpreter loop optimization
@@ -115,31 +126,30 @@ License: Python-2.0.1
 # This needs to be manually updated when we update Python.
 # Explore the sources tarball (you need the version before %%prep is executed):
 #  $ tar -tf Python-%%{upstream_version}.tar.xz | grep whl
-%global pip_version 26.0.1
+%global pip_version 26.2.2
 %global setuptools_version 79.0.1
 # All of those also include a list of indirect bundled libs:
 # pip
 #  $ %%{_rpmconfigdir}/pythonbundles.py <(unzip -p Lib/ensurepip/_bundled/pip-*.whl pip/_vendor/vendor.txt)
 %global pip_bundled_provides %{expand:
 Provides: bundled(python3dist(cachecontrol)) = 0.14.4
-Provides: bundled(python3dist(certifi)) = 2026.1.4
-Provides: bundled(python3dist(dependency-groups)) = 1.3.1
-Provides: bundled(python3dist(distlib)) = 0.4
+Provides: bundled(python3dist(certifi)) = 2026.10.19
+Provides: bundled(python3dist(distlib)) = 0.4.2
 Provides: bundled(python3dist(distro)) = 1.9
-Provides: bundled(python3dist(idna)) = 3.11
+Provides: bundled(python3dist(idna)) = 3.18
 Provides: bundled(python3dist(msgpack)) = 1.1.2
-Provides: bundled(python3dist(packaging)) = 26
-Provides: bundled(python3dist(platformdirs)) = 4.5.1
-Provides: bundled(python3dist(pygments)) = 2.19.2
+Provides: bundled(python3dist(packaging)) = 26.2
+Provides: bundled(python3dist(platformdirs)) = 4.10
+Provides: bundled(python3dist(pygments)) = 2.20
 Provides: bundled(python3dist(pyproject-hooks)) = 1.2
-Provides: bundled(python3dist(requests)) = 2.32.5
+Provides: bundled(python3dist(requests)) = 2.34.2
 Provides: bundled(python3dist(resolvelib)) = 1.2.1
 Provides: bundled(python3dist(rich)) = 14.2
 Provides: bundled(python3dist(setuptools)) = 70.3
-Provides: bundled(python3dist(tomli)) = 2.3
+Provides: bundled(python3dist(tomli)) = 2.4.1
 Provides: bundled(python3dist(tomli-w)) = 1.2
 Provides: bundled(python3dist(truststore)) = 0.10.4
-Provides: bundled(python3dist(urllib3)) = 1.26.20
+Provides: bundled(python3dist(urllib3)) = 2.7
 }
 # setuptools
 # vendor.txt not in .whl
@@ -218,7 +228,6 @@ Provides: bundled(python3dist(zipp)) = 3.19.2
 %global py_INSTSONAME_freethreading_debug libpython%{LDVERSION_freethreading_debug}.so.%{py_SOVERSION}
 
 # The -O flag for the compiler, optimized builds
-# https://fedoraproject.org/wiki/Changes/Python_built_with_gcc_O3
 %global optflags_optimized -O3
 # The -O flag for the compiler, debug builds
 # -Wno-cpp avoids some warnings with -O0
@@ -265,13 +274,12 @@ Obsoletes: python%{pybasever}%{?1:-%{1}}\
 BuildRequires: autoconf
 BuildRequires: bluez-libs-devel
 BuildRequires: bzip2-devel
-BuildRequires: expat-devel
+BuildRequires: expat-devel >= 2.5.0-2
 BuildRequires: findutils
 BuildRequires: gcc
 BuildRequires: gdbm-devel
 BuildRequires: git-core
 BuildRequires: glibc-devel
-BuildRequires: gnupg2
 BuildRequires: libX11-devel
 BuildRequires: libffi-devel
 BuildRequires: libuuid-devel
@@ -300,8 +308,14 @@ BuildRequires: tzdata
 %endif
 
 %if %{with jit_build_stencils}
+# We need the upstream-specified clang+llvm version to build the JIT stencils.
 BuildRequires: clang(major) = 21
 BuildRequires: llvm(major) = 21
+%elif %{with jit}
+# We need any clang with __attribute__((preserve_none)) support to build+link the JIT shim.
+# We also use the "primary" clang package here, so we can use the unversioned clang command.
+BuildRequires: clang >= 19
+BuildRequires: llvm >= 19
 %endif
 
 %ifarch %{valgrind_arches}
@@ -318,8 +332,8 @@ BuildRequires: libappstream-glib
 # the first compatible version of pip is 23.1.2.
 BuildRequires: %{python_wheel_pkg_prefix}-pip-wheel >= 23.1.2
 %if %{with tests}
-BuildRequires: %{python_wheel_pkg_prefix}-setuptools-wheel
-BuildRequires: (%{python_wheel_pkg_prefix}-wheel-wheel if %{python_wheel_pkg_prefix}-setuptools-wheel < 71)
+BuildRequires: %{python_wheel_pkg_prefix}-setuptools-wheel >= 71
+BuildRequires: ca-certificates
 %endif
 %endif
 
@@ -334,13 +348,14 @@ BuildRequires: python%{pybasever}
 %if %{without bootstrap} || %{without main_python}
 # for proper automatic provides
 BuildRequires: python3-rpm-generators
+BuildRequires:  oreon-rpm-macros
 %endif
 
 # =======================
 # Source code and patches
 # =======================
 
-Source0: %{url}ftp/python/%{general_version}/Python-%{upstream_version}.tar.xz
+Source0:        https://www.python.org/ftp/python/%{version}/Python-%{version}.tar.xz
 
 # A simple script to check timestamps of bytecode files
 # Run in check section with Python that is currently being built
@@ -365,7 +380,9 @@ Source11: idle3.appdata.xml
 Source30: download-jit-stencils-from-koji.sh
 # This %%if-hack makes it easier to do step 1. from the above.
 # Use `fedpkg sources --force` to get the conditionally defined sources from the lookaside cache.
-%if (%{with jit} && %{without jit_build_stencils}) || %{exists:%{_sourcedir}/Python-%{upstream_version}-x86_64-optimized-jit_stencils.h}
+# Macro %%exists is not present in the rpm version available in EL9,
+# hence to prevent parsing errors, we add additional check for its existence.
+%if (%{with jit} && %{without jit_build_stencils}) || 0%{?exists:%{exists:%{_sourcedir}/Python-%{upstream_version}-x86_64-optimized-jit_stencils.h}}
 Source31: Python-%{upstream_version}-aarch64-debug-jit_stencils.h
 Source32: Python-%{upstream_version}-aarch64-optimized-jit_stencils.h
 Source33: Python-%{upstream_version}-x86_64-debug-jit_stencils.h
@@ -374,67 +391,66 @@ Source34: Python-%{upstream_version}-x86_64-optimized-jit_stencils.h
 %global jit_stencils_source %{_sourcedir}/Python-%{upstream_version}-%{_arch}-${ConfName}-jit_stencils.h
 %global jit_stencils_filename jit_stencils-%{_arch}-unknown-linux-gnu.h
 
-# (Patches taken from github.com/fedora-python/cpython)
+# Patches for bundled wheels (declared as Sources, applied manually in %%prep):
+#
+# Use the system level root certificate instead of the one bundled in certifi
+# in the pip wheel bundled in ensurepip.
+# The same patch is a part of the RPM-packaged python-pip and python-certifi.
+Source41: pip-dummy-certifi.patch
 
-# 00251 # 5ac6e7781923cbb3e4606e3bca381a1167d322e5
+# Patches for Python
+#
+
+# 00251 # 93b061db627244b2488f91c1e6874eb1106deb90
 # Change user install location
 #
 # Set values of base and platbase in sysconfig from /usr
 # to /usr/local when RPM build is not detected
 # to make pip and similar tools install into separate location.
 #
-# Fedora Change: https://fedoraproject.org/wiki/Changes/Making_sudo_pip_safe
 # Downstream only.
 #
-# We've tried to rework in Fedora 36/Python 3.10 to follow https://bugs.python.org/issue43976
 # but we have identified serious problems with that approach,
-# see https://bugzilla.redhat.com/2026979 or https://bugzilla.redhat.com/2097183
 #
 # pypa/distutils integration: https://github.com/pypa/distutils/pull/70
-Patch251: 00251-change-user-install-location.patch
+Patch251:        00251-change-user-install-location.patch
 
-# 00464 # 05be76e818ed628f69b9cfa3ea8a16ce2ea94cdc
-# Enable PAC and BTI protections for aarch64
+# 00466 # 6efa22fd3d3e5e8621713e6b3a257c459dcf4479
+# Downstream only: Lower XML_COMBINED_VERSION threshold for reparse deferral
 #
-# Apply protection against ROP/JOP attacks for aarch64 on asm_trampoline.S
+# via the CVE-2023-52425 fix, but XML_COMBINED_VERSION remains 20500.
+# CPython's #if XML_COMBINED_VERSION >= 20600 guards compile the setter
+# as a no-op, so SetReparseDeferralEnabled silently does nothing and
+# GetReparseDeferralEnabled always returns False, even though the expat
+# library actually supports (and enables) reparse deferral.
 #
-# The BTI flag must be applied in the assembler sources for this class
-# of attacks to be mitigated on newer aarch64 processors.
+# Lower the threshold from 20600 to 20500 so that CPython uses the
+# and fixes test failures (test_reparse_deferral_disabled,
+# test_flush_reparse_deferral_disabled, test_simple_xml_chunk_*).
 #
-# Upstream PR: https://github.com/python/cpython/pull/130864/files
-#
-# The upstream patch is incomplete but only for the case where
-# frame pointers are not used on 3.13+.
-#
-# Since on Fedora we always compile with frame pointers the BTI/PAC
-# hardware protections can be enabled without losing Perf unwinding.
-Patch464: 00464-enable-pac-and-bti-protections-for-aarch64.patch
+# The spec file BuildRequires expat-devel >= 2.5.0-2 to ensure the
+# backported function is available.
+Patch466:        00466-downstream-only-lower-xml_combined_version-threshold-for-reparse-deferral.patch
 
-# 00466 # e10760fb955ee33d2917f8a57bb4e24d71e5341c
-# Downstream only: Skip tests not working with older expat version
-#
-# We want to run these tests in Fedora and EPEL 10, but not in EPEL 9,
-# which has too old version of expat. We set the upper bound version
-# in the conditionalized skip to a release available in CentOS Stream 10,
-# which is tested as working.
-Patch466: 00466-downstream-only-skip-tests-not-working-with-older-expat-version.patch
+# 00486 # 1a2c71465a24c72fd06c7839e7cbd2d17ddf4ebc
+# gh-148646: Add --enable-prebuilt-jit-stencils configure flag
+Patch486:        00486-gh-148646-add---enable-prebuilt-jit-stencils-configure-flag.patch
 
 # (New patches go here ^^^)
 #
-# When adding new patches to "python" and "python3" in Fedora, EL, etc.,
 # please try to keep the patch numbers in-sync between all specfiles.
 #
 # More information, and a patch number catalog, is at:
 #
-#     https://fedoraproject.org/wiki/SIGs/Python/PythonPatches
 #
 # The patches are stored and rebased at:
 #
-#     https://github.com/fedora-python/cpython
+
 
 # ==========================================
 # Descriptions, and metadata for subpackages
 # ==========================================
+
 
 %if %{with main_python}
 # Description for the python3X SRPM only:
@@ -456,8 +472,6 @@ Provides: python%{pybasever}%{?_isa} = %{version}-%{release}
 
 %unversioned_obsoletes_of_python3_X_if_main
 
-# https://fedoraproject.org/wiki/Changes/Move_usr_bin_python_into_separate_package
-# https://fedoraproject.org/wiki/Changes/Python_means_Python3
 # We recommend /usr/bin/python so users get it by default
 # Versioned recommends are problematic, and we know that the package requires
 # python3 back with fixed version, so we just use the path here:
@@ -485,8 +499,6 @@ Requires: %{pkgname}-libs%{?_isa} = %{version}-%{release}
 # This prevents ALL subpackages built from this spec to require
 # /usr/bin/python3* or python(abi). Granularity per subpackage is impossible.
 # It's intended for the libs package not to drag in the interpreter, see
-# https://bugzilla.redhat.com/show_bug.cgi?id=1547131
-# https://bugzilla.redhat.com/show_bug.cgi?id=1862082
 # All other packages require %%{pkgname} explicitly.
 %global __requires_exclude ^(/usr/bin/python3|python\\(abi\\))
 
@@ -509,9 +521,8 @@ Documentation for Python is provided in the %{pkgname}-docs package.
 Packages containing additional libraries for Python are generally named with
 the "%{pkgname}-" prefix.
 
+
 %if %{with main_python}
-# https://fedoraproject.org/wiki/Changes/Move_usr_bin_python_into_separate_package
-# https://fedoraproject.org/wiki/Changes/Python_means_Python3
 %package -n python-unversioned-command
 Summary: The "python" command that runs Python 3
 BuildArch: noarch
@@ -530,7 +541,8 @@ Provides: python-is-python3 = %{version}-%{release}
 %description -n python-unversioned-command
 This package contains /usr/bin/python - the "python" command that runs Python 3.
 
-%endif # with main_python
+%endif
+
 
 %package -n %{pkgname}-libs
 Summary:        Python runtime libraries
@@ -539,7 +551,7 @@ Summary:        Python runtime libraries
 # Combined manually from https://docs.python.org/3.15/license.html
 # Hash of Doc/license.rst which is compared in %%prep, generated with:
 # $ sha256sum Doc/license.rst | cut -f1 -d" "
-%global license_file_hash d7d3d162f6922e1940695c3f2e99235bce968f54765f8c0d72dbdce749db8cb5
+%global license_file_hash 0d4c04850f7320219853c3c9d20cf9d2c6916524030e147f220f2b96b5ae8aeb
 # Licenses of incorporated software:
 # Mersenne Twister in _random C extension contains code under BSD-3-Clause
 # socket.getaddrinfo() and socket.getnameinfo() are BSD-3-Clause
@@ -565,13 +577,15 @@ Summary:        Python runtime libraries
 # Zstandard bindings in Modules/_zstd and Lib/compression/zstd are BSD-3-Clause
 # d3-flamegraph in Lib/profiling/sampling/_vendor is Apache-2.0
 # d3.js in Lib/profiling/sampling/_vendor is ISC
-%global libs_license Python-2.0.1 AND MIT AND BSD-3-Clause AND MIT-CMU AND HPND-SMC AND BSD-2-Clause AND dtoa AND Apache-2.0 AND ISC
+# An extract of the `Unicode Character Database` converted to an internal format is Unicode-3.0
+%global libs_license Python-2.0.1 AND MIT AND BSD-3-Clause AND MIT-CMU AND HPND-SMC AND BSD-2-Clause AND dtoa AND Apache-2.0 AND ISC AND Unicode-3.0
 %if %{with rpmwheels}
 Requires: %{python_wheel_pkg_prefix}-pip-wheel >= 23.1.2
 License: %{libs_license}
 %else
 Provides: bundled(python3dist(pip)) = %{pip_version}
 %pip_bundled_provides
+Requires: ca-certificates
 # License combined from Python libs + pip
 License: %{libs_license} AND LGPL-2.1-only AND MPL-2.0 AND (Apache-2.0 OR BSD-2-Clause)
 %endif
@@ -586,7 +600,6 @@ Provides: bundled(mimalloc) = 2.12
 # There are files in the standard library that have python shebang.
 # We've filtered the automatic requirement out so libs are installable without
 # the main package. This however makes it pulled in by default.
-# See https://bugzilla.redhat.com/show_bug.cgi?id=1547131
 Recommends: %{pkgname}%{?_isa}
 
 # tkinter is part of the standard library,
@@ -608,15 +621,23 @@ Requires: tzdata
 # This breaks many things, including python -m venv.
 # We avoid this problem by requiring at least the same version of expat that
 # was used during the build time.
+# We also include release, in case pyxpat uses ABI that was backported
+# (e.g. XML_SetReparseDeferralEnabled was added in c9s expat 2.5.0-2).
 # Other subpackages (like -debug) also need this, but they all depend on -libs.
-%global expat_version %(LANG=C rpm -q --qf '%%{version}' expat.%{_target_cpu} | sed 's/.*not installed/0/')
+# Since expat 2.7.4, the library has versioned symbols and this is no longer needed,
+# as the generated requirement will be in the form of libexpat.so.1(LIBEXPAT_2.7.2) etc.
+%global expat_version %(LANG=C rpm -q --qf '%%{version}-%%{release}' expat.%{_target_cpu} | sed 's/.*not installed/0/')
+%if v"%{expat_version}" < v"2.7.4"
 Requires: expat%{?_isa} >= %{expat_version}
+%endif
+
 
 %description -n %{pkgname}-libs
 This package contains runtime libraries for use by Python:
 - the majority of the Python standard library
 - a dynamically linked library for use by applications that embed Python as
   a scripting language, and by the main "%{exename}" executable
+
 
 %package -n %{pkgname}-devel
 Summary: Libraries and header files needed for Python development
@@ -628,11 +649,8 @@ Requires: %{pkgname}-libs%{?_isa} = %{version}-%{release}
 # But we want them when packages BuildRequire python3-devel
 Requires: (python-rpm-macros if rpm-build)
 Requires: (python3-rpm-macros if rpm-build)
-# We omit this dependency on RHEL to avoid pulling the macros to AppStream:
-# RHEL users can use the minimal implementation of %%pyproject_buildrequires
 # from pyproject-srpm-macros instead.
-# On Fedora, we keep this to avoid one additional round of %%generate_buildrequires.
-%{!?rhel:Requires: (pyproject-rpm-macros if rpm-build)}
+Requires: (pyproject-rpm-macros if rpm-build)
 
 %unversioned_obsoletes_of_python3_X_if_main devel
 
@@ -655,6 +673,7 @@ Conflicts: %{pkgname} < %{version}-%{release}
 This package contains the header files and configuration needed to compile
 Python extension modules (typically written in C or C++), to embed Python
 into other programs, and to make binary distributions for Python libraries.
+
 
 %package -n %{pkgname}-idle
 Summary: A basic graphical development environment for Python
@@ -683,6 +702,7 @@ search through multiple files (grep); debugger with persistent
 breakpoints, stepping, and viewing of global and local namespaces;
 configuration, browsers, and other dialogs.
 
+
 %package -n %{pkgname}-tkinter
 Summary: A GUI toolkit for Python
 Requires: %{pkgname} = %{version}-%{release}
@@ -697,18 +717,18 @@ Requires: %{pkgname} = %{version}-%{release}
 The Tkinter (Tk interface) library is a graphical user interface toolkit for
 the Python programming language.
 
+
 %package -n %{pkgname}-test
 Summary: The self-test suite for the main python3 package
 Requires: %{pkgname} = %{version}-%{release}
 Requires: %{pkgname}-libs%{?_isa} = %{version}-%{release}
 
 %if %{with rpmwheels}
-Requires: %{python_wheel_pkg_prefix}-setuptools-wheel
-Requires: (%{python_wheel_pkg_prefix}-wheel-wheel if %{python_wheel_pkg_prefix}-setuptools-wheel < 71)
+Requires: %{python_wheel_pkg_prefix}-setuptools-wheel >= 71
 %else
 Provides: bundled(python3dist(setuptools)) = %{setuptools_version}
 %setuptools_bundled_provides
-# License manually combined from Python + setuptools + wheel
+# License manually combined from Python + setuptools
 License: Python-2.0.1 AND MIT AND Apache-2.0 AND (Apache-2.0 OR BSD-2-Clause)
 %endif
 
@@ -720,6 +740,7 @@ The self-test suite for the Python interpreter.
 This is only useful to test Python itself. For testing general Python code,
 you should use the unittest module from %{pkgname}-libs, or a library such as
 %{pkgname}-pytest.
+
 
 %if %{with debug_build}
 %package -n %{pkgname}-debug
@@ -753,7 +774,8 @@ of Python.
 
 The debug runtime additionally supports debug builds of C-API extensions
 (with the "d" ABI flag) for debugging issues in those extensions.
-%endif # with debug_build
+%endif
+
 
 %if %{with freethreading_build}
 # This deliberately does not use the %%{pkgname}- prefix,
@@ -784,6 +806,7 @@ python%{pybasever}-freethreading-tkinter and
 python%{pybasever}-freethreading-test packages,
 which may need to be installed separately.
 
+
 %package -n python%{pybasever}-freethreading-libs
 Summary: Free Threading Python runtime libraries
 %if %{with rpmwheels}
@@ -792,6 +815,7 @@ License: %{libs_license}
 %else
 Provides: bundled(python3dist(pip)) = %{pip_version}
 %pip_bundled_provides
+Requires: ca-certificates
 # License combined from Python libs + pip
 License: %{libs_license} AND LGPL-2.1-only AND MPL-2.0 AND (Apache-2.0 OR BSD-2-Clause)
 %endif
@@ -799,7 +823,9 @@ License: %{libs_license} AND LGPL-2.1-only AND MPL-2.0 AND (Apache-2.0 OR BSD-2-
 # See the comments in the definition of main -libs subpackage for detailed explanations
 Provides: bundled(mimalloc) = 2.12
 Requires: tzdata
+%if v"%{expat_version}" < v"2.7.4"
 Requires: expat%{?_isa} >= %{expat_version}
+%endif
 
 # There are files in the standard library that have python shebang.
 # We've filtered the automatic requirement out so libs are installable without
@@ -817,8 +843,9 @@ This package contains runtime libraries for use by Free Threading Python:
 - a dynamically linked library for use by applications that embed Python as
   a scripting language, and by the main "python%{pybasever}t" executable
 
+
 %package -n python%{pybasever}-freethreading-devel
-Summary: Libraries and header files needed for Free Threading Python evelopment
+Summary: Libraries and header files needed for Free Threading Python development
 # Bundled mimalloc header files are MIT
 License: Python-2.0.1 AND MIT
 Requires: python%{pybasever}-freethreading = %{version}-%{release}
@@ -832,6 +859,7 @@ This package contains the header files and configuration needed to compile
 Python extension modules (typically written in C or C++) for the Free hreading
 build, to embed Free Threading Python into other programs, and to make binary
 distributions for Free Threading Python libraries.
+
 
 %package -n python%{pybasever}-freethreading-idle
 Summary: A basic graphical development environment for Free Threading Python
@@ -852,6 +880,7 @@ breakpoints, stepping, and viewing of global and local namespaces;
 configuration, browsers, and other dialogs.
 Run with `python%{pybasever}t -m idlelib`.
 
+
 %package -n python%{pybasever}-freethreading-tkinter
 Summary: A GUI toolkit for Free Threading Python
 Requires: python%{pybasever}-freethreading = %{version}-%{release}
@@ -863,14 +892,14 @@ Requires: python%{pybasever}-freethreading = %{version}-%{release}
 The Tkinter (Tk interface) library is a graphical user interface toolkit for
 the Free Threading Python interpreter.
 
+
 %package -n python%{pybasever}-freethreading-test
 Summary: The self-test suite for the Free Threading Python package
 Requires: python%{pybasever}-freethreading = %{version}-%{release}
 Requires: python%{pybasever}-freethreading-libs%{?_isa} = %{version}-%{release}
 
 %if %{with rpmwheels}
-Requires: %{python_wheel_pkg_prefix}-setuptools-wheel
-Requires: (%{python_wheel_pkg_prefix}-wheel-wheel if %{python_wheel_pkg_prefix}-setuptools-wheel < 71)
+Requires: %{python_wheel_pkg_prefix}-setuptools-wheel >= 71
 %else
 Provides: bundled(python3dist(setuptools)) = %{setuptools_version}
 %setuptools_bundled_provides
@@ -884,7 +913,7 @@ The self-test suite for the Free Threading Python interpreter.
 This is only useful to test Free Threading Python itself. For testing general
 Python code with the Free Threading build, you should use the unittest module
 from python%{pybasever}-freethreading-libs, or a library such as pytest.
-%endif  # with freethreading_build
+%endif
 
 %if %{with freethreading_build} && %{with debug_build}
 %package -n python%{pybasever}-freethreading-debug
@@ -915,14 +944,27 @@ and with the necessary changes needed to make the interpreter thread-safe.
 This package provides a version of the Python runtime with numerous debugging
 features enabled, aimed at advanced Python users such as developers of Python
 extension modules.
-%endif # with freethreading_build && debug_build
+%endif
+
 
 # ======================================================
 # The prep phase of the build:
 # ======================================================
 
 %prep
+%oreon_sha256
+
 %autosetup -S git_am -n Python-%{upstream_version}
+
+# Apply patches to pip
+# This is done unconditionally on rpmwheels
+# so that the applicability against the current pip version is always verified,
+# even though the resulting wheel only matters when rpmwheels are disabled.
+unzip -qq Lib/ensurepip/_bundled/pip-%{pip_version}-py3-none-any.whl
+# -p2 to compensate src/ prefix
+patch -p2 < %{SOURCE41}
+zip -rq Lib/ensurepip/_bundled/pip-%{pip_version}-py3-none-any.whl pip pip-%{pip_version}.dist-info
+rm -rf pip/ pip-%{pip_version}.dist-info/
 
 # Verify the second level of bundled provides is up to date
 # Arguably this should be done in %%check, but %%prep has a faster feedback loop
@@ -935,6 +977,22 @@ fi
 %if %{with rpmwheels}
 rm Lib/ensurepip/_bundled/pip-%{pip_version}-py3-none-any.whl
 rm Lib/test/wheeldata/setuptools-%{setuptools_version}-py3-none-any.whl
+%endif
+
+# Verify that the PYC magic number matches our expectation
+# During alphas, %%{magic_number} may be %%{nil} or undefined and the check is skipped.
+# From beta onwards, it must be defined.
+%if "%{?magic_number}" != ""
+magic=$(grep -oP '^\s*#define PYC_MAGIC_NUMBER \K\d+' Include/internal/pycore_magic_number.h)
+if [ "$magic" != "%{magic_number}" ]; then
+    echo "PYC_MAGIC_NUMBER changed: expected %{magic_number}, found $magic"
+    echo "Update %%global magic_number in the spec file"
+    exit 1
+fi
+%elif v"%{version}" >= v"%{pybasever}.0~b1"
+echo "%%global magic_number is not defined, but version %{version} >= %{pybasever}.0~b1"
+echo "Check Include/internal/pycore_magic_number.h and set %%global magic_number"
+exit 1
 %endif
 
 # check if there were any changes to Doc/license.rst
@@ -959,7 +1017,6 @@ rm -r Modules/_decimal/libmpdec
 rm configure pyconfig.h.in
 
 # Patch out the version requirement on autoconf 2.72
-# We need it to allow the version available in RHEL 9
 sed -i "s/AC_PREREQ(\[2\.72\])/AC_PREREQ([2.69])/" configure.ac
 
 # ======================================================
@@ -967,11 +1024,13 @@ sed -i "s/AC_PREREQ(\[2\.72\])/AC_PREREQ([2.69])/" configure.ac
 # ======================================================
 
 %build
+export MAKEFLAGS="${MAKEFLAGS:+$MAKEFLAGS }-s"
 
 # The build process embeds version info extracted from the Git repository
 # into the Py_GetBuildInfo and sys.version strings.
 # Our Git repository is artificial, so we don't want that.
 # Tell configure to not use git.
+# Instead, we'll pass custom commands to GITVERSION and GITTAG.
 export HAS_GIT=not-found
 
 # Regenerate the configure script and pyconfig.h.in
@@ -998,11 +1057,7 @@ topdir=$(pwd)
 # Set common compiler/linker flags
 # We utilize the %%extension_...flags macros here so users building C/C++
 # extensions with our python won't get all the compiler/linker flags used
-# in Fedora RPMs.
 # Standard library built here will still use the %%build_...flags,
-# Fedora packages utilizing %%py3_build will use them as well
-# https://fedoraproject.org/wiki/Changes/Python_Extension_Flags
-# https://fedoraproject.org/wiki/Changes/Python_Extension_Flags_Reduction
 # Macronized, to be reused in %%install
 %global export_flags %{expand:
 export CFLAGS="%{extension_cflags}"
@@ -1050,6 +1105,16 @@ BuildPython() {
 }
 EOF
 
+%if %{with jit} && %{without jit_build_stencils}
+  if [[ ! "$ConfName" =~ ^freethreading ]]; then
+    # Drop the prebuilt stencils to target location
+    cp -a %{jit_stencils_source} %{jit_stencils_filename}
+    # Use the available clang version to build+link the shim,
+    # instead of enforcing the upstream preferred version.
+    export LLVM_VERSION=$(clang -dumpversion | cut -d. -f1)
+  fi
+%endif
+
 %configure \
   --with-platlibdir=%{_lib} \
   --with-missing-stdlib-config=missing-stdlib-config.json \
@@ -1073,17 +1138,14 @@ EOF
   $ExtraConfigArgs \
   %{nil}
 
-%if %{with jit} && %{without jit_build_stencils}
-  if [[ ! "$ConfName" =~ ^freethreading ]]; then
-    cp -a %{jit_stencils_source} %{jit_stencils_filename}
-    # Hackish way of preventing PGO task to delete the stencils.
-    # Upstream issue: https://github.com/python/cpython/issues/141808
-    # Upstream PR: https://github.com/python/cpython/pull/141809
-    sed -i '/rm -f jit_stencils\*.h/d' Makefile
-  fi
-%endif
-
-%global flags_override EXTRA_CFLAGS="$MoreCFlags" CFLAGS_NODIST="$CFLAGS_NODIST $MoreCFlags"
+%global flags_override %{shrink:
+    EXTRA_CFLAGS="$MoreCFlags"
+    CFLAGS_NODIST="$CFLAGS_NODIST
+    $MoreCFlags"
+    %dnl The following two commands replace "main" with "version-release.arch" in sys.version:
+    GITVERSION="true"
+    GITTAG="echo '%{version}-%{release}.%{_arch}'"
+}
 
 %if %{without bootstrap}
   # Regenerate generated files (needs python3)
@@ -1103,11 +1165,10 @@ EOF
 # The debug build is compiled with the lowest level of optimizations as to not optimize
 # out frames. We also suppress the warnings as the default distro value of the FORTIFY_SOURCE
 # option produces too many warnings when compiling at the O0 optimization level.
-# See also: https://bugzilla.redhat.com/show_bug.cgi?id=1818857
 BuildPython debug \
   "--without-ensurepip --with-pydebug %{?jit_flag}" \
   "%{optflags_debug}"
-%endif # with debug_build
+%endif
 
 BuildPython optimized \
   "--without-ensurepip %{?jit_flag} %{optimizations_flag}" \
@@ -1117,13 +1178,13 @@ BuildPython optimized \
 BuildPython freethreading-debug \
   "--without-ensurepip --with-pydebug --disable-gil" \
   "%{optflags_debug}"
-%endif # with freethreading_build && debug_build
+%endif
 
 %if %{with freethreading_build}
 BuildPython freethreading \
   "--without-ensurepip %{optimizations_flag} --disable-gil" \
-  "%{optflags_optimized}"
-%endif # with freethreading_build
+  "%{optflags_optimized} -fprofile-update=atomic -fprofile-correction -Wno-error=coverage-mismatch"
+%endif
 
 # ======================================================
 # Installing the built code:
@@ -1140,34 +1201,19 @@ topdir=$(pwd)
 # These hooks are implemented in Python itself (though they are for the version
 # of python that gdb is linked with)
 #
-# gdb-archer looks for them in the same path as the ELF file or its .debug
-# file, with a -gdb.py suffix.
-# We put them next to the debug file, because ldconfig would complain if
-# it found non-library files directly in /usr/lib/
-# (see https://bugzilla.redhat.com/show_bug.cgi?id=562980)
+# gdb auto-loads them from %%{_datadir}/gdb/auto-load/ using the -gdb.py suffix,
+# matching the path of the corresponding shared library.
 #
-# We'll put these files in the debuginfo package by installing them to e.g.:
-#  /usr/lib/debug/usr/lib/libpython3.2.so.1.0.debug-gdb.py
-# (note that the debug path is /usr/lib/debug for both 32/64 bit)
-#
-# See https://fedoraproject.org/wiki/Features/EasierPythonDebugging for more
 # information
 
-DirHoldingGdbPy=%{_usr}/lib/debug/%{_libdir}
+DirHoldingGdbPy=%{_datadir}/gdb/auto-load/%{_libdir}
 mkdir -p %{buildroot}$DirHoldingGdbPy
-
-# When the actual %%{dynload_dir} exists (it does when python3.X is installed for regen-all)
-# %%{buildroot}%%{dynload_dir} is not created by make install and the extension modules are missing
-# Reported upstream as https://github.com/python/cpython/issues/98782
-# A workaround is to create the directory before running make install
-mkdir -p %{buildroot}%{dynload_dir}
 
 # Multilib support for pyconfig.h
 # 32- and 64-bit versions of pyconfig.h are different. For multilib support
 # (making it possible to install 32- and 64-bit versions simultaneously),
 # we need to install them under different filenames, and to make the common
 # "pyconfig.h" include the right file based on architecture.
-# See https://bugzilla.redhat.com/show_bug.cgi?id=192747
 # Filanames are defined here:
 %global _pyconfig32_h pyconfig-32.h
 %global _pyconfig64_h pyconfig-64.h
@@ -1194,7 +1240,7 @@ InstallPython() {
   popd
 
   # See comment on $DirHoldingGdbPy above
-  PathOfGdbPy=$DirHoldingGdbPy/$PyInstSoName-%{version}-%{release}.%{_arch}.debug-gdb.py
+  PathOfGdbPy=$DirHoldingGdbPy/$PyInstSoName-gdb.py
   cp Tools/gdb/libpython.py %{buildroot}$PathOfGdbPy
 
   # Rename the -devel script that differs on different arches to arch specific name
@@ -1229,14 +1275,14 @@ InstallPython freethreading-debug \
   %{py_INSTSONAME_freethreading_debug} \
   "%{optflags_debug}" \
   %{LDVERSION_freethreading_debug}
-%endif # with freethreading_build && debug_build
+%endif
 
 %if %{with debug_build}
 InstallPython debug \
   %{py_INSTSONAME_debug} \
   "%{optflags_debug}" \
   %{LDVERSION_debug}
-%endif # with debug_build
+%endif
 
 %if %{with freethreading_build}
 # Now the freethreading optimized build:
@@ -1244,7 +1290,7 @@ InstallPython freethreading \
   %{py_INSTSONAME_freethreading} \
   "%{optflags_optimized}" \
   %{LDVERSION_freethreading}
-%endif # with freethreading_build
+%endif
 
 # Now the optimized build:
 InstallPython optimized \
@@ -1266,7 +1312,7 @@ install -d -m 0755 %{buildroot}%{pylibdir_freethreading}/site-packages/__pycache
 install -d -m 0755 %{buildroot}%{_prefix}/lib/python%{pybasever}/site-packages/__pycache__
 %if %{with freethreading_build}
 install -d -m 0755 %{buildroot}%{_prefix}/lib/python%{pybasever}%{ABIFLAGS_freethreading}/site-packages/__pycache__
-%endif # with freethreading_build
+%endif
 %endif
 
 %if %{with main_python}
@@ -1284,14 +1330,11 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/idle3.appdata.
 %endif
 
 # Make sure sysconfig looks at the right pyconfig-32.h/pyconfig-64.h file instead of pyconfig.h
-# See https://bugzilla.redhat.com/show_bug.cgi?id=201434
-# and https://bugzilla.redhat.com/show_bug.cgi?id=653058
 sed -i -e "s/'pyconfig.h'/'%{_pyconfig_h}'/" \
   %{buildroot}%{pylibdir}/sysconfig/*.py
 
 # Install i18n tools to bindir
 # They are also in python2, so we version them
-# https://bugzilla.redhat.com/show_bug.cgi?id=1571474
 for tool in pygettext msgfmt; do
   cp -p Tools/i18n/${tool}.py %{buildroot}%{_bindir}/${tool}%{pybasever}.py
   ln -s ${tool}%{pybasever}.py %{buildroot}%{_bindir}/${tool}3.py
@@ -1300,12 +1343,8 @@ done
 # Switch all shebangs to refer to the specific Python version.
 # This currently only covers files matching ^[a-zA-Z0-9_]+\.py$,
 # so handle files named using other naming scheme separately.
-LD_LIBRARY_PATH=./build/optimized ./build/optimized/python \
-  %{_rpmconfigdir}/redhat/pathfix.py \
-  -i "%{_bindir}/python%{pybasever}" -pn \
-  %{buildroot} \
-  %{buildroot}%{_bindir}/*%{pybasever}.py \
-  %{buildroot}$DirHoldingGdbPy/*.py
+find %{buildroot} -type f -name '*.py' -print0 | \
+  xargs -0 sed -i '1s|^#!.*python.*|#!%{_bindir}/python%{pybasever}|'
 
 # Remove shebang lines from .py files that aren't executable, and
 # remove executability from .py files that don't have a shebang line:
@@ -1328,12 +1367,11 @@ find . -name "*~" -exec rm -f {} \;
 # Python CMD line options:
 # -s - don't add user site directory to sys.path
 # -B - don't write .pyc files on import
-# Clamp the source mtime first, see https://fedoraproject.org/wiki/Changes/ReproducibleBuildsClampMtimes
 # The clamp_source_mtime module is only guaranteed to exist on Fedoras that enabled this option:
 %if 0%{?clamp_mtime_to_source_date_epoch}
 LD_LIBRARY_PATH="%{buildroot}%{dynload_dir}/:%{buildroot}%{_libdir}" \
 PYTHONPATH="%{_rpmconfigdir}/redhat" \
-%{buildroot}%{_bindir}/python%{pybasever} -s -B -m clamp_source_mtime %{buildroot}%{pylibdir} %{?with_freethreading_build:%{buildroot}%{pylibdir_freethreading}}
+%{buildroot}%{_bindir}/python%{pybasever} -s -B -m clamp_source_mtime %{buildroot}%{pylibdir} %{?with_freethreading_build:%{buildroot}%{pylibdir_freethreading}} %{buildroot}%{_datadir}/gdb/auto-load
 %endif
 # compileall CMD line options:
 # -f - force rebuild even if timestamps are up to date
@@ -1345,7 +1383,7 @@ PYTHONPATH="%{_rpmconfigdir}/redhat" \
 # -x - skip test modules with SyntaxErrors (taken from the Makefile)
 LD_LIBRARY_PATH="%{buildroot}%{dynload_dir}/:%{buildroot}%{_libdir}" \
 %{buildroot}%{_bindir}/python%{pybasever} -s -B -m compileall \
--f %{_smp_mflags} -o 0 -o 1 -o 2 -s %{buildroot} -p / %{buildroot} --hardlink-dupes --invalidation-mode=timestamp \
+-f -j1 -o 0 -o 1 -o 2 -s %{buildroot} -p / %{buildroot} --hardlink-dupes --invalidation-mode=timestamp \
 -x 'bad_coding|badsyntax|site-packages'
 
 # Turn this BRP off, it is done by compileall2 --hardlink-dupes above
@@ -1359,7 +1397,6 @@ find %{buildroot} -perm 555 -exec chmod 755 {} \;
 
 # Create "/usr/bin/python3-debug", a symlink to the python3 debug binary, to
 # avoid the user having to know the precise version and ABI flags.
-# See e.g. https://bugzilla.redhat.com/show_bug.cgi?id=676748
 %if %{with debug_build} && %{with main_python}
 ln -s \
   %{_bindir}/python%{LDVERSION_debug} \
@@ -1380,7 +1417,6 @@ rm %{buildroot}%{_libdir}/pkgconfig/python3.pc
 rm %{buildroot}%{_libdir}/pkgconfig/python3-embed.pc
 %else
 # Link the unversioned stuff
-# https://fedoraproject.org/wiki/Changes/Python_means_Python3
 ln -s ./python3 %{buildroot}%{_bindir}/python
 ln -s ./pydoc3 %{buildroot}%{_bindir}/pydoc
 ln -s ./pygettext3.py %{buildroot}%{_bindir}/pygettext.py
@@ -1421,7 +1457,6 @@ find %{buildroot} -type f -a -name "*.py" -print0 | \
 
 # Ensure that the curses module was linked against libncursesw.so, rather than
 # libncurses.so
-# See https://bugzilla.redhat.com/show_bug.cgi?id=539917
 ldd %{buildroot}/%{dynload_dir}/_curses*.so \
     | grep curses \
     | grep libncurses.so && (echo "_curses.so linked against libncurses.so" ; exit 1)
@@ -1442,11 +1477,22 @@ for Module in %{buildroot}/%{dynload_dir}/*.so ; do
     esac
 done
 
+# Assert that sys.version contains the RPM version-release.arch identifier
+# rather than "main" or a git hash from the artificial %%autosetup git repo
+GITHASH=$(git rev-parse --short=5 HEAD)
+LD_LIBRARY_PATH="%{buildroot}%{_libdir}" \
+    %{buildroot}%{_bindir}/python%{pybasever} -c \
+    "import sys; v = sys.version; print(v); v = v.split('[')[0]
+assert '(%{version}-%{release}.%{_arch},' in v, v
+assert '(main' not in v, v
+assert '$GITHASH' not in v, v"
+
 # Assert the pre-generated JIT stencils are up to date
 %if %{with jit_build_stencils}
 for ConfName in %{?with_debug_build:debug} optimized; do
   if [ -s %{jit_stencils_source} ]; then
-    diff -u %{jit_stencils_source} build/${ConfName}/%{jit_stencils_filename}
+    # The -I option ignores the checksum line (calculated from files incl. pyconfig.h which may change with new autoconf)
+    diff -u -I '^// [0-9a-f]\{64\}$' %{jit_stencils_source} build/${ConfName}/%{jit_stencils_filename}
   else
     echo "%{jit_stencils_source} is empty, not checking if it is up to date"
   fi
@@ -1479,21 +1525,18 @@ CheckPython() {
   # reported in https://github.com/python/cpython/issues/140368
   # test_array_alignment
   # https://github.com/python/cpython/issues/144725
-  # test_ci_fuzz_stdlib
-  # https://github.com/python/cpython/issues/145762
   LD_LIBRARY_PATH=$ConfDir $ConfDir/python -m test.regrtest \
     -wW --slowest %{_smp_mflags} \
     %ifarch riscv64
     --timeout=8100 \
-    %else
+%else
     --timeout=2700 \
-    %endif
+%endif
     -i test_check_probes \
     %ifarch %{ix86}
     -i test_sendfile \
     -i test_array_alignment \
-    %endif
-    -i test_ci_fuzz_stdlib \
+%endif
 
   echo FINISHED: CHECKING OF PYTHON FOR CONFIGURATION: $ConfName
 
@@ -1504,16 +1547,17 @@ CheckPython() {
 # Check each of the configurations:
 %if %{with debug_build}
 CheckPython debug
-%endif # with debug_build
+%endif
 CheckPython optimized
 %if %{with freethreading_build} && %{with debug_build}
 CheckPython freethreading-debug
-%endif # with freethreading_build && debug_build
+%endif
 %if %{with freethreading_build}
 CheckPython freethreading
-%endif # with freethreading_build
+%endif
 
-%endif # with tests
+%endif
+
 
 %files -n %{pkgname}
 %doc README.rst
@@ -1529,6 +1573,7 @@ CheckPython freethreading
 %{_bindir}/python%{LDVERSION_optimized}
 %{_mandir}/*/*3*
 
+
 %if %{with main_python}
 %files -n python-unversioned-command
 %{_bindir}/python
@@ -1542,6 +1587,16 @@ CheckPython freethreading
 %dir %{dynload_dir}
 
 %license %{pylibdir}/LICENSE.txt
+
+# GDB auto-load script
+# This is macronized for reuse across the libs, debug, and freethreading packages
+%define gdb_autoload_script() \
+%dir %{_datadir}/gdb\
+%dir %{_datadir}/gdb/auto-load\
+%dir %{_datadir}/gdb/auto-load/%{_libdir}\
+%{_datadir}/gdb/auto-load/%{_libdir}/%{1}-gdb.py\
+%dir %{_datadir}/gdb/auto-load/%{_libdir}/__pycache__\
+%{_datadir}/gdb/auto-load/%{_libdir}/__pycache__/%{1}-gdb%{bytecode_suffixes}
 
 # Pure Python modules
 # This is macronized for reuse in the -freethreading package
@@ -1702,11 +1757,15 @@ CheckPython freethreading
 %dir %{_includedir}/python%{LDVERSION_optimized}/
 %{_includedir}/python%{LDVERSION_optimized}/%{_pyconfig_h}
 
+# GDB auto-load script
+%gdb_autoload_script %{py_INSTSONAME_optimized}
+
 # Finally, libpython
 %{_libdir}/%{py_INSTSONAME_optimized}
 %if %{with main_python}
 %{_libdir}/libpython3.so
 %endif
+
 
 %files -n %{pkgname}-devel
 %{pylibdir}/config-%{LDVERSION_optimized}-%{platform_triplet}/*
@@ -1741,6 +1800,7 @@ CheckPython freethreading
 %{_libdir}/pkgconfig/python-%{pybasever}.pc
 %{_libdir}/pkgconfig/python-%{pybasever}-embed.pc
 
+
 %files -n %{pkgname}-idle
 %if %{with main_python}
 %{_bindir}/idle*
@@ -1767,6 +1827,7 @@ CheckPython freethreading
 %dir %{pylibdir}/turtledemo/__pycache__/
 %{pylibdir}/turtledemo/__pycache__/*%{bytecode_suffixes}
 
+
 %files -n %{pkgname}-test
 %{pylibdir}/test/
 
@@ -1789,9 +1850,11 @@ CheckPython freethreading
 %{1}/_xxtestfuzz.%{2}.so\
 %{1}/xxlimited.%{2}.so\
 %{1}/xxlimited_35.%{2}.so\
+%{1}/xxlimited_3_13.%{2}.so\
 %{1}/xxsubtype.%{2}.so
 
 %extension_modules_test %{dynload_dir} %{SOABI_optimized}
+
 
 # We don't bother splitting the debug build out into further subpackages:
 # if you need it, you're debugging and you probably don't mind having it all.
@@ -1809,6 +1872,7 @@ CheckPython freethreading
 %{_bindir}/python%{LDVERSION_debug}
 
 # Analog to the -libs subpackage's files:
+%gdb_autoload_script %{py_INSTSONAME_debug}
 %{_libdir}/%{py_INSTSONAME_debug}
 
 # Analog of the libs, test, and tkinter extension modules:
@@ -1829,12 +1893,13 @@ CheckPython freethreading
 %{pylibdir}/__pycache__/_sysconfigdata_%{ABIFLAGS_debug}_linux_%{platform_triplet}%{bytecode_suffixes}
 %{pylibdir}/_sysconfig_vars_%{ABIFLAGS_debug}_linux_%{platform_triplet}.json
 
-%endif # with debug_build
+%endif
 
 %if %{with freethreading_build}
 %files -n python%{pybasever}-freethreading
 %{_bindir}/python%{LDVERSION_freethreading}
 %doc README.rst
+
 
 %files -n python%{pybasever}-freethreading-libs
 %doc README.rst
@@ -1882,8 +1947,12 @@ CheckPython freethreading
 %dir %{_includedir}/python%{LDVERSION_freethreading}/
 %{_includedir}/python%{LDVERSION_freethreading}/%{_pyconfig_h}
 
+# GDB auto-load script
+%gdb_autoload_script %{py_INSTSONAME_freethreading}
+
 # Finally, libpython
 %{_libdir}/%{py_INSTSONAME_freethreading}
+
 
 %files -n python%{pybasever}-freethreading-devel
 %{pylibdir_freethreading}/config-%{LDVERSION_freethreading}-%{platform_triplet}/*
@@ -1899,8 +1968,10 @@ CheckPython freethreading
 %{_libdir}/pkgconfig/python-%{LDVERSION_freethreading}.pc
 %{_libdir}/pkgconfig/python-%{LDVERSION_freethreading}-embed.pc
 
+
 %files -n python%{pybasever}-freethreading-idle
 %{pylibdir_freethreading}/idlelib/
+
 
 %files -n python%{pybasever}-freethreading-tkinter
 %{pylibdir_freethreading}/tkinter/
@@ -1913,6 +1984,7 @@ CheckPython freethreading
 %dir %{pylibdir_freethreading}/turtledemo/__pycache__/
 %{pylibdir_freethreading}/turtledemo/__pycache__/*%{bytecode_suffixes}
 
+
 %files -n python%{pybasever}-freethreading-test
 %{pylibdir_freethreading}/test/
 
@@ -1922,7 +1994,7 @@ CheckPython freethreading
 # Extension modules
 %extension_modules_test %{dynload_dir_freethreading} %{SOABI_freethreading}
 
-%endif # with freethreading_build
+%endif
 
 %if %{with freethreading_build} && %{with debug_build}
 %files -n python%{pybasever}-freethreading-debug
@@ -1930,6 +2002,7 @@ CheckPython freethreading
 %{_bindir}/python%{LDVERSION_freethreading_debug}
 
 # Analog to the -libs subpackage's files:
+%gdb_autoload_script %{py_INSTSONAME_freethreading_debug}
 %{_libdir}/%{py_INSTSONAME_freethreading_debug}
 
 # Analog of the libs, test, and tkinter extension modules:
@@ -1950,27 +2023,9 @@ CheckPython freethreading
 %{pylibdir_freethreading}/__pycache__/_sysconfigdata_%{ABIFLAGS_freethreading_debug}_linux_%{platform_triplet}%{bytecode_suffixes}
 %{pylibdir_freethreading}/_sysconfig_vars_%{ABIFLAGS_freethreading_debug}_linux_%{platform_triplet}.json
 
-%endif # with freethreading_build && debug_build
-
-# We put the debug-gdb.py file inside /usr/lib/debug to avoid noise from ldconfig
-# See https://bugzilla.redhat.com/show_bug.cgi?id=562980
-#
-# The /usr/lib/rpm/redhat/macros defines %%__debug_package to use
-# debugfiles.list, and it appears that everything below /usr/lib/debug and
-# (/usr/src/debug) gets added to this file (via LISTFILES) in
-# /usr/lib/rpm/find-debuginfo.sh
-#
-# Hence by installing it below /usr/lib/debug we ensure it is added to the
-# -debuginfo subpackage
-# (if it doesn't, then the rpmbuild ought to fail since the debug-gdb.py
-# payload file would be unpackaged)
-
-# Workaround for https://bugzilla.redhat.com/show_bug.cgi?id=1476593
-%undefine _debuginfo_subpackages
+%endif
 
 # ======================================================
 # Finally, the changelog:
 # ======================================================
 
-%changelog
-%autochangelog

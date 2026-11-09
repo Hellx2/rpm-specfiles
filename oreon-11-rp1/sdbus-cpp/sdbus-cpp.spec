@@ -1,64 +1,144 @@
-%global source0_hash da69a0104beb6e51415a59f1571a47beb1eacc65cc6027b250eb1cf13ff4f802
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%undefine __cmake_in_source_build
+%global source0_hash 3a289eded586c26d06c1387de72c7bf7c809527a70d51ba6401fe61059b19626
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%global libso_major 2
 
 Name:           sdbus-cpp
 Version:        2.3.1
 Release:        1%{?dist}
-Summary:        High-level C++ D-Bus library built on sd-bus
+Summary:        High-level C++ D-Bus library
 
-License:        LGPL-2.1-or-later
+License:        LGPL-2.1-only
 URL:            https://github.com/Kistler-Group/sdbus-cpp
+Source0:        https://github.com/Kistler-Group/sdbus-cpp/archive/v%{version}/sdbus-cpp-%{version}.tar.gz
 
-Source0:        https://github.com/Kistler-Group/sdbus-cpp/archive/refs/tags/v2.2.1.tar.gz#/sdbus-cpp-2.2.1.tar.gz
-
-BuildRequires:  cmake
+BuildRequires:  cmake >= 3.14
 BuildRequires:  gcc-c++
-BuildRequires:  pkgconfig
-BuildRequires:  systemd-devel
+BuildRequires:  pkgconfig(libsystemd) >= 238
+BuildRequires:  pkgconfig(gmock) >= 1.10.0
 
 %description
-sdbus-c++ is a C++ wrapper around sd-bus from libsystemd. Downstream
-projects use it via pkg-config (sdbus-c++) or CMake (SDBusCpp::sdbus-c++).
+High-level C++ D-Bus library for Linux designed to provide easy-to-use
+yet powerful API in modern C++
+
 
 %package devel
-Summary:        Development files for sdbus-cpp
+Summary:        Development files for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 
-%description    devel
-Headers, CMake package config, and pkg-config file for building against
-libsdbus-c++.
+%description devel
+Development files for %{name}.
+
+
+%package devel-doc
+Summary:        Developer documentation for %{name}
+BuildArch:      noarch
+BuildRequires:  doxygen
+Requires:       %{name}-devel = %{version}-%{release}
+
+%description devel-doc
+Developer documentation for %{name}
+
+
+%package tools
+Summary:        Stub code generator for sdbus-c++
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+BuildRequires:  pkgconfig(expat)
+BuildRequires:  oreon-rpm-macros
+Obsoletes:      %{name}-xml2cpp < %{version}-%{release}
+
+%description tools
+The stub code generator for generating the adapter and proxy interfaces
+out of the D-Bus IDL XML description.
+
+
+%package tests
+Summary:        Tests for %{name}
+Requires:       %{name}
+
+%description tests
+%{summary}
+
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%autosetup -p1 -n sdbus-cpp-%{version}
+%oreon_sha256
+
+%autosetup -p1
+
 
 %build
 %cmake \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DSDBUSCPP_BUILD_DOCS=OFF \
-  -DSDBUSCPP_BUILD_TESTS=OFF \
-  -DSDBUSCPP_BUILD_EXAMPLES=OFF \
-  -DSDBUSCPP_BUILD_CODEGEN=OFF
+    -DCMAKE_BUILD_TYPE=Release \
+    -DSDBUSCPP_BUILD_CODEGEN=ON \
+    -DSDBUSCPP_BUILD_DOCS=ON \
+    -DSDBUSCPP_BUILD_DOXYGEN_DOCS=ON \
+    -DSDBUSCPP_BUILD_TESTS=ON \
+    -DSDBUSCPP_TESTS_INSTALL_PATH=%{_libexecdir}/installed-tests/
 %cmake_build
+%cmake_build --target doc
+
+
+%check
+%ctest -E "sdbus-c\+\+-integration-tests"
+
 
 %install
 %cmake_install
+mkdir -p %{buildroot}%{_datadir}/dbus-1/system.d/
+mv %{buildroot}%{_sysconfdir}/dbus-1/system.d/org.sdbuscpp.integrationtests.conf %{buildroot}%{_datadir}/dbus-1/system.d/
+rm -rf %{buildroot}%{_sysconfdir}
+rm %{buildroot}%{_docdir}/sdbus-c++/COPYING
+
 
 %files
-%license COPYING COPYING-LGPL-Exception
-%doc AUTHORS ChangeLog NEWS README README.md
-%{_libdir}/libsdbus-c++.so.2*
+%license COPYING
+%license COPYING-LGPL-Exception
+%dir %{_docdir}/sdbus-c++
+%doc %{_docdir}/sdbus-c++/AUTHORS
+%doc %{_docdir}/sdbus-c++/ChangeLog
+%doc %{_docdir}/sdbus-c++/NEWS
+%doc %{_docdir}/sdbus-c++/README.md
+%{_libdir}/libsdbus-c++.so.%{libso_major}{,.*}
+
 
 %files devel
+%license COPYING
+%license COPYING-LGPL-Exception
+%{_libdir}/pkgconfig/sdbus-c++.pc
+%{_libdir}/pkgconfig/sdbus-c++-tools.pc
 %{_libdir}/libsdbus-c++.so
 %{_includedir}/sdbus-c++/
-%{_libdir}/pkgconfig/sdbus-c++.pc
-%{_libdir}/cmake/sdbus-c++/
+%dir %{_libdir}/cmake/sdbus-c++
+%{_libdir}/cmake/sdbus-c++/*.cmake
 
-%changelog
-* Sun Apr 12 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.2.1-1
-- Real package from upstream (replace noarch placeholder), v2.2.1
 
-* Sun Apr 12 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.5.0-1
-- Placeholder compatibility package (superseded)
+%files devel-doc
+%license COPYING
+%license COPYING-LGPL-Exception
+%doc %{_docdir}/sdbus-c++/*
+%exclude %{_docdir}/sdbus-c++/AUTHORS
+%exclude %{_docdir}/sdbus-c++/ChangeLog
+%exclude %{_docdir}/sdbus-c++/NEWS
+%exclude %{_docdir}/sdbus-c++/README.md
+
+
+%files tools
+%license COPYING
+%license COPYING-LGPL-Exception
+%{_bindir}/sdbus-c++-xml2cpp
+%dir %{_libdir}/cmake/sdbus-c++-tools
+%{_libdir}/cmake/sdbus-c++-tools/*.cmake
+
+
+%files tests
+%license COPYING
+%license COPYING-LGPL-Exception
+%{_datadir}/dbus-1/system.d/org.sdbuscpp.integrationtests.conf
+%{_libexecdir}/installed-tests/sdbus*
+
+

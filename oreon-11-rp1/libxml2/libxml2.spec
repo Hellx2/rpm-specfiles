@@ -1,8 +1,11 @@
-%global source0_hash c3d8c0c34aa39098f66576fe51969db12a5100b956233dc56506f7a8679be995
-%global source1_hash 96151685cec997e1f9f3387e3626d61e6284d4d6e66e0e440c209286c03e9cc7
-%global source2_hash 55e5c08db29946a91ea8e70e8f2418d3fd30d8b6777941dfba7f54726ffd9914
-%global source3_hash 09bdf9f81f381ebf9bc158a9472e498e896f7a02eb7461146e9abe1b9493ca17
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           libxml2
 Version:        2.15.4
 Release:        1%{?dist}
@@ -13,22 +16,19 @@ Summary:        Library providing XML and HTML support
 # Source1, Source2 and Source3 is covered by W3C
 License:        MIT AND ISC-Veillard AND W3C
 URL:            https://gitlab.gnome.org/GNOME/libxml2/-/wikis/home
-Source0:        https://download.gnome.org/sources/%{name}/2.12/%{name}-%{version}.tar.xz
-# https://www.w3.org/XML/Test/xmlconf-20080827.html
-Source1:        https://www.w3.org/XML/Test/xmlts20080827.tar.gz
-# https://www.w3.org/XML/2004/xml-schema-test-suite/index.html
-Source2:        https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2002-01-16/xsts-2002-01-16.tar.gz
-Source3:        https://www.w3.org/XML/2004/xml-schema-test-suite/xmlschema2004-01-14/xsts-2004-01-14.tar.gz
-Patch0:         libxml2-multilib.patch
-# Patch from openSUSE.
-# See:  https://bugzilla.gnome.org/show_bug.cgi?id=789714
-Patch1:         libxml2-2.12.0-python3-unicode-errors.patch
+Source0:        https://download.gnome.org/sources/libxml2/2.15/libxml2-%{version}.tar.xz
+Patch0:        libxml2-multilib.patch
 
 BuildRequires:  cmake-rpm-macros
+BuildRequires:  docbook-style-xsl
+BuildRequires:  doxygen
 BuildRequires:  gcc
-BuildRequires:  make
-BuildRequires:  pkgconfig(zlib)
+BuildRequires:  git
+BuildRequires:  meson
 BuildRequires:  pkgconfig(liblzma)
+BuildRequires:  pkgconfig(readline)
+BuildRequires:  pkgconfig(zlib)
+BuildRequires:  /usr/bin/xsltproc
 
 %description
 This library allows to manipulate XML files. It includes support
@@ -69,9 +69,12 @@ microseconds when parsing, do not link to them for generic purpose packages.
 %package -n python3-%{name}
 Summary:        Python 3 bindings for the libxml2 library
 BuildRequires:  python3-devel
+BuildRequires:  oreon-rpm-macros
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Obsoletes:      %{name}-python3 < %{version}-%{release}
 Provides:       %{name}-python3 = %{version}-%{release}
+# Will be removed upstream in 2.16.
+Provides:       deprecated()
 
 %description -n python3-%{name}
 The libxml2-python3 package contains a Python 3 module that permits
@@ -84,69 +87,36 @@ this includes parsing and validation even with complex DTDs, either
 at parse time or later once the document has been modified.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source1_hash}" = "none" || { f="%{SOURCE1}"; test -f "$f" || { echo "oreon: missing Source1 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source1_hash}" || { echo "oreon: Source1 hash mismatch" >&2; exit 1; }; }
-test "%{source2_hash}" = "none" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source2_hash}" || { echo "oreon: Source2 hash mismatch" >&2; exit 1; }; }
-test "%{source3_hash}" = "none" || { f="%{SOURCE3}"; test -f "$f" || { echo "oreon: missing Source3 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source3_hash}" || { echo "oreon: Source3 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 find doc -type f -executable -print -exec chmod 0644 {} ';'
 
+%conf
+%meson -Ddefault_library=both
+
 %build
-# see https://bugzilla.redhat.com/show_bug.cgi?id=2139546 , several
-# of these options are needed to (mostly) retain ABI compatibility
-# with earlier versions
-%configure \
-    --enable-static \
-    --with-legacy \
-    --with-ftp \
-    --with-python=%{__python3}
-%make_build
+%meson_build
 
 %install
-%make_install
-
-# multiarch crazyness on timestamp differences or Makefile/binaries for examples
-touch -m --reference=%{buildroot}%{_includedir}/libxml2/libxml/parser.h %{buildroot}%{_bindir}/xml2-config
-
-find %{buildroot} -type f -name '*.la' -print -delete
-rm -vf %{buildroot}{%{python2_sitearch},%{python3_sitearch}}/*.a
-rm -vrf %{buildroot}%{_datadir}/doc/
-gzip -9 -c doc/libxml2-api.xml > doc/libxml2-api.xml.gz
+%meson_install
 
 %check
-# Tests require the XML conformance suite.
-tar -xzvf %{SOURCE1}
-%make_build check
-rm -rf xmlconf
-# Schema tests use the schema test suite.
-cp %{SOURCE2} %{SOURCE3} xstc/
-pushd xstc
-mkdir Tests
-%make_build tests
-popd
-# As the directory is copied to the devel subpackage, remove any build
-# artifacts.
-(cd doc/examples ; make clean ; rm -rf .deps Makefile)
-
-%ldconfig_scriptlets
+%meson_test
 
 %files
 %license Copyright
 %doc NEWS README.md
-%{_libdir}/libxml2.so.2*
+%{_libdir}/libxml2.so.16{,.*}
 %{_bindir}/xmlcatalog
 %{_bindir}/xmllint
 %{_mandir}/man1/xmlcatalog.1*
 %{_mandir}/man1/xmllint.1*
 
 %files devel
-%doc doc/*.html
-%doc doc/tutorial doc/libxml2-api.xml.gz
-%doc doc/examples
-%dir %{_datadir}/gtk-doc
-%dir %{_datadir}/gtk-doc/html
-%{_datadir}/aclocal/libxml.m4
-%{_datadir}/gtk-doc/html/libxml2/
+%doc %{_docdir}/libxml2/*.html
+%doc %{_docdir}/libxml2/html/
+%doc example
 %{_includedir}/libxml2/
 %{_libdir}/libxml2.so
 %{_libdir}/pkgconfig/libxml-2.0.pc
@@ -159,13 +129,9 @@ popd
 %{_libdir}/libxml2.a
 
 %files -n python3-%{name}
-%doc doc/*.py
-%{python3_sitearch}/libxml2mod.so
+%{python3_sitearch}/libxml2mod.*.so
 %{python3_sitelib}/libxml2.py
 %{python3_sitelib}/__pycache__/libxml2.*
 %{python3_sitelib}/drv_libxml2.py
 %{python3_sitelib}/__pycache__/drv_libxml2.*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.12.10-6
-- Prepare for Oreon 11 (RP1)

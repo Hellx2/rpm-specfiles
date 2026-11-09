@@ -1,7 +1,11 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr E3F42FCE156830A80358E6E94FD1AEC3365AF7BF
+%global source0_hash fabdc4436e9a8a152d38060602f491bee4245ad54656f01991f33d511c87bfb1
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # default dependencies
 %global hawkey_version 0.75.0
 %global libcomps_version 0.1.8
@@ -13,12 +17,8 @@
 %global conflicts_dnf_plugins_extras_version 4.0.4
 %global conflicts_dnfdaemon_version 0.3.19
 
-%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 40 || 0%{?rhel} > 10]
+%bcond dnf5_obsoletes_dnf 1
 
-# override dependencies for fedora 26
-%if 0%{?fedora} == 26
-    %global rpm_version 4.13.0.1-7
-%endif
 
 
 # YUM compat subpackage configuration
@@ -29,15 +29,8 @@
 # *release 505 renamed /usr/bin/yum to /usr/bin/yum-deprecated
 %global yum_compat_level full
 %global yum_subpackage_name yum
-%if 0%{?fedora}
     # Avoid file conflict with yum < 4 in all Fedoras
-    # It can be resolved by pretrans scriptlet but they are not recommended in Fedora
     %global yum_compat_level minimal
-    %if 0%{?fedora} < 31
-        # Avoid name conflict with yum < 4
-        %global yum_subpackage_name %{name}-yum
-    %endif
-%endif
 
 # paths
 %global confdir %{_sysconfdir}/%{name}
@@ -55,12 +48,12 @@ It supports RPMs, modules and comps groups & environments.
 
 Name:           dnf
 Version:        4.24.0
-Release:        3%{?dist}
+Release:        1%{?dist}
 Summary:        %{pkg_summary}
 # For a breakdown of the licensing, see PACKAGE-LICENSING
 License:        GPL-2.0-or-later AND GPL-1.0-only
 URL:            https://github.com/rpm-software-management/dnf
-Source0:        https://github.com/rpm-software-management/dnf/releases/download/4.24.0/dnf-4.24.0.tar.gz
+Source0:        https://github.com/rpm-software-management/dnf/releases/download/%{version}/dnf-%{version}.tar.gz
 Source1:        dnf-4.24.0.tar.gz.asc
 # Key exported from Petr Pisar's keyring
 Source2:        gpgkey-E3F42FCE156830A80358E6E94FD1AEC3365AF7BF.gpg
@@ -70,19 +63,11 @@ BuildRequires:  gettext
 BuildRequires:  gnupg2
 # Documentation
 BuildRequires:  systemd
-%if 0%{?fedora} > 40 || 0%{?rhel} > 10
 BuildRequires:  bash-completion-devel
-%else
-BuildRequires:  bash-completion
-%endif
 Requires:       coreutils
 BuildRequires:  %{_bindir}/sphinx-build-3
 Requires:       python3-%{name} = %{version}-%{release}
-%if 0%{?fedora}
 Recommends:     (%{_bindir}/sqlite3 if (bash-completion and python3-dnf-plugins-core))
-%else
-Recommends:     (python3-dbus if NetworkManager)
-%endif
 Conflicts:      python3-dnf-plugins-core < %{conflicts_dnf_plugins_core_version}
 Conflicts:      python3-dnf-plugins-extras-common < %{conflicts_dnf_plugins_extras_version}
 
@@ -104,12 +89,8 @@ Common data and configuration files for DNF
 Requires:       %{name} = %{version}-%{release}
 Summary:        %{pkg_summary}
 
-%if 0%{?fedora} && 0%{?fedora} < 31
-Conflicts:      yum < 3.4.3-505
-%else
 Provides:       %{name}-yum = %{version}-%{release}
 Obsoletes:      %{name}-yum < 5
-%endif
 
 %description -n %{yum_subpackage_name}
 %{pkg_description}
@@ -125,13 +106,8 @@ BuildRequires:  python3-libdnf
 BuildRequires:  libmodulemd >= %{libmodulemd_version}
 Requires:       libmodulemd >= %{libmodulemd_version}
 Requires:       %{name}-data = %{version}-%{release}
-%if 0%{?fedora}
-%if 0%{?fedora} < 40
-Recommends:     deltarpm
-%endif
 # required for DNSSEC main.gpgkey_dns_verification https://dnf.readthedocs.io/en/latest/conf_ref.html
 Recommends:     python3-unbound
-%endif
 Requires:       python3-hawkey >= %{hawkey_version}
 Requires:       python3-libdnf >= %{hawkey_version}
 Requires:       python3-libcomps >= %{libcomps_version}
@@ -170,6 +146,7 @@ Python 3 interface to DNF.
 %package automatic
 Summary:        %{pkg_summary} - automated upgrades
 BuildRequires:  systemd
+BuildRequires:  oreon-rpm-macros
 Requires:       python3-%{name} = %{version}-%{release}
 %{?systemd_requires}
 
@@ -189,8 +166,9 @@ Additional dependencies needed to perform transactions on booted bootc (bootable
 
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 %build
@@ -228,11 +206,7 @@ mv %{buildroot}%{_bindir}/dnf-automatic-3 %{buildroot}%{_bindir}/dnf-automatic
 rm -vf %{buildroot}%{_bindir}/dnf-automatic-*
 
 # Strict conf distribution
-%if 0%{?rhel}
-mv -f %{buildroot}%{confdir}/%{name}-strict.conf %{buildroot}%{confdir}/%{name}.conf
-%else
 rm -vf %{buildroot}%{confdir}/%{name}-strict.conf
-%endif
 
 %if %{without dnf5_obsoletes_dnf}
 # YUM compat layer
@@ -264,22 +238,14 @@ rm %{buildroot}%{_unitdir}/%{name}-makecache.service
 rm %{buildroot}%{_unitdir}/%{name}-makecache.timer
 %endif
 
-%if 0%{?fedora} >= 41 || 0%{?rhel} >= 10
 %py3_shebang_fix %{buildroot}%{_bindir}/dnf-3
 %if %{without dnf5_obsoletes_dnf}
 %py3_shebang_fix %{buildroot}%{_bindir}/dnf-automatic
 %endif
 %py3_shebang_fix %{buildroot}%{python3_sitelib}/%{name}/cli/completion_helper.py
-%endif
 
 %check
-%if 0%{?rhel} && 0%{?rhel} < 10
-pushd %{__cmake_builddir}
-ctest -VV
-popd
-%else
 %ctest -VV
-%endif
 
 
 %if %{without dnf5_obsoletes_dnf}
@@ -417,6 +383,3 @@ fi
 %files bootc
 # bootc subpackage does not include any files
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.24.0-3
-- Prepare for Oreon 11 (RP1)

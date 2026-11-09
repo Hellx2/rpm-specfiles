@@ -1,49 +1,52 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source3_key_fpr 325F650C4C2B6AD58807327A3602B07F55D0C732
+%global source0_hash 937610b97c329a1ec9268553fb780037bcfff0dcffe9725ebc4fd9c1aa9075db
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: A GNU archiving program
 Name: cpio
-Version: 2.15
-Release: 9%{?dist}
+Version:        2.15
+Release:        1%{?dist}
 License: GPL-3.0-or-later
 URL: https://www.gnu.org/software/cpio/
-Source0:        https://mirrors.kernel.org/gnu/cpio/cpio-%{version}.tar.bz2
+Source0:        https://mirror.cs.odu.edu/gnu/cpio/cpio-%{version}.tar.bz2
 
-# help2man generated manual page distributed only in RHEL/Fedora
 Source1: cpio.1
 
-Source2:        https://mirrors.kernel.org/gnu/cpio/cpio-%{version}.tar.bz2.sig
+Source2:        cpio-2.15.tar.bz2.sig
 # https://savannah.gnu.org/projects/cpio/ lists one maintainer, gray
 # and their GPG key is https://savannah.gnu.org/people/viewgpg.php?user_id=311
 Source3: gray-key.gpg
 
 # We use SVR4 portable format as default.
-Patch1: cpio-2.14-rh.patch
+Patch1:        cpio-2.14-rh.patch
 
 # fix warn_if_file_changed() and set exit code to 1 when cpio fails to store
 # file > 4GB (#183224)
 # http://lists.gnu.org/archive/html/bug-cpio/2006-11/msg00000.html
-Patch2: cpio-2.14-exitCode.patch
+Patch2:        cpio-2.14-exitCode.patch
 
 # Support major/minor device numbers over 127 (bz#450109)
 # http://lists.gnu.org/archive/html/bug-cpio/2008-07/msg00000.html
-Patch3: cpio-2.14-dev_number.patch
+Patch3:        cpio-2.14-dev_number.patch
 
 # Define default remote shell as /usr/bin/ssh (#452904)
-Patch4: cpio-2.9.90-defaultremoteshell.patch
+Patch4:        cpio-2.9.90-defaultremoteshell.patch
 
 # Fix segfault with nonexisting file with patternnames (#567022)
 # http://savannah.gnu.org/bugs/index.php?28954
 # We have slightly different solution than upstream.
-Patch5: cpio-2.14-patternnamesigsegv.patch
+Patch5:        cpio-2.14-patternnamesigsegv.patch
 
 # Fix bad file name splitting while creating ustar archive (#866467)
 # (fix backported from tar's source)
-Patch7: cpio-2.10-longnames-split.patch
+Patch7:        cpio-2.10-longnames-split.patch
 
 # Cpio does Sum32 checksum, not CRC (downstream)
-Patch8: cpio-2.11-crc-fips-nit.patch
+Patch8:        cpio-2.11-crc-fips-nit.patch
 
 Provides: bundled(gnulib)
 Provides: bundled(paxutils)
@@ -52,6 +55,7 @@ BuildRequires: gcc
 BuildRequires: texinfo, autoconf, automake, gettext, gettext-devel
 BuildRequires: make
 BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 
 %description
 GNU cpio copies files into or out of a cpio or tar archive.  Archives
@@ -69,8 +73,9 @@ Install cpio if you need a program to manage file archives.
 
 
 %prep
-test -z "%{source3_key_fpr}" || { f="%{SOURCE3}"; test -f "$f" || { echo "oreon: missing Source3 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" 2>/dev/null | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source3_key_fpr}" || { echo "oreon: Source3 key fingerprint mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE3}' --signature='%{SOURCE2}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE3} --sig %{SOURCE2} --data %{SOURCE0}
 %autosetup -p1
 
 
@@ -109,6 +114,3 @@ make check || {
 %{_mandir}/man*/*
 %{_infodir}/*.info*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.15-9
-- Prepare for Oreon 11 (RP1)

@@ -1,9 +1,15 @@
-%global source0_hash ec97d1206bdd19cb6bdd043eaa9f0037aa732262ec68e070fd7c7b5f834d5dfc
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 68fa62cffb974f4275641ce14c2e2d75739251f30e00e6a0900903b247d76a03
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:     libpcap
 Epoch:    14
-Version:  1.11.0
-Release:  1%{?dist}
+Version:        1.10.7
+Release:        1%{?dist}
 Summary:  A system-independent interface for user-level packet capture
 License:  ISC AND BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC
 URL:      https://www.tcpdump.org/
@@ -15,12 +21,18 @@ BuildRequires: flex
 BuildRequires: gcc
 BuildRequires: git
 BuildRequires: glibc-kernheaders >= 2.2.0
-Source0:        https://www.tcpdump.org/release/%{name}-%{version}.tar.xz
-Source1:        https://www.tcpdump.org/release/%{name}-%{version}.tar.xz.sig
+#rdma-core-devel not available on arm
+%ifnarch %{arm}
+BuildRequires: rdma-core-devel
+BuildRequires:  oreon-rpm-macros
+%endif
 
-Patch0001:      0001-man-tcpdump-and-tcpslice-have-manpages-in-man8.patch
-Patch0002:      0002-pcap-config-mitigate-multilib-conflict.patch
-Patch0003:      0003-pcap-linux-apparently-ctc-interfaces-on-s390-has-eth.patch
+Source0:        https://www.tcpdump.org/release/libpcap-%{version}.tar.xz
+Source1:        libpcap-1.10.7.tar.xz.sig
+
+Patch0001:        0001-man-tcpdump-and-tcpslice-have-manpages-in-man8.patch
+Patch0002:        0002-pcap-config-mitigate-multilib-conflict.patch
+Patch0003:        0003-pcap-linux-apparently-ctc-interfaces-on-s390-has-eth.patch
 
 %description
 Libpcap provides a portable framework for low-level network
@@ -51,7 +63,8 @@ This package provides the libraries, include files, and other
 resources needed for developing libpcap applications.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -S git
 
 #sparc needs -fPIC
@@ -61,7 +74,11 @@ sed -i -e 's|-fpic|-fPIC|g' configure
 
 %build
 export CFLAGS="$RPM_OPT_FLAGS -fno-strict-aliasing"
-%configure --disable-rdma
+%ifarch %{arm}
+%configure
+%else
+%configure --enable-rdma
+%endif
 %make_build
 
 %install
@@ -86,6 +103,3 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/libpcap.a
 %{_mandir}/man3/pcap*.3*
 %{_mandir}/man5/pcap*.5*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.10.6-2
-- Prepare for Oreon 11 (RP1)

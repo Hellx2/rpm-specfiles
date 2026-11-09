@@ -1,26 +1,33 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 7c8b7f9fc8609141fdea9cece85249d308624391ff61dedaf528fcb337727dfd
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: GNU collection of diff utilities
 Name: diffutils
-Version: 3.12
-Release: 5%{?dist}
+Version:        3.12
+Release:        1%{?dist}
 URL: https://www.gnu.org/software/diffutils/diffutils.html
-Source:        https://mirrors.kernel.org/gnu/diffutils/diffutils-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/diffutils/diffutils-%{version}.tar.xz
 # upstream fixes
 # cross compile build of 3.12 diffutils fails
-Patch: diffutils-3.12-cross-compiler-build-fail.patch
+Patch:        diffutils-3.12-cross-compiler-build-fail.patch
 # sdiff: continue → break
-Patch: diffutils-3.12-sdiff-continue-break.patch
+Patch:        diffutils-3.12-sdiff-continue-break.patch
 # sdiff: pacify gcc -flto -Wmaybe-uninitialized
-Patch: 0001-sdiff-pacify-gcc-flto-Wmaybe-uninitialized.patch
+Patch:        0001-sdiff-pacify-gcc-flto-Wmaybe-uninitialized.patch
 # sdiff: port back to C17
-Patch: 0001-sdiff-port-back-to-C17.patch
+Patch:        0001-sdiff-port-back-to-C17.patch
 License: GPL-3.0-or-later
 Provides: bundled(gnulib)
 BuildRequires: gcc
 BuildRequires: help2man
 BuildRequires: autoconf, automake, texinfo
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 Diffutils includes four utilities: diff, cmp, diff3 and sdiff. Diff
@@ -36,7 +43,8 @@ to merge two files interactively.
 Install diffutils if you need to compare text files.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 # Run autoreconf for aarch64 support (bug #925256).
@@ -64,6 +72,3 @@ make check
 %{_mandir}/*/*
 %{_infodir}/diffutils.info*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.12-5
-- Prepare for Oreon 11 (RP1)

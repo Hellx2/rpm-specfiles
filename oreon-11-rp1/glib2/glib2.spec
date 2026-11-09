@@ -1,22 +1,24 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global major_minor_version %(echo %{version} | cut -d "." -f 1-2)
+%global source0_hash 93c941aa17d5eb1d53fe838365f29a8b4e539c222a256d974ec8f30fc413e396
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           glib2
-Version:        2.90.0
-Release:        %autorelease
+Version:        2.90.1
+Release:        1%{?dist}
 Summary:        A library of handy utility functions
 
 License:        LGPL-2.1-or-later
 URL:            https://www.gtk.org
-Source: https://download.gnome.org/sources/glib/%{major_minor_version}/glib-%{version}.tar.xz
-# Required for RHEL core crypto components policy. Good for Fedora too.
-# https://bugzilla.redhat.com/show_bug.cgi?id=1630260
-# https://gitlab.gnome.org/GNOME/glib/-/merge_requests/903
-Patch:          gnutls-hmac.patch
+Source0:        https://download.gnome.org/sources/glib/2.90/glib-%{version}.tar.xz
 
-# https://bugzilla.redhat.com/show_bug.cgi?id=2192204
-Patch:          default-terminal.patch
+# https://gitlab.gnome.org/GNOME/glib/-/merge_requests/903
+Patch:        gnutls-hmac.patch
+
+Patch:        default-terminal.patch
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -48,6 +50,7 @@ BuildRequires:  /usr/bin/update-desktop-database
 # static glib2 without depending on a static build of GnuTLS as well. This will
 # ensure we notice if the GnuTLS soname bumps, so that we can update our patch.
 BuildRequires:  gnutls
+BuildRequires:  oreon-rpm-macros
 %if 0%{?__isa_bits} == 64
 Requires: libgnutls.so.30()(64bit)
 %else
@@ -106,7 +109,8 @@ The glib2-tests package contains tests that can be used to verify
 the functionality of the installed glib2 package.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n glib-%{version} -p1
 
 %build
@@ -146,7 +150,8 @@ glib-compile-schemas %{_datadir}/glib-2.0/schemas &> /dev/null || :
 glib-compile-schemas %{_datadir}/glib-2.0/schemas &> /dev/null || :
 
 %check
-%meson_test
+# give more leeway on test timeouts to slower builders e.g. on current riscv64
+%meson_test --timeout-multiplier 3
 
 %files -f glib20.lang
 %license LICENSES/LGPL-2.1-or-later.txt
@@ -262,6 +267,3 @@ glib-compile-schemas %{_datadir}/glib-2.0/schemas &> /dev/null || :
 %{_libexecdir}/installed-tests
 %{_datadir}/installed-tests
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.88.0-1
-- Prepare for Oreon 11 (RP1)

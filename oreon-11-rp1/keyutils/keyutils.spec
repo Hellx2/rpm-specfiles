@@ -1,23 +1,30 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %define libapivermajor 1
 %define libapiversion %{libapivermajor}.10
 
 # % define buildid .local
 
 Name:    keyutils
-Version: 1.6.3
-Release: 7%{?buildid}%{?dist}
+Version:        1.6.3
+Release:        3%{?dist}
 Summary: Linux Key Management Utilities
 License: GPL-2.0-or-later AND LGPL-2.1-or-later
 Url:   https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git
 
-Source0:        https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-1.6.3.tar.gz
+Source0:        https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-%{version}.tar.gz
 
 BuildRequires: gcc
 BuildRequires: glibc-kernheaders >= 2.4-9.1.92
 BuildRequires: make
 BuildRequires: g++
+BuildRequires:  oreon-rpm-macros
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
 
 %description
@@ -40,7 +47,8 @@ Requires: %{name}-libs%{?_isa} = %{version}-%{release}
 This package provides headers and libraries for building key utilities.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 
 %build
@@ -99,6 +107,3 @@ make \
 %{_libdir}/pkgconfig/libkeyutils.pc
 %{_mandir}/man3/*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.6.3-7
-- Prepare for Oreon 11 (RP1)

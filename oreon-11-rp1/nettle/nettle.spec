@@ -1,10 +1,15 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 343C2FF0FBEE5EC2EDBEF399F3599FF828C67298
+%global source0_hash 3addbc00da01846b232fb3bc453538ea5468da43033f21bb345cb1e9073f5094
+%global source200_hash fd4829912cddd12f84181c3451cc752be224643e87fac497b69edddadc49b4f2
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Recent so-version, so we do not bump accidentally.
-%global nettle_so_ver 8
-%global hogweed_so_ver 6
+%global nettle_so_ver 9
+%global hogweed_so_ver 7
 
 # Set to 1 when building a bootstrap for a bumped so-name.
 %global bootstrap 0
@@ -15,36 +20,29 @@
 %global hogweed_so_ver_old 5
 %endif
 
-# * In RHEL nettle is included in the gnutls FIPS module boundary,
 #   and HMAC is calculated there with its own tool.
-# * In RHEL gmp is statically linked to ensure zeroization of CSP.
-%if %{defined rhel}
-%bcond_with fipshmac
-%bcond_without bundle_gmp
-%else
 %bcond_without fipshmac
 %bcond_with bundle_gmp
-%endif
 
 Name:           nettle
 Version:        4.0
-Release:        %{?autorelease}%{!?autorelease:1%{?dist}}
+Release:        1%{?dist}
 Summary:        A low-level cryptographic library
 
 License:        LGPL-3.0-or-later OR GPL-2.0-or-later
 URL:            http://www.lysator.liu.se/~nisse/nettle/
-Source0:        https://www.lysator.liu.se/~nisse/archive/%{name}-%{version}.tar.gz
-Source1:        https://www.lysator.liu.se/~nisse/archive/%{name}-%{version}.tar.gz.sig
-Source2:        https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x343C2FF0FBEE5EC2EDBEF399F3599FF828C67298#/nettle-release-keyring.gpg
+Source0:        http://www.lysator.liu.se/~nisse/archive/nettle-%{version}.tar.gz
+Source1:        nettle-4.0.tar.gz.sig
+Source2:	nettle-release-keyring.gpg
 %if 0%{?bootstrap}
 Source100:	%{name}-%{version_old}-hobbled.tar.xz
 Source101:	nettle-3.5-remove-ecc-testsuite.patch
 %endif
-Patch:        nettle-3.8-zeroize-stack.patch
-Patch:        nettle-3.10-hobble-to-configure.patch
+Patch:        nettle-4.0-zeroize-stack.patch
+Patch:        nettle-4.0-hobble-to-configure.patch
 
 %if %{with bundle_gmp}
-Source200:	https://gmplib.org/download/gmp/gmp-6.2.1.tar.xz
+Source200:        https://mirror.cs.odu.edu/gnu/gmp/gmp-6.2.1.tar.xz
 # Taken from the main gmp package
 Source201:	gmp-6.2.1-intel-cet.patch
 Source202:	gmp-6.2.1-zeroize-allocator.patch
@@ -62,6 +60,7 @@ BuildRequires:	libtool, automake, autoconf, gettext-devel
 BuildRequires:  fipscheck
 %endif
 BuildRequires:  gnupg2
+BuildRequires:  oreon-rpm-macros
 
 %package devel
 Summary:        Development headers for a low-level cryptographic library
@@ -83,10 +82,11 @@ applications with nettle.
 
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
+%oreon_sha256
+
 %autosetup -Tb 0 -p1
 
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 
 %if %{with bundle_gmp}
 mkdir -p bundled_gmp
@@ -129,11 +129,12 @@ popd
 autoreconf -ifv
 # For annocheck
 export ASM_FLAGS="-Wa,--generate-missing-build-notes=yes"
+%if %{with bundle_gmp}
+export CFLAGS="$CFLAGS -I${PWD}/bundled_gmp"
+export LDFLAGS="$LDFLAGS -L${PWD}/bundled_gmp/.libs"
+%endif
 %configure --enable-shared --enable-fat \
 --disable-sm3 --disable-sm4 --disable-ecc-secp192r1 --disable-ecc-secp224r1 \
-%if %{with bundle_gmp}
---with-include-path=$PWD/bundled_gmp --with-lib-path=$PWD/bundled_gmp/.libs \
-%endif
 %{nil}
 %make_build
 
@@ -225,6 +226,3 @@ make check
 %ldconfig_scriptlets
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.10.1-1
-- Prepare for Oreon 11 (RP1)

@@ -1,5 +1,11 @@
-%global source0_hash 6da0cd06b428d32a54c58137838505d9dc0371a900bb8070a46b29e1ceaf2e0f
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash aad782c23d3f01bd4bb52c8bac7a553b631ef8115fd1612703df6183449fef19
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global abi_ver 9
 
 Name:           nghttp3
@@ -10,17 +16,17 @@ Summary:        HTTP/3 library written in C
 License:        MIT
 URL:            https://github.com/ngtcp2/nghttp3
 Source0:        https://github.com/ngtcp2/nghttp3/releases/download/v%{version}/nghttp3-%{version}.tar.xz
-Source1:        https://github.com/ngtcp2/nghttp3/releases/download/v%{version}/nghttp3-%{version}.tar.xz.asc
-Source2:        tatsuhiro-t.pgp
+Source1:        nghttp3-1.18.0.tar.xz.asc
+Source2:        tatsuhiro-t.asc
 
 BuildRequires:  autoconf
-BuildRequires:  automake
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
-BuildRequires:  gnupg2
 BuildRequires:  gpgverify
 BuildRequires:  libtool
 BuildRequires:  make
+BuildRequires:  gnupg2
+BuildRequires:  oreon-rpm-macros
 
 %global _description %{expand:
 nghttp3 is an implementation of RFC 9114 HTTP/3 mapping over QUIC
@@ -47,25 +53,27 @@ developing applications that use libnghttp3.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 
 %build
 autoreconf -fiv
 %configure --disable-static
-%{__make} %{?_smp_mflags}
+%make_build
 
 
 %install
-%{__make} install DESTDIR=%{buildroot} INSTALL='install -p'
+%make_install
 find %{buildroot} -name '*.la' -exec rm -f {} ';'
+# will be installed via %%doc
 rm -f %{buildroot}%{_docdir}/nghttp3/README.rst
 
 
 %check
-%{__make} check
+%make_build check
 
 
 %files -n libnghttp3
@@ -78,5 +86,4 @@ rm -f %{buildroot}%{_docdir}/nghttp3/README.rst
 %{_libdir}/libnghttp3.so
 %{_libdir}/pkgconfig/libnghttp3.pc
 
-%changelog
-%autochangelog
+

@@ -1,5 +1,11 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash c25a4838fc8e4c1c8aacb8bd620edb3084a3d63bf8987fdad3ca2758c63240f9
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global ver 1.19
 #%%global snap rc1
 %global srcver %{ver}%{?snap:-%{snap}}
@@ -7,19 +13,17 @@
 
 Summary:        C library for parsing command line parameters
 Name:           popt
-Version:        %{ver}%{?snap:~%{snap}}
-Release:        10%{?dist}
+Version:        1.19
+Release:        1%{?dist}
 # COPYING:      MIT text
-# po/eo.po:     LicenseRef-Fedora-Public-Domain
-# po/fi.po:     MIT AND LicenseRef-Fedora-Public-Domain
-# po/lv.po:     MIT AND LicenseRef-Fedora-Public-Domain
 # popt.3:       MIT ("the X consortium license, see the file COPYING")
-License:        MIT AND LicenseRef-Fedora-Public-Domain
+License:        MIT AND LicenseRef-Oreon-Public-Domain
 URL:            https://github.com/rpm-software-management/popt/
-Source0:        http://ftp.rpm.org/popt/releases/popt-1.x/%{name}-%{srcver}.tar.gz
+Source0:        http://ftp.rpm.org/popt/releases/popt-1.x/popt-%{version}.tar.gz
 BuildRequires:  gcc
 BuildRequires:  gettext
 BuildRequires:  make
+BuildRequires:  oreon-rpm-macros
 
 %description
 Popt is a C library for parsing command line parameters. Popt was
@@ -53,7 +57,8 @@ Install it if you need to link statically with libpopt.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n %{name}-%{srcver} -p1
 
 %build
@@ -88,6 +93,3 @@ make check || (cat tests/*.log; exit 1)
 %{_libdir}/libpopt.a
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{ver}%{?snap:~%{snap}}-10
-- Prepare for Oreon 11 (RP1)

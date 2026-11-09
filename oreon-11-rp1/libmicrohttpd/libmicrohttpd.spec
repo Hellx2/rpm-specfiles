@@ -1,5 +1,11 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 04bfe8ef75db7d629a33de767599765cecadc56274a39822d5d081030d577685
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           libmicrohttpd
 Version:        1.0.10
 Release:        1%{?dist}
@@ -13,14 +19,14 @@ Summary:        Lightweight library for embedding a webserver in applications
 License:        LGPL-2.1-or-later AND (LGPL-2.1-or-later OR GPL-2.0-or-later WITH eCos-exception-2.0) AND GFDL-1.3-no-invariants-or-later
 
 URL:            http://www.gnu.org/software/libmicrohttpd/
-Source0:        https://mirrors.kernel.org/gnu/libmicrohttpd/%{name}-%{version}.tar.gz
-# Patch0:         gnutls-utilize-system-crypto-policy.patch
+Source0:        https://mirror.cs.odu.edu/gnu/libmicrohttpd/libmicrohttpd-%{version}.tar.gz
 
 BuildRequires:  libtool
 BuildRequires:  texinfo
 BuildRequires:  gnutls-devel
 BuildRequires:  doxygen graphviz
 BuildRequires:  make
+BuildRequires:  oreon-rpm-macros
 Requires(post): info
 Requires(preun): info
 
@@ -54,7 +60,8 @@ BuildArch:      noarch
 Doxygen documentation for libmicrohttpd and some example source code
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -108,6 +115,3 @@ fi
 %doc examples
 %doc html
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0.2-3
-- Prepare for Oreon 11 (RP1)

@@ -1,28 +1,35 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 40a8cefd45f0d2a06827e6658efb830d484868c449ad80f7efb33516af44f3da
 %global source1_hash 082967d6bf793499d3d655cea2149e07c0da97287f1877a6eab88d17cb703d0d
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %define tcpslice_dir tcpslice-1.8
 
 Summary: A network traffic monitoring tool
 Name: tcpdump
 Epoch: 14
-Version: 4.99.6
-Release: 3%{?dist}
+Version:        4.99.6
+Release:        1%{?dist}
 License: BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause AND BSD-4-Clause-UC AND ISC AND NTP
 URL: http://www.tcpdump.org
 BuildRequires: make
 BuildRequires: automake openssl-devel libpcap-devel git-core gcc
 BuildRequires: systemd-rpm-macros
+BuildRequires:  oreon-rpm-macros
 
 Source0:        http://www.tcpdump.org/release/tcpdump-%{version}.tar.xz
-Source1:        https://www.tcpdump.org/release/tcpslice-1.8.tar.gz
-Source2:        http://www.tcpdump.org/release/tcpdump-%{version}.tar.xz.sig
+Source1:        http://www.tcpdump.org/release/tcpslice-1.8.tar.gz
+Source2:        tcpdump-4.99.6.tar.xz.sig
 Source3: tcpdump-sysusers.conf
 
-Patch0002:      0002-Use-getnameinfo-instead-of-gethostbyaddr.patch
-Patch0003:      0003-Drop-root-priviledges-before-opening-first-savefile-.patch
-Patch0007:      0007-Introduce-nn-option.patch
-Patch0009:      0009-Change-n-flag-to-nn-in-TESTonce.patch
+Patch0002:        0002-Use-getnameinfo-instead-of-gethostbyaddr.patch
+Patch0003:        0003-Drop-root-priviledges-before-opening-first-savefile-.patch
+Patch0007:        0007-Introduce-nn-option.patch
+Patch0009:        0009-Change-n-flag-to-nn-in-TESTonce.patch
 
 %if "%{_sbindir}" == "%{_bindir}"
 # Compat symlinks for Requires in other packages.
@@ -40,8 +47,9 @@ the packet headers, or just the ones that match particular criteria.
 Install tcpdump if you need a program to monitor network traffic.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source1_hash}" = "none" || { f="%{SOURCE1}"; test -f "$f" || { echo "oreon: missing Source1 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source1_hash}" || { echo "oreon: Source1 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
 %autosetup -a 1 -S git
 
 %build
@@ -90,6 +98,3 @@ sed -i 's/\(\.TH[a-zA-Z ]*\)[1-9]\(.*\)/\18\2/' \
 %{_mandir}/man8/tcpslice.8*
 %{_mandir}/man8/tcpdump.8*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.99.6-3
-- Prepare for Oreon 11 (RP1)

@@ -1,5 +1,11 @@
-%global source0_hash d683d5964a395f00c1c812ea1d1d523179f1097cbff7e7e54e714fa3f99711b1
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash d42ace95dec14583fb8af19ed117919995bd910376f52d9b6f546046b792dfb7
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %ifarch x86_64
 %global archs %{ix86} x86_64
 %else
@@ -14,7 +20,7 @@
 %global relccache %(%abs2rel %{_bindir}/ccache %{_libdir}/ccache)
 
 Name:           ccache
-Version:        4.14
+Version:        4.13.6
 Release:        1%{?dist}
 Summary:        C/C++ compiler cache
 
@@ -24,13 +30,12 @@ Summary:        C/C++ compiler cache
 # url.cpp/hpp is MIT
 License:        GPL-3.0-or-later AND Apache-2.0 AND BSL-1.0 AND MIT
 URL:            http://ccache.dev/
-Source0:        https://github.com/ccache/ccache/releases/download/v%{version}/%{name}-%{version}.tar.gz
+Source0:        https://github.com/ccache/ccache/releases/download/v%{version}/ccache-%{version}.tar.gz
 Source1:        %{name}.sh.in
 Source2:        %{name}.csh.in
 
 BuildRequires:  /usr/bin/asciidoctor
 BuildRequires:  cmake
-# Uses a patched version and is missing on i686 in Fedora
 #BuildRequires:  blake3-devel
 BuildRequires:  cpp-httplib-devel
 BuildRequires:  doctest-devel
@@ -42,6 +47,7 @@ BuildRequires:  perl perl(File::Spec)
 BuildRequires:  xxhash-devel
 # clang for additional tests
 BuildRequires:  clang clang-tools-extra
+BuildRequires:  oreon-rpm-macros
 # coreutils for triggerin, triggerpostun
 Requires:       coreutils
 # For groupadd
@@ -57,8 +63,9 @@ by caching previous compiles and detecting when the same compile is
 being done again.  The main focus is to handle the GNU C/C++ compiler
 (GCC), but it may also work with compilers that mimic GCC good enough.
 
+
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
 
 %autosetup -p1
 # win32-compat gets imported, but not used
@@ -73,10 +80,12 @@ cat >ccache.sysusers.conf <<EOF
 g ccache -
 EOF
 
+
 %build
 %cmake
 %cmake_build
 %cmake_build --target doc
+
 
 %install
 %cmake_install
@@ -118,8 +127,10 @@ install -m0644 -D ccache.sysusers.conf %{buildroot}%{_sysusersdir}/ccache.conf
 
 install -m0644 README.md %{buildroot}%{_pkgdocdir}/
 
+
 %check
-%ctest
+%ctest -E remote_helper
+
 
 %define ccache_trigger(p:) \
 %triggerin -- %{-p*}\
@@ -225,6 +236,8 @@ done\
 %ccache_trigger -p gcc-xtensa-linux-gnu xtensa-linux-gnu-gcc
 %ccache_trigger -p gcc-c++-xtensa-linux-gnu xtensa-linux-gnu-c++ xtensa-linux-gnu-g++
 
+
+
 %files -f %{name}-%{version}.compilers
 %license GPL-3.0.txt LICENSE.*
 %{_pkgdocdir}/
@@ -235,5 +248,4 @@ done\
 %{_mandir}/man1/ccache.1*
 %{_sysusersdir}/ccache.conf
 
-%changelog
-%autochangelog
+

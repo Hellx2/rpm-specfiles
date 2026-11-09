@@ -1,20 +1,22 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 88A228D89B07C2C77D0C780903D5DF8CFDD3E8E7
+%global source0_hash 49560f677d96e3706a904ac2de1116e25f3680937d51e5c92198fcba4a1c1e9f
+%global source2_hash 7c59d0fdea72cdfbaca82f77eb6e6e416fd4c5aacf1c853bc7f911ce4e4dc051
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           libssh
 Version:        0.12.2
 Release:        1%{?dist}
 Summary:        A library implementing the SSH protocol
 License:        LGPL-2.1-or-later
-# Run upstream ctests by default. Use rpmbuild --without check if torture tests
-# are too flaky in your builder (parallelism is forced to 1 in %%check).
-%bcond_without check
 URL:            http://www.libssh.org
 
-Source0:        https://www.libssh.org/files/0.12/%{name}-%{version}.tar.xz
-Source1:        https://www.libssh.org/files/0.12/%{name}-%{version}.tar.xz.asc
-Source2:        https://www.libssh.org/files/0x03D5DF8CFDD3E8E7_libssh_libssh_org_gpgkey.asc#/%{name}.keyring
+Source0:        https://www.libssh.org/files/0.12/libssh-%{version}.tar.xz
+Source1:        libssh-0.12.2.tar.xz.asc
+Source2:        https://www.libssh.org/files/0x03D5DF8CFDD3E8E7_libssh_libssh_org_gpgkey.asc#/libssh.keyring
 Source3:        libssh_client.config
 Source4:        libssh_server.config
 
@@ -45,6 +47,7 @@ BuildRequires:  opensc
 BuildRequires:  softhsm
 BuildRequires:  gnutls-utils
 BuildRequires:  hostname
+BuildRequires:  oreon-rpm-macros
 
 Requires:       %{name}-config = %{version}-%{release}
 
@@ -82,12 +85,14 @@ Obsoletes:      %{name} < 0.9.0-3
 The %{name}-config package provides the default configuration files for %{name}.
 
 %prep
-test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" 2>/dev/null | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 %build
-%cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+%cmake \
     -DUNIT_TESTING=ON \
     -DCLIENT_TESTING=ON \
     -DSERVER_TESTING=ON \
@@ -127,18 +132,8 @@ popd
 %ldconfig_scriptlets
 
 %check
-%if %{with check}
-# Tests are randomly failing when run in parallel
-%global _smp_build_ncpus 1
-# The direct-tcpip server test requires a separately reachable test endpoint,
-# which is unavailable in the isolated build environment.  On aarch64 also
-# skip the known bind race and PTY/OpenSSH snapshot mismatch.
-%ifarch aarch64
-%ctest -E 'torture_server_direct_tcpip|torture_forwarded_tcpip_callback|torture_request_pty_modes'
-%else
-%ctest -E 'torture_server_direct_tcpip'
-%endif
-%endif
+# 2222 is shared by the server tests, parallel ctest just loses the bind
+%__ctest --test-dir "%{__cmake_builddir}" --output-on-failure --force-new-ctest-process -j1
 
 %files
 %doc AUTHORS BSD CHANGELOG README
@@ -158,9 +153,3 @@ popd
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/libssh/libssh_client.config
 %attr(0644,root,root) %config(noreplace) %{_sysconfdir}/libssh/libssh_server.config
 
-%changelog
-* Fri May 08 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.12.0-2
-- Run %%check (ctest) by default
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.12.0-1
-- Prepare for Oreon 11 (RP1)

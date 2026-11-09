@@ -1,14 +1,20 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_with bootstrap
 
 %global multilib_arches %{ix86} x86_64
 
 Name:		libffi
-Version:	3.8.0
-Release:	1%{?dist}
+Version:        3.5.2
+Release:        1%{?dist}
 Summary:	A portable foreign function interface library
-# No license change for 3.8.0
+# No license change for 3.5.2
 # No license change for 3.5.1
 # No license change for 3.4.8
 # No license change for 3.4.7
@@ -52,6 +58,7 @@ BuildRequires: gcc
 %if %{without bootstrap}
 BuildRequires: gcc-c++
 BuildRequires: dejagnu
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description
@@ -91,7 +98,8 @@ The %{name}-devel package contains libraries and header files for
 developing applications that use %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -145,6 +153,3 @@ install -m644 %{SOURCE2} $RPM_BUILD_ROOT%{_includedir}/ffitarget.h
 %{_mandir}/man3/*.gz
 %{_infodir}/libffi.info.*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.5.2-2
-- Prepare for Oreon 11 (RP1)

@@ -1,16 +1,23 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 67bea6fbc3a42a535a0230c9e891e5ddfb4d9d39422d46565a2990d1ace15216
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 # The testsuite is unsuitable for running on buildsystems
 %global tests_enabled 0
 
 Summary: System and process monitoring utilities
 Name: procps-ng
-Version: 4.0.7
-Release: 1%{?dist}
+Version:        4.0.6
+Release:        1%{?dist}
 License: GPL-2.0-or-later AND LGPL-2.0-or-later AND LGPL-2.1-or-later
 URL: https://sourceforge.net/projects/procps-ng/
 
-Source0:        https://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.xz
+Source0:        https://downloads.sourceforge.net/procps-ng/procps-ng-%{version}.tar.xz
 
 BuildRequires: make
 BuildRequires: ncurses-devel
@@ -25,6 +32,7 @@ BuildRequires: po4a
 
 %if %{tests_enabled}
 BuildRequires: dejagnu
+BuildRequires:  oreon-rpm-macros
 %endif
 
 Provides: procps = %{version}-%{release}
@@ -87,12 +95,13 @@ Conflicts: man-pages-pl < 0.7-5
 Internationalization pack for procps-ng
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -S git
 
 %build
 # The following stuff is needed for git archives only
-#echo "%%{version}" > .tarball-version
+#echo "%{version}" > .tarball-version
 #./autogen.sh
 
 autoreconf --verbose --force --install
@@ -161,6 +170,3 @@ ln -s %{_bindir}/pidof %{buildroot}%{_sbindir}/pidof
 
 %files i18n -f %{name}.lang
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.0.6-1
-- Prepare for Oreon 11 (RP1)

@@ -1,15 +1,20 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond merged_sbin 1
 
 Summary: The basic directory layout for a Linux system
 Name: filesystem
-Version: 3.18
-Release: %autorelease
-License: LicenseRef-Fedora-Public-Domain
+Version:        3.18
+Release:        1%{?dist}
+License: LicenseRef-Oreon-Public-Domain
 # This package is a downstream-only project
 URL: https://src.fedoraproject.org/rpms/filesystem
-Source1:        lang-exceptions
+Source1: lang-exceptions
 Source2: glibc-SUPPORTED.locales
 Source3: iso_639-2.locales
 Source4: sbin-filenames
@@ -17,6 +22,7 @@ Source5: filesystem.attr
 Source6: filesystem.req
 Source7: macros.filesystem
 BuildRequires: iso-codes jq git wget
+BuildRequires:  oreon-rpm-macros
 Requires(pre): setup
 
 # Last standalone version of basesystem was basesystem-11-22.fc42.
@@ -66,7 +72,7 @@ This subpackage of filesystem package contains rpm macro definitions
 and an rpm attribute generator.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+
 rm -f $RPM_BUILD_DIR/filelist
 
 %build
@@ -81,7 +87,7 @@ Paths=(
         afs boot dev \
         etc/{X11/{applnk,fontpath.d,xinit/{xinitrc,xinput}.d},xdg/autostart,opt,pm/{config.d,power.d,sleep.d},skel,sysconfig,keys/ima,pki,bash_completion.d,default,rwtab.d,statetab.d} \
         home media mnt opt root run srv tmp \
-        usr/{bin,games,include,%{_lib}/{bpf,games,X11,pkgconfig},lib/{debug/{.dwz,usr},games,locale,modules,sysimage,systemd/{system,user},swidtag,sysusers.d,tmpfiles.d},libexec,local/{bin,etc,games,lib,%{_lib}/bpf,src,share/{applications,man/man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x},info},libexec,include,},share/{aclocal,appdata,applications,augeas/lenses,backgrounds,bash-completion{,/completions,/helpers},desktop-directories,dict,doc,empty,fish/vendor_completions.d,games,gnome,help,icons,idl,info,licenses,man/man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x,0p,1p,3p,2const,2type,3const,3head,3type},metainfo,mime-info,misc,modulefiles,omf,pixmaps,pkgconfig,sounds,themes,xsessions,X11/fonts,wayland-sessions,zsh/site-functions},src,src/kernels,src/debug} \
+        usr/{bin,games,include,%{_lib}/{bpf,games,X11,pkgconfig},lib/{debug/{.dwz,usr},games,locale,modules,sysimage,systemd/{system,user},swidtag,sysusers.d,tmpfiles.d},libexec,local/{bin,etc,games,lib,%{_lib}/bpf,src,share/{applications,man/man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x},info},libexec,include,},share/{aclocal,appdata,applications,augeas/lenses,backgrounds,bash-completion{,/completions,/helpers},desktop-directories,dict,doc,empty,fish/vendor_completions.d,games,gnome,help,icons,idl,info,licenses,man/man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x,0p,1p,3p,2const,2type,3const,3head,3t,3type},metainfo,mime-info,misc,modulefiles,omf,pixmaps,pkgconfig,sounds,themes,xsessions,X11/fonts,wayland-sessions,zsh/site-functions},src,src/kernels,src/debug} \
         var/{adm,empty,ftp,lib/{games,misc,rpm-state},local,log,nis,preserve,spool/{mail,lpd},tmp,db,cache/bpf,opt,games,yp}
 )
 for i in "${Paths[@]}"; do
@@ -113,36 +119,36 @@ mkdir -p usr/sbin
 mkdir -p usr/local/sbin
 %endif
 
-# Create locale, man and own help directories for every locale supported by glibc and ISO 639-2
+# Create and own basic list of locale, man and help directories supported by glibc and defined by ISO 639-2 standard
 while read locale; do
     echo "%ghost /usr/share/help/${locale}" >> $RPM_BUILD_DIR/filelist
     # Skip glibc built-in locale C
     [ "$locale" = "C" ] && continue
     echo "%lang(${locale}) /usr/share/locale/${locale}" >> $RPM_BUILD_DIR/filelist
-    echo "%lang(${locale}) %ghost %config(missingok) /usr/share/man/${locale}" >>$RPM_BUILD_DIR/filelist
+    echo "%lang(${locale}) %ghost /usr/share/man/${locale}" >> $RPM_BUILD_DIR/filelist
     mkdir -p -m 755 %{buildroot}/usr/share/locale/$locale/LC_MESSAGES
     mkdir -p -m 755 %{buildroot}/usr/share/man/$locale/man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x,0p,1p,3p}
 done < <(cat %{SOURCE2} %{SOURCE3} | grep -E -v '^#|^[[:space:]]*$' | sort | uniq)
 
-# Create and own locale directories for which we ship translations
-# TODO: do not create them, just own them
+# Own locale and man directories for which we ship translations
 while read locale; do
-    # Do not create directories for locales with charset definition, just own them
+    # Also own locale directories that include charset suffix
     if [[ "$locale" =~ "own_charset" ]]; then
         charset=${locale##own_charset:}
         echo "%ghost /usr/share/locale/$charset" >>$RPM_BUILD_DIR/filelist
         continue
     fi
     if [ -z "`grep \"/usr/share/locale/${locale}$\" $RPM_BUILD_DIR/filelist`" ]; then
-       # TODO echo "%lang(${locale}) %ghost /usr/share/locale/${locale}" >> $RPM_BUILD_DIR/filelist
-       echo "%lang(${locale}) /usr/share/locale/${locale}" >> $RPM_BUILD_DIR/filelist
-       echo "%lang(${locale}) %ghost %config(missingok) /usr/share/man/${locale}" >> $RPM_BUILD_DIR/filelist
-       mkdir -p -m 755 %{buildroot}/usr/share/locale/$locale/LC_MESSAGES
-       mkdir -p -m 755 %{buildroot}/usr/share/man/$locale/man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x,0p,1p,3p}
+        echo "%lang(${locale}) %ghost /usr/share/locale/${locale}" >> $RPM_BUILD_DIR/filelist
+        echo "%ghost /usr/share/locale/${locale}/LC_MESSAGES" >> $RPM_BUILD_DIR/filelist
+        echo "%lang(${locale}) %ghost /usr/share/man/${locale}" >> $RPM_BUILD_DIR/filelist
+        for i in /usr/share/man/$locale/man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x,0p,1p,3p}; do
+            echo "%ghost $i" >> $RPM_BUILD_DIR/filelist
+        done
     fi
 done < <(cat %{SOURCE1} | grep -E -v '^#|^[[:space:]]*$')
 
-for i in man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x,0p,1p,3p,2const,2type,3const,3head,3type}; do
+for i in man{1,2,3,4,5,6,7,8,9,n,1x,2x,3x,4x,5x,6x,7x,8x,9x,0p,1p,3p,2const,2type,3const,3head,3t,3type}; do
    echo "/usr/share/man/$i" >>$RPM_BUILD_DIR/filelist
 done
 
@@ -212,28 +218,11 @@ posix.mkdir("/usr/lib/debug/usr/sbin")
 
 %if %{with merged_sbin}
 %global sbin_filenames %{lua:
-local candidates = {}
-local function add(p)
-  if p and p ~= "" then table.insert(candidates, p) end
-end
-add(rpm.expand("%{SOURCE4}"))
-add(rpm.expand("%{_sourcedir}/sbin-filenames"))
-local pwd = posix.getenv("PWD")
-if pwd then add(pwd .. "/sbin-filenames") end
-add("sbin-filenames")
-local f
-for _, p in ipairs(candidates) do
-  f = io.open(p, "r")
-  if f then break end
-end
-if not f then
-  error("cannot open Source4 sbin-filenames (copy into SOURCES or run from package dir)")
-end
 print('{\\n')
-for line in f:lines() do
-  print('  ["'..line..'"] = true,\\n')
+io.input(sources[4])
+for v in io.lines() do
+  print('  ["'..v..'"] = true,\\n')
 end
-f:close()
 print('}')
 }
 
@@ -571,9 +560,3 @@ end
 %attr(1777,root,root) /var/tmp
 /var/yp
 
-%changelog
-* Fri Apr 3 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.18-1
-- Open sbin-filenames via SOURCE4, PWD, or cwd, no stray # inside %%pretrans lua
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.18-1
-- Prepare for Oreon 11 (RP1)

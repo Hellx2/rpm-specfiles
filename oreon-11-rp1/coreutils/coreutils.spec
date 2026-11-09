@@ -1,19 +1,25 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 6C37DC12121A5006BC1DB804DF6FD971306037D9
+%global source0_hash 394024eda0a5955217ceda9cd1201e65dc8fa3aa29c2951135a49521d57c3cc3
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: A set of basic GNU tools commonly used in shell scripts
 Name:    coreutils
-Version: 9.12
-Release: 1%{?dist}
+Version:        9.11
+Release:        1%{?dist}
 # some used parts of gnulib are under various variants of LGPL
 License: GPL-3.0-or-later AND GFDL-1.3-no-invariants-or-later AND LGPL-2.1-or-later AND LGPL-3.0-or-later
 Url:     https://www.gnu.org/software/coreutils/
-Source0:        https://mirrors.kernel.org/gnu/%{name}/%{name}-%{version}.tar.xz
-Source1:        https://mirrors.kernel.org/gnu/%{name}/%{name}-%{version}.tar.xz.sig
+Source0:        https://mirror.cs.odu.edu/gnu/coreutils/coreutils-%{version}.tar.xz
+Source1:        coreutils-9.11.tar.xz.sig
 # From https://savannah.gnu.org/project/release-gpgkeys.php?group=coreutils&download=1
 # which is linked as project keyring on https://savannah.gnu.org/projects/coreutils
 Source2: coreutils-keyring.gpg
+
+# Note that supported_utils must NOT include *.single, see below
 Source50:   supported_utils
 Source105:  coreutils-colorls.sh
 Source106:  coreutils-colorls.csh
@@ -22,30 +28,35 @@ Source106:  coreutils-colorls.csh
 %global __requires_exclude ^%{_bindir}/coreutils$
 
 # disable the test-lock gnulib test prone to deadlock
-Patch100: coreutils-8.26-test-lock.patch
+Patch100:        coreutils-8.26-test-lock.patch
 
 # require_selinux_(): use selinuxenabled(8) if available
-Patch101: coreutils-8.26-selinuxenable.patch
+Patch101:        coreutils-8.26-selinuxenable.patch
 
 # downstream changes to default DIR_COLORS
-Patch102: coreutils-8.32-DIR_COLORS.patch
+Patch102:        coreutils-8.32-DIR_COLORS.patch
 
 # use python3 in tests
-Patch103: coreutils-python3.patch
+Patch103:        coreutils-python3.patch
 
 # df --direct
-Patch104: coreutils-df-direct.patch
+Patch104:        coreutils-df-direct.patch
 
-# tests: fix "Hangup" termination of non-interactive runs
-# https://github.com/coreutils/coreutils/commit/8fab3c6d30d812cd681e51221bae27930f62615a
-Patch200: coreutils-9.10-fix-tests-hangup.patch
+# unexpand: fix heap overflows
+# https://cgit.git.savannah.gnu.org/cgit/coreutils.git/commit/?id=b60a159fdc5bfcf9988d3a4cb6f53abe8ad5d35d
+# https://cgit.git.savannah.gnu.org/cgit/coreutils.git/commit/?id=4ade9cf77f6c7b39e3fdc5ce97a778f8e294694c
+Patch200:        coreutils-9.11-unexpand-heap-overflows.patch
 
-# fold: fix output truncation with 0xFF bytes in input
-# https://github.com/coreutils/coreutils/commit/a85e9182b1d173c26205dada54133cd9e9174fc1
-Patch201: coreutils-9.10-fold-xFF-truncation.patch
+# CVE-2026-56391 - uniq: fix read overrun with -w
+# https://cgit.git.savannah.gnu.org/cgit/coreutils.git/commit/?id=d64e35a8a4c0e4608321433e0d84d917e4e36371
+Patch201:        coreutils-9.11-CVE-2026-56391.patch
+
+# tee: fix infinite loop when write returns EAGAIN and short write errors
+# https://cgit.git.savannah.gnu.org/cgit/coreutils.git/commit/?id=0d6fcb99d691d920961938e61c43478566ef626e
+Patch202:        coreutils-9.11-tee-infinite-loop.patch
 
 # (sb) lin18nux/lsb compliance - multibyte functionality patch
-Patch800: coreutils-i18n.patch
+Patch800:        coreutils-i18n.patch
 
 Conflicts: filesystem < 3
 
@@ -78,19 +89,19 @@ BuildRequires: acl
 BuildRequires: gdb
 BuildRequires: perl-interpreter
 BuildRequires: perl(FileHandle)
+BuildRequires: perl(POSIX)
 BuildRequires: python3
 BuildRequires: tzdata
 %ifarch %valgrind_arches
 BuildRequires: valgrind
 %endif
 
-%if 0%{?fedora}
 BuildRequires: perl(Expect)
 BuildRequires: python3-inotify
-%endif
 
 # needed by i18n test-cases
 BuildRequires: glibc-all-langpacks
+BuildRequires:  oreon-rpm-macros
 
 Requires: %{name}-common = %{version}-%{release}
 
@@ -121,7 +132,6 @@ packaged as a single multicall binary.
 
 %package common
 # yum obsoleting rules explained at:
-# https://bugzilla.redhat.com/show_bug.cgi?id=1107973#c7
 Obsoletes: %{name} < 8.24-100
 
 # Gnulib translations are maintained seprately since coreutils 9.6 (#2393892)
@@ -136,8 +146,9 @@ Optional though recommended components,
 including documentation and translations.
 
 %prep
-test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" 2>/dev/null | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -N
 
 # will be regenerated in the build directories
@@ -166,11 +177,6 @@ find tests -name '*.sh' -perm 0644 -print -exec chmod 0755 '{}' '+'
 # with coreutils 9.6 and bundled gettext 0.19.2 from gettext-common-devel.
 sed -i "s/0.19.2/$(rpm -q --queryformat '%%{VERSION}\n' gettext-devel)/" bootstrap.conf configure.ac
 
-%if 0%{?rhel}
-# Temporarily disable test-getaddrinfo from gnulib because it malfunctions in
-# the environment used to bootstrap RHEL.
-sed -i 's/TESTS += test-getaddrinfo//' gnulib-tests/gnulib.mk
-%endif
 
 autoreconf -fiv
 
@@ -197,7 +203,7 @@ for type in separate single; do
   if test $type = 'single'; then
     config_single='--enable-single-binary'
     config_single="$config_single --without-openssl"  # smaller/slower sha*sum
-    config_single="$config_single --without-libgmp"   # expr/factor machine ints
+    config_single="$config_single --without-libgmp"   #  "  basenc,expr,factor
   else
     config_single='--with-openssl'  # faster sha*sum
   fi
@@ -268,10 +274,10 @@ grep LC_TIME %name.lang | cut -d'/' -f1-6 | sed -e 's/) /) %%dir /g' >>%name.lan
 rm -f $RPM_BUILD_ROOT%{_infodir}/dir
 
 %files -f supported_utils
-%exclude %{_bindir}/*.single
 %dir %{_libexecdir}/coreutils
 %{_libexecdir}/coreutils/*.so
 
+# The *.single files are picked up here so they must not be in supported_utils
 %files single
 %{_bindir}/*.single
 %if "%{_sbindir}" != "%{_bindir}"
@@ -292,6 +298,3 @@ rm -f $RPM_BUILD_ROOT%{_infodir}/dir
 %doc ABOUT-NLS NEWS README THANKS TODO
 %license COPYING
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 9.10-3
-- Prepare for Oreon 11 (RP1)

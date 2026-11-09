@@ -1,16 +1,22 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # See the bug #429880
-%global gcc_major  16
+%global gcc_major  %(gcc -dumpversion || echo "666")
 # See rhbz#1193591
-%global automake_version 1.18.1
+%global automake_version %(set -- `automake --version | head -n 1` ; echo ${4-unknown})
 
 %bcond_without check
 
 Summary: The GNU Portable Library Tool
 Name:    libtool
-Version: 2.6.2
-Release: 1%{?dist}
+Version:        2.5.4
+Release:        1%{?dist}
 
 # To help future rebase, the following licenses were seen in the following files/folders:
 # '*' is anything that was not explicitly listed earlier in the folder
@@ -28,7 +34,6 @@ Release: 1%{?dist}
 #  libtool/build-aux/:
 #    {compile,depcomp,missing} - GPL-2.0-or-later WITH Autoconf-exception-generic
 #    config.{guess,sub} - GPL-3.0-or-later WITH Autoconf-exception-generic-3.0
-#    install-sh - X11 AND LicenseRef-Fedora-public-domain
 #    ltmain.sh - GPL-2.0-or-later WITH Libtool-exception AND MIT
 # usr/share/man/man1/*: generated from usr/bin/libtool{,ize} using help2man
 #
@@ -44,44 +49,43 @@ Release: 1%{?dist}
 #  Makefile.in - FSFULLRWD
 #  aclocal.m4 - FSFULLR AND FSFULLRWD
 #  configure - FSFUL
-License: GPL-2.0-or-later AND GPL-2.0-or-later WITH Autoconf-exception-generic AND GPL-2.0-or-later WITH Libtool-exception AND LGPL-2.0-or-later WITH Libtool-exception AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND MIT AND FSFAP AND FSFULLR AND FSFULLRWD AND GFDL-1.3-or-later AND X11 AND LicenseRef-Fedora-public-domain
+License: GPL-2.0-or-later AND GPL-2.0-or-later WITH Autoconf-exception-generic AND GPL-2.0-or-later WITH Libtool-exception AND LGPL-2.0-or-later WITH Libtool-exception AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND MIT AND FSFAP AND FSFULLR AND FSFULLRWD AND GFDL-1.3-or-later AND X11 AND LicenseRef-Oreon-public-domain
 URL:     http://www.gnu.org/software/libtool/
 
-Source:        https://mirrors.kernel.org/gnu/libtool/libtool-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/libtool/libtool-%{version}.tar.xz
 
 # ~> downstream
 # ~> remove possibly once #1158915 gets fixed somehow
-Patch:  libtool-2.4.5-rpath.patch
+Patch:        libtool-2.4.5-rpath.patch
 
 # See the rhbz#1289759 and rhbz#1214506.  We disable hardening namely because
 # that bakes the CFLAGS/LDFLAGS into installed /bin/libtool and ltmain.sh files.
 # At the same time we want to have libltdl.so hardened.  Downstream-only patch.
 %undefine _hardened_build
-Patch: libtool-2.4.7-hardening.patch
+Patch:        libtool-2.4.7-hardening.patch
 
 # non-PIC libraries are not supported on ARMv7
 # Since we removed "-fPIC" from global CFLAGS this test fails on this arch (as expected)
 # Please refer to the following ticket regarding PIC support on ARM:
 # https://bugs.launchpad.net/ubuntu/+source/gcc-4.4/+bug/503448
-Patch: libtool-2.4.6-disable_non-pic_arm.patch
+Patch:        libtool-2.4.6-disable_non-pic_arm.patch
 
 # Discussion re-opened upstream:
 # https://lists.gnu.org/archive/html/bug-libtool/2025-01/msg00004.html
 # Patch was already sent in 2022:
 # https://lists.gnu.org/archive/html/libtool-patches/2022-02/msg00000.html
-Patch: libtool-2.4.6-keep-compiler-deps.patch
+Patch:        libtool-2.4.6-keep-compiler-deps.patch
 
 # Patch sent upstream
 # https://lists.gnu.org/archive/html/libtool-patches/2024-02/msg00002.html
-Patch: riscv-non-PIC-into-shared-objects.patch
+Patch:        riscv-non-PIC-into-shared-objects.patch
 
 %if ! 0%{?_module_build}
-Patch: libtool-nodocs.patch
+Patch:        libtool-nodocs.patch
 %endif
 
 # /usr/bin/libtool includes paths within gcc's versioned directories
 # Libtool must be rebuilt whenever a new upstream gcc is built
-# Starting with gcc 7 gcc in Fedora is packaged so that only major
 # number changes need libtool rebuilding.
 Requires: gcc(major) = %{gcc_major}
 Requires: autoconf, automake, sed, tar, findutils
@@ -97,6 +101,7 @@ BuildRequires: libstdc++-devel, gcc-gfortran
 
 BuildRequires: gcc, gcc-c++
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 
 %description
@@ -143,7 +148,8 @@ Static libraries and header files for development with ltdl.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n libtool-%{version} -p1
 
 autoreconf -v
@@ -201,6 +207,3 @@ rm -f %{buildroot}%{_libdir}/libltdl.{a,la}
 %{_libdir}/libltdl.so
 
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.5.4-10
-- Import

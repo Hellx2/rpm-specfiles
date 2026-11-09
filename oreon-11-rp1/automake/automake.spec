@@ -1,5 +1,11 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 168aa363278351b89af56684448f525a5bce5079d0b6842bd910fdd3f1646887
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global api_version 1.18
 
 # redhat-rpm-config sets CFLAGS, CXXFLAGS and LDFLAGS, but not
@@ -21,8 +27,8 @@
 Summary:    A GNU tool for automatically creating Makefiles
 Name:       automake
 # Any bump here requires libtool rebuild, rhbz#1813010
-Version:    %{api_version}.1
-Release:    4%{?dist}
+Version:        1.18.1
+Release:        1%{?dist}
 
 # To help future rebase, the following licenses were seen in the following files/folders:
 # usr/bin/* - GPL-2.0-or-later
@@ -32,8 +38,6 @@ Release:    4%{?dist}
 #   Automake/* - GPL-2.0-or-later
 #   am/* - GPL-2.0-or-later
 #   INSTALL - FSFAP
-#   install-sh - X11 AND LicenseRef-Public-Domain (added by autoconf)
-#   mkinstalldirs - LicenseRef-Public-Domain
 #   config.{guess,sub} - GPL-3.0-or-later WITH Autoconf-exception-generic-3.0
 #   texinfo.tex - GPL-3.0-or-later WITH Texinfo-exception
 #   * - GPL-2.0-or-later WITH Autoconf-exception-generic
@@ -45,16 +49,14 @@ Release:    4%{?dist}
 #     {Makefile.in,aclocal.m4} - FSFULLRWD
 #     {Makefile.am,configure,configure.ac} - FSFUL
 #     {compile,depcomp,missing} - GPL-2.0-or-later WITH Autoconf-exception-generic
-#     install-sh - X11 AND LicenseRef-Public-Domain (added by autoconf)
 # usr/share/info:
 #  * - GFDL-1.3-or-later
 # usr/share/man/man1/*: generated from usr/bin/{aclocal,automake} using help2man
-License:    GPL-2.0-or-later AND GPL-2.0-or-later WITH Autoconf-exception-generic AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Texinfo-exception AND GFDL-1.3-or-later AND FSFAP AND FSFUL AND FSFULLR AND FSFULLRWD AND X11 AND LicenseRef-Public-Domain
+License:    GPL-2.0-or-later AND GPL-2.0-or-later WITH Autoconf-exception-generic AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Texinfo-exception AND GFDL-1.3-or-later AND FSFAP AND FSFUL AND FSFULLR AND FSFULLRWD AND X11 AND LicenseRef-Oreon-Public-Domain
 
-Source:        https://mirrors.kernel.org/gnu/automake/automake-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/automake/automake-%{version}.tar.xz
 
 # ~> downstream
-# The patch is only made necessary due to fedora specific changes
 # which lead to .package_note-automake-1.16.5-3.fc36.x86_64.ld
 # being inserted in build logs, breaking the original grep instruction
 Patch:        fort2.patch
@@ -95,13 +97,12 @@ BuildRequires: sharutils
 BuildREquires: texlive-dvips
 BuildRequires: texinfo-tex
 BuildRequires: vala
-%if !0%{?rhel:1} || (0%{?oreon} >= 11)
 BuildRequires: gcc-objc
 BuildRequires: gcc-objc++
 BuildRequires: imake
 BuildRequires: lzip
 BuildRequires: ncompress
-%endif
+BuildRequires:  oreon-rpm-macros
 %endif
 %endif
 
@@ -119,7 +120,8 @@ Makefiles.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 %if %{with check} && %{with automake_enables_optional_test}
 autoreconf -iv
@@ -161,6 +163,3 @@ make -k %{?_smp_mflags} check %{?TESTS_FLAGS: TESTS="%{TESTS_FLAGS}"} \
 %{_mandir}/man1/*
 
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.18.1-4
-- Import

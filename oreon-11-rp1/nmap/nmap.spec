@@ -1,53 +1,59 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 436D66AB9A798425FDA0E3F801AF9F036B9355D0
+%global source0_hash a5479f2f8a6b0b2516767d2f7189c386c1dc858d997167d7ec5cfc798c7571a1
+%global source2_hash 8cb20c4ea91db0e27b247e813a98a5dfe4d4548084abecab7ca9db51a49be8ba
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name: nmap
 Epoch: 4
-Version: 7.991
+Version:        7.92
 #global prerelease TEST5
-Release: %autorelease
+Release:        1%{?dist}
 Summary: Network exploration tool and security scanner
 URL: http://nmap.org/
-# https://lists.fedoraproject.org/archives/list/legal@lists.fedoraproject.org/thread/Q67UGCHSCKCLJOVOHSLYU4AERAHBS5YE/
-# https://gitlab.com/fedora/legal/fedora-license-data/-/issues/543
 License: LicenseRef-Nmap
 
-Source0:        http://nmap.org/dist/%{name}-%{version}%{?prerelease}.tar.bz2
-Source1:        https://nmap.org/dist/sigs/%{name}-%{version}.tar.bz2.asc
+Source0:        http://nmap.org/dist/nmap-%{version}.tar.bz2
+Source1:        nmap-7.92.tar.bz2.asc
 Source2:        https://svn.nmap.org/nmap/docs/nmap_gpgkeys.txt
 
 #prevent possible race condition for shtool, rhbz#158996
-Patch1: nmap-4.03-mktemp.patch
+Patch1:        nmap-4.03-mktemp.patch
 #don't suggest to scan microsoft
-Patch2: nmap-4.52-noms.patch
+Patch2:        nmap-4.52-noms.patch
 # upstream provided patch for rhbz#845005, not yet in upstream repository
-Patch3: ncat_reg_stdin.diff
+Patch3:        ncat_reg_stdin.diff
 # TODO: review after GUI gets enabled again
 #Patch4: nmap-6.25-displayerror.patch
 # https://github.com/nmap/nmap/pull/2247
-Patch7: nmap_resolve_config.patch
+Patch7:        nmap_resolve_config.patch
 # backport of upstream pcre2 migration, rhbz#2128336
-Patch8: nmap-pcre2.patch
+Patch8:        nmap-pcre2.patch
 # https://github.com/nmap/nmap/pull/2724
-Patch9: nmap-ems-ssl-enum-ciphers.patch
+Patch9:        nmap-ems-ssl-enum-ciphers.patch
 # Fix build with libpcap 1.10.5
-Patch10: nmap-libpcap.patch
+Patch10:        nmap-libpcap.patch
+# Fix OpenSSL 4.0 compatibility
+Patch11:        nmap-openssl4.patch
+# https://github.com/nmap/nmap/commit/bb6754e
+Patch12:        nmap-CVE-2026-58058.patch
 
 BuildRequires: automake make
 BuildRequires: autoconf
 BuildRequires: gcc-c++
 BuildRequires: gettext-devel
 BuildRequires: libpcap-devel
-%if 0%{?fedora} 
 BuildRequires: libssh2-devel
-%endif
 BuildRequires: libtool
 BuildRequires: lua-devel
 BuildRequires: openssl-devel
 BuildRequires: pcre2-devel
 BuildRequires: zlib-devel
 BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 Requires: %{name}-ncat = %{epoch}:%{version}-%{release}
 
 Obsoletes: nmap-frontend < 7.70-1
@@ -88,8 +94,10 @@ uses.
 
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring=%{SOURCE2} --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 autoconf -f
 
@@ -105,11 +113,7 @@ export CXXFLAGS="$RPM_OPT_FLAGS -fno-strict-aliasing"
 ### TODO ## configure  --with-libpcap=/usr ###TODO###
 %configure  --with-libpcap=yes --with-liblua=included \
   --without-zenmap --without-ndiff \
-%if 0%{?fedora} 
   --with-libssh2=yes  \
-%else
-  --with-libssh2=no  \
-%endif
   --enable-dbus 
 
 %make_build
@@ -158,6 +162,3 @@ fi
 %ghost %{_mandir}/man1/nc.1.gz
 %{_mandir}/man1/ncat.1.gz
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 7.92-1
-- Prepare for Oreon 11 (RP1)

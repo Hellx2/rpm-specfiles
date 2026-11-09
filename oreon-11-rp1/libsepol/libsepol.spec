@@ -1,19 +1,22 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 63191CE94183098689CAB8DB7EF137EC935B0EAF
+%global source0_hash 79f3d2c88f44b7eb5cf54d9792e03232297e17f97a179163f2750099a00f164d
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: SELinux binary policy manipulation library
 Name: libsepol
-Version: 3.11
-Release: 1%{?dist}
+Version:        3.11
+Release:        1%{?dist}
 License: LGPL-2.1-or-later
 Source0:        https://github.com/SELinuxProject/selinux/releases/download/%{version}/libsepol-%{version}.tar.gz
-Source1:        https://github.com/SELinuxProject/selinux/releases/download/%{version}/libsepol-%{version}.tar.gz.asc
-Source2:        https://github.com/perfinion.gpg
+Source1:        libsepol-3.11.tar.gz.asc
+Source2:        bachradsusi.gpg
 URL: https://github.com/SELinuxProject/selinux/wiki
-# $ git clone https://github.com/fedora-selinux/selinux.git
 # $ cd selinux
-# $ git format-patch -N libsepol-3.10 -- libsepol
+# $ git format-patch -N libsepol-3.11 -- libsepol
 # $ i=1; for j in 0*patch; do printf "Patch%04d: %s\n" $i $j; i=$((i+1));done
 # Patch list start
 # Patch list end
@@ -21,6 +24,7 @@ BuildRequires: make
 BuildRequires: gcc
 BuildRequires: flex
 BuildRequires: gnupg2
+BuildRequires:  oreon-rpm-macros
 Obsoletes: %{name}-compat = 3.1-4
 
 %description
@@ -63,8 +67,9 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 The libsepol-utils package contains the utilities
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p 2 -n libsepol-%{version}
 
 # sparc64 is an -fPIC arch, so we need to fix it here
@@ -114,6 +119,3 @@ rm -rf ${RPM_BUILD_ROOT}%{_mandir}/ru/man8
 %{_bindir}/sepol_validate_transition
 %{_mandir}/man8/chkcon.8*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.10-1
-- Prepare for Oreon 11 (RP1)

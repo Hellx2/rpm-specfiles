@@ -1,5 +1,11 @@
-%global source0_hash ba885c1319578d6c94d46e9b0dceb4014caafe2490e437a0dbca3f270a223f5a
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 9fd672b1c8425fac2fa67fa0477b990987268b90ff36d5f016dae57be0d6b52e
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Run extended test
 %bcond_without autoconf_enables_optional_test
 
@@ -11,8 +17,8 @@
 # releases. Hence, the versioned package installs its artifacts in
 # `/opt/{namespace}/{versioned name}`.
 Name:       autoconf
-Version:    2.73
-Release:    1%{?dist}
+Version:        2.73
+Release:        1%{?dist}
 
 # To help future rebase, the following licenses were seen in the following files/folders:
 # '*' is anything that was not explicitly listed earlier in the folder
@@ -29,7 +35,6 @@ Release:    1%{?dist}
 #      * - GPL-3.0-or-later WITH Autoconf-exception-3.0
 #    build-aux:
 #      config.{sub,guess} - GPL-3.0-or-later WITH Autoconf-exception-generic-3.0
-#      install-sh - X11 AND LicenseRef-Fedora-Public-Domain
 #    m4sugar:
 #      {foreach.m4,m4sh.m4,m4sugar.m4} - GPL-3.0-or-later WITH Autoconf-exception-generic-3.0
 #      * - None found
@@ -49,22 +54,11 @@ Release:    1%{?dist}
 # Note on Autoconf-exception{,-generic}-3.0, one is the license itself, the other is
 # the text note that can be found in sources. That doesn't make sense to have 2 separate IDs
 # but that's how it is.
-License:    GPL-2.0-or-later AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GFDL-1.3-or-later AND FSFAP AND X11 AND LicenseRef-Fedora-Public-Domain
-Source0:        https://mirrors.kernel.org/gnu/autoconf/autoconf-%{version}.tar.xz
+License:    GPL-2.0-or-later AND GPL-3.0-or-later AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GFDL-1.3-or-later AND FSFAP AND X11 AND LicenseRef-Oreon-Public-Domain
+Source0:        https://mirror.cs.odu.edu/gnu/autoconf/autoconf-%{version}.tar.xz
 Source1:    config.site
 Source2:    autoconf-init.el
 URL:        https://www.gnu.org/software/autoconf/
-
-# From upstream 9ff9c567b1a7a7e66fa6523d4ceff142b86bddaa
-Patch:      0001-Keep-lmingwex-and-lmoldname-in-linker-flags-for-MinG.patch
-
-# From https://savannah.gnu.org/support/index.php?111272
-Patch:      0001-autoreconf-Invoke-autopoint-in-more-situations.patch
-# From https://savannah.gnu.org/support/index.php?111273
-Patch:      0001-autoreconf-Adapt-to-the-on-disk-situation-after-auto.patch
-
-# Temporary fix (to be replaced by upstream patches)
-Patch:      0001-Port-C11-test-to-C.patch
 
 %if "%{name}" != "autoconf"
 # Set this to the sub-package base name, for "autoconf-latest"
@@ -72,13 +66,8 @@ Patch:      0001-Port-C11-test-to-C.patch
 # Enforce use of system provided emacs support
 %global autoconf_enables_emacs 0
 
-%if 0%{?rhel} > 0
-%global _prefix /opt/rh/%{autoconf}
-%else
-# We intentionally do not define a case for Fedora, as it should not
 # need this functionality, and letting it error avoids accidents.
 %{error:"Each downstream must specify its own /opt namespace"}
-%endif
 Summary:    Meta package to include latest version of autoconf
 %else
 #name == autoconf
@@ -127,9 +116,8 @@ Requires:           gettext-devel
 %if %{with autoconf_enables_optional_test}
 # For extended testsuite coverage
 BuildRequires:      gcc-gfortran
-%if 0%{?fedora} >= 15
 BuildRequires:      erlang
-%endif
+BuildRequires:  oreon-rpm-macros
 %endif
 %endif
 
@@ -166,7 +154,8 @@ their use.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n autoconf-%{version} -p1
 
 %build
@@ -239,6 +228,3 @@ install -p -m 755 enable.scl ${RPM_BUILD_ROOT}/%{_prefix}/enable
 %endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.72-10
-- Prepare for Oreon 11 (RP1)

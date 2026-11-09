@@ -1,17 +1,23 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 1cc89ac40a9d8eb30914917f62e1cf793c744510104a7b7870668bfc9d39f94c
+
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           kernel-srpm-macros
 Version:        1.0
 # when bumping version and resetting release, don't forget to bump version of kernel-rpm-macros as well
-Release:        32%{?dist}
+Release:        2%{?dist}
 Summary:        RPM macros that list arches the full kernel is built on
-# This package only exist in Fedora repositories
 # The license is the standard (MIT) specified in
-# Fedora Project Contribution Agreement
 # and as URL we provide dist-git URL
 License:        MIT
 URL:            https://src.fedoraproject.org/rpms/kernel-srpm-macros
 BuildArch:      noarch
+BuildRequires:  oreon-rpm-macros
 # We are now the ones shipping kmod.attr
 Conflicts:      redhat-rpm-config < 205
 # macros.kmp, kmodtool and rpmsort were moved from kernel-rpm-macros
@@ -84,7 +90,8 @@ Requires: %{_sbindir}/modprobe
 Macros and scripts for building kernel module packages.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 # Not strictly necessary but allows working on file names instead
 # of source numbers in install section
 %setup -c -T
@@ -98,10 +105,6 @@ cp -p %{sources} .
 %install
 mkdir -p %{buildroot}/%{_rpmconfigdir}/macros.d
 install -p -m 0644 -t %{buildroot}/%{_rpmconfigdir}/macros.d macros.kernel-srpm
-%if 0%{?rhel} >= 8
-  sed -i 's/^%%kernel_arches.*/%%kernel_arches x86_64 s390x ppc64le aarch64 riscv64/' \
-    %{buildroot}/%{_rpmconfigdir}/macros.d/macros.kernel-srpm
-%endif
 
 mkdir -p %{buildroot}%{rrcdir}/find-provides.d
 mkdir -p %{buildroot}%{_fileattrsdir}
@@ -140,6 +143,3 @@ install -p -m 644 -t "%{buildroot}%{_fileattrsdir}" modalias.attr
 %{rrcdir}/kmodtool
 %{rrcdir}/rpmsort
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0-28
-- Prepare for Oreon 11 (RP1)

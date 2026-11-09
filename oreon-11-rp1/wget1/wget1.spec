@@ -1,18 +1,31 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 766e48423e79359ea31e41db9e5c289675947a7fcf2efdcedb726ac9d0da3784
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: A utility for retrieving files using the HTTP or FTP protocols
 Name: wget1
-Version: 1.25.0
-Release: 2%{?dist}
+Version:        1.25.0
+Release:        1%{?dist}
 # Generally wget is distributed under GPLv3 or later but there are files in lib/ directory
 # which are under LGPLv2.1 or later and are actually built into the resulting rpm.
 # This version of wget is built with gnutls so I believe that the 'with openssl'
 # part in some files is not applicable here.
 License: GPL-3.0-or-later AND LGPL-2.1-or-later
 Url: http://www.gnu.org/software/wget/
-Source: https://ftp.gnu.org/gnu/wget/wget-%{version}.tar.gz
+Source0:        https://mirror.cs.odu.edu/gnu/wget/wget-%{version}.tar.gz
 
-Patch1: wget-1.17-path.patch
+Patch1:        wget-1.17-path.patch
+Patch2:        wget-1.25-fix-cve-2026-15146.patch
+Patch3:        wget-1.25-fix-cve-2026-58470.patch
+Patch4:        wget-1.25-fix-cve-2026-58471.patch
+Patch5:        wget-1.25-fix-cve-2026-58472.patch
+Patch6:        wget-1.24.5-no-nettle.patch
+# https://gitlab.com/gnuwget/wget/-/commit/e9697d98
+Patch7:        wget-1.25-fix-cve-2026-16599.patch
 
 Provides: bundled(gnulib) 
 # needed for test suite
@@ -34,6 +47,7 @@ BuildRequires: gpgme-devel
 BuildRequires: gcc
 BuildRequires: zlib-devel
 BuildRequires: git-core
+BuildRequires:  oreon-rpm-macros
 
 %description
 GNU Wget is a file retrieval utility which can use either the HTTP or
@@ -60,13 +74,13 @@ used in place of wget. This ensures that %{name} is used as
 the system provider of wget.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
 
 %autosetup -S git -n wget-%{version}
 
 # modify the package string
-sed -i "s|\(PACKAGE_STRING='wget .*\)'|\1 (Red Hat modified)'|" configure
-grep "PACKAGE_STRING='wget .* (Red Hat modified)'" configure || exit 1
+sed -i "s|\(PACKAGE_STRING='wget .*\)'|\1 (Oreon modified)'|" configure
+grep "PACKAGE_STRING='wget .* (Oreon modified)'" configure || exit 1
 
 %build
 %configure \
@@ -115,5 +129,3 @@ echo ".so man1/%{name}.1" > %{buildroot}%{_mandir}/man1/wget.1
 %{_bindir}/wget
 %config(noreplace) %{_sysconfdir}/wgetrc
 
-%changelog
-%autochangelog

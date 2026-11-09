@@ -1,12 +1,18 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 36cf8c16ec969826217ff7458535a29714cb471dadba1672a303034d029a6e64
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           perl-generators
 Version:        1.16
-Release:        9%{?dist}
+Release:        1%{?dist}
 Summary:        RPM Perl dependencies generators
 License:        GPL-1.0-or-later
 URL:            http://jplesnik.fedorapeople.org/generators
-Source0:        https://jplesnik.fedorapeople.org/generators/generators-1.16.tar.gz
+Source0:        http://jplesnik.fedorapeople.org/generators/generators-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:  coreutils
 BuildRequires:  make
@@ -23,7 +29,7 @@ BuildRequires:  perl(strict)
 BuildRequires:  perl(warnings)
 BuildRequires:  sed
 # Run-time:
-BuildRequires:  perl(Fedora::VSP)
+BuildRequires:  perl(Oreon::VSP)
 BuildRequires:  perl(File::Basename)
 # Optional run-time:
 # version not used at tests
@@ -32,13 +38,14 @@ BuildRequires:  perl(lib)
 BuildRequires:  perl(Exporter)
 BuildRequires:  perl(Test::More)
 BuildRequires:  perl(Test::Simple)
+BuildRequires:  oreon-rpm-macros
 Requires:       perl-interpreter >= 4:5.22.0-351
 # Per Perl packaging guidelines, build-requiring perl-generators should
 # deliver Perl macros
 Requires:       perl-macros
 %if %{defined perl_bootstrap}
 # Supply run-time dependencies manually when perl-generators is not available
-Requires:       perl(Fedora::VSP)
+Requires:       perl(Oreon::VSP)
 Requires:       perl(File::Basename)
 %endif
 Recommends:     perl(version)
@@ -73,7 +80,8 @@ Tests from %{name}. Execute them
 with "%{_libexecdir}/%{name}/test".
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n generators-%{version}
 # Help generators to recognize Perl scripts
 for F in t/*.t; do
@@ -114,6 +122,3 @@ make test
 %files tests
 %{_libexecdir}/%{name}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.16-9
-- Prepare for Oreon 11 (RP1)

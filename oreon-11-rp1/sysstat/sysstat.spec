@@ -1,22 +1,23 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash e48fc69401135dc08d2cd4ff58dbdbfce9b7485f76fc9049d97848e313c08dda
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: Collection of performance monitoring tools for Linux
 Name: sysstat
-Version: 12.8.0
-Release: 1%{?dist}
+Version:        12.7.9
+Release:        1%{?dist}
 License: GPL-2.0-or-later
 
 URL: https://sysstat.github.io
-Source:        https://github.com/sysstat/sysstat/archive/refs/tags/v%{version}.tar.gz#/sysstat-12.7.9.tar.gz
-
+Source0:        https://github.com/sysstat/sysstat/archive/v%{version}.tar.gz
 Source1: sysstat-tmpfiles.conf
 
 # PCP is no longer available for %%{ix86} on F40
-%if 0%{?fedora} >= 40 || 0%{?rhel} >= 10
 %ifnarch %{ix86}
-BuildRequires: pcp-libs-devel
-%endif
-%else
 BuildRequires: pcp-libs-devel
 %endif
 
@@ -26,6 +27,7 @@ BuildRequires: git
 BuildRequires: lm_sensors-devel
 BuildRequires: make
 BuildRequires: systemd-rpm-macros
+BuildRequires:  oreon-rpm-macros
 
 Requires: findutils
 Requires: xz
@@ -49,7 +51,8 @@ The pidstat command reports statistics for Linux tasks (processes).
 The cifsiostat command reports I/O statistics for CIFS file systems.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -S git_am
 
 %build
@@ -119,6 +122,3 @@ fi
 %{_localstatedir}/log/sa
 %{_tmpfilesdir}/%{name}.conf
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 12.7.9-2
-- Prepare for Oreon 11 (RP1)

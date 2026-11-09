@@ -1,17 +1,25 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-Name: dwz
-Version: 0.17
-Release: 1%{?dist}
+%global source0_hash db10030528f3365c03755969619dd6789147d34fc588db8107364351085aebad
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: DWARF optimization and duplicate removal tool
+Name: dwz
+Version:        0.17
+Release:        1%{?dist}
 License: GPL-3.0-or-later AND (GPL-3.0-or-later WITH GCC-exception-3.1) AND GPL-2.0-or-later AND (GPL-2.0-or-later WITH GCC-exception-2.0) AND LGPL-2.0-or-later
 URL: https://sourceware.org/dwz/
-Source:        https://sourceware.org/ftp/dwz/releases/%{name}-%{version}.tar.xz
+Source0:        https://sourceware.org/ftp/dwz/releases/dwz-%{version}.tar.xz
 BuildRequires: gcc, gcc-c++, gdb, elfutils-libelf-devel, dejagnu
 # dwz builds with XXH_INLINE_ALL, so depend on (virtual) xxhash-static
 BuildRequires: make elfutils xxhash-devel xxhash-static
+BuildRequires:  oreon-rpm-macros
 
 # Patches
+Patch1:        0001-dwz-cleanup-allocatable-section-after-non-allocatabl.patch
 
 %description
 The dwz package contains a program that attempts to optimize DWARF
@@ -23,7 +31,8 @@ DW_TAG_partial_unit compilation units (CUs) for duplicated information
 and using DW_TAG_imported_unit to import it into each CU that needs it.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n dwz
 
 %build
@@ -42,6 +51,3 @@ CFLAGS="" LDFLAGS="" srcdir=$(pwd) make check
 %{_bindir}/dwz
 %{_mandir}/man1/dwz.1*
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.16-3
-- Import

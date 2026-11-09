@@ -1,20 +1,30 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash f25c6ab51548a73a75558742fb031e0625d6485fe5f9155949d6486a2408ab66
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 Summary: GNU macro processor
 Name: m4
-Version: 1.4.21
-Release: 1%{?dist}
+Version:        1.4.21
+Release:        1%{?dist}
 License: GPL-3.0-or-later AND GFDL-1.3-or-later AND FSFULLR AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Texinfo-exception AND GPL-2.0-or-later WITH Autoconf-exception-generic AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND MIT
-Source0:        https://mirrors.kernel.org/gnu/m4/m4-%{version}.tar.xz
-Source1:        https://mirrors.kernel.org/gnu/m4/m4-%{version}.tar.xz.sig
+Source0:        https://mirror.cs.odu.edu/gnu/m4/m4-%{version}.tar.xz
+Source1:        m4-1.4.21.tar.xz.sig
+# Fix SIGSEGV in gnulib posix_spawn_file_actions_addchdir tests
+# https://lists.gnu.org/archive/html/bug-gnulib/2026-07/msg00165.html
+Patch0:        m4-1.4.21-gnulib-posix_addchdr.patch
 URL: https://www.gnu.org/software/m4/
 BuildRequires: make
 BuildRequires: gcc autoconf automake
 BuildRequires: gettext
 %ifarch ppc ppc64
 BuildRequires: texinfo
+BuildRequires:  oreon-rpm-macros
 %endif
-# Gnulib bundled - the library has been granted an exception, see https://fedorahosted.org/fpc/ticket/174
 # Gnulib is not versioned, see m4 ChangeLog for approximate date of Gnulib copy
 Provides: bundled(gnulib)
 
@@ -29,8 +39,11 @@ not for running configure scripts.
 Install m4 if you need a macro processor.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
+%patch -P0 -p1
+autoreconf
 chmod 644 COPYING
 
 %build
@@ -52,6 +65,3 @@ make %{?_smp_mflags} check
 %{_infodir}/*
 %{_mandir}/man1/m4.1*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.4.21-1
-- Prepare for Oreon 11 (RP1)

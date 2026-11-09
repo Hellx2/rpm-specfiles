@@ -1,25 +1,29 @@
-%global source0_hash 6213b986a5209fc0d4ca93734e349b8f66b36bfe9a3fae6eead14a15d82a68dc
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 877b823198eb29aa1778b16a70cad05f7b54b164b3bf7ab656fc326c393f4c85
+%global source1_hash 1d9dd4d8eed30520d83c0f331ac8ddad5b0c78b9fe8a4f456edbba7b6f871250
+%global source3_hash a764b07c95d32fff682da0cc58a8d61ccb168b9b070cfcde205a32465c692ed4
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Reflects the values hard-coded in various Makefile.am's in the source tree.
 %define dictdir %{_datadir}/cracklib
 %define dictpath %{dictdir}/pw_dict
 
 Summary: A password-checking library
 Name: cracklib
-Version: 2.10.3
-Release: 1%{?dist}
+Version:        2.10.3
+Release:        1%{?dist}
 URL: https://github.com/cracklib/cracklib
 License: LGPL-2.1-or-later
 
 Source0:        https://github.com/cracklib/cracklib/releases/download/v%{version}/cracklib-%{version}.tar.gz
 Source1:        https://github.com/cracklib/cracklib/releases/download/v%{version}/cracklib-words-%{version}.gz
-# From attachment to https://bugzilla.redhat.com/show_bug.cgi?id=627449
 Source2: cracklib.default.zh_CN.po
-# No upstream source; supplement for words missing from cracklib-words (from EL9 SRPM lineage)
+# No upstream source for this, just words missing from the current cracklib-words
 Source3: missing-words.gz
-
-Patch: cracklib-2.9.11-packlib-reentrant.patch
-Patch: cracklib-2.9.11-simplistic.patch
 
 BuildRequires: gcc
 BuildRequires: words, gettext
@@ -59,6 +63,7 @@ for compiling applications which use cracklib.
 Summary: The standard CrackLib dictionaries
 BuildRequires: words >= 2-13
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 Requires: cracklib = %{version}-%{release}
 
 %description dicts
@@ -70,7 +75,10 @@ contains the utilities necessary for the creation of new dictionaries.
 If you are installing CrackLib, you should also install cracklib-dicts.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+echo '%{source3_hash}  %{SOURCE3}' | sha256sum -c -
+
 %autosetup -p 1 
 
 # Replace zn_CN.po with one that wasn't mis-transcoded at some point.
@@ -102,13 +110,13 @@ rm -f %{buildroot}%{dictdir}/cracklib-small
 sed s,/usr/lib/cracklib_dict,%{dictpath},g lib/crack.h > %{buildroot}%{_includedir}/crack.h
 ln -s cracklib-format %{buildroot}%{_sbindir}/mkdict
 # packer link removed as it clashes with hashicorp's packer binary.
-#ln -s cracklib-packer %%{buildroot}/%%{_sbindir}/packer
+#ln -s cracklib-packer %{buildroot}/%{_sbindir}/packer
 touch %{buildroot}/top
 
 toprelpath=..
 touch %{buildroot}/top
 while ! test -f %{buildroot}%{_libdir}/$toprelpath/top ; do
-	toprelpath=../$toprelpath
+    toprelpath=../$toprelpath
 done
 rm -f %{buildroot}/top
 if test %{dictpath} != %{_libdir}/cracklib_dict ; then
@@ -156,9 +164,3 @@ make test DESTDIR=%{buildroot}
 %{_libdir}/cracklib_dict.*
 %{_sbindir}/mkdict
 
-%changelog
-* Fri Apr 3 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.9.11-10
-- Add missing-words.gz for dict build, track in git
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.9.11-10
-- Prepare for Oreon 11 (RP1)

@@ -1,36 +1,41 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # comment out if no extra version
 %global extraver p2
 
 Summary: Allows restricted root access for specified users
 Name: sudo
-Version: 1.9.17p2
-# remove -b 3 after rebase !!!
+Version:        1.9.17
+# Remove "-b 3" after rebase !!!
 # use "-p -e % {?extraver}" when beta
-# use "-e % {?extraver}"" when patch version
+# use "-e % {?extraver}" when patch version
 # use nothing special when normal version
-Release: %autorelease -e %{?extraver}
+Release:        1%{?dist}
 License: ISC
 URL: https://www.sudo.ws
-Source0:        https://www.sudo.ws/dist/sudo-1.9.17p2.tar.gz
+Source0:        https://www.sudo.ws/dist/sudo-%{version}p2.tar.gz
 Source1: sudoers
 Requires: pam
 Recommends: system-default-editor
-Recommends: %{name}-python-plugin%{?_isa} = %{version}-%{release}
 
 BuildRequires: make
 BuildRequires: pam-devel
-BuildRequires: groff
 BuildRequires: openldap-devel
-BuildRequires: flex
-BuildRequires: bison
 BuildRequires: libtool
 BuildRequires: audit-libs-devel libcap-devel
 BuildRequires: libselinux-devel
 BuildRequires: systemd-rpm-macros
-BuildRequires: gettext
 BuildRequires: zlib-devel
+
+Patch1:        0001-cve-2026-35535.patch
+Patch2:        0002-Fix-OpenSSL-4.0-compatibility.patch
+Patch3:        0003-cve-2026-96512.patch
 
 %description
 Sudo (superuser do) allows a system administrator to give certain
@@ -59,20 +64,23 @@ BuildRequires:  openssl-devel
 
 
 %description    logsrvd
-%{name}-logsrvd is a high-performance log server that accepts event and I/O logs from sudo.
-It can be used to implement centralized logging of sudo logs.
+%{name}-logsrvd is a high-performance log server that accepts event and
+I/O logs from sudo. It can be used to implement centralized logging of
+sudo logs.
 
 %package        python-plugin
 Summary:        Python plugin for %{name}
 Requires:       %{name} = %{version}-%{release}
 BuildRequires:  python3-devel
+BuildRequires:  oreon-rpm-macros
 
 
 %description    python-plugin
 %{name}-python-plugin allows using sudo plugins written in Python.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n %{name}-%{version}%{?extraver}
 
 %build
@@ -209,9 +217,11 @@ EOF
 %{_mandir}/man5/sudoers_timestamp.5.gz
 %dir %{_pkgdocdir}/
 %{_pkgdocdir}/*
-%{!?_licensedir:%global license %%doc}
 %license LICENSE.md
+%exclude %{_pkgdocdir}/LICENSE.md
 %exclude %{_pkgdocdir}/ChangeLog
+%attr(0711,root,root) %ghost /run/sudo
+%attr(0700,root,root) %ghost /run/sudo/ts
 
 %files devel
 %doc plugins/sample/sample_plugin.c
@@ -231,6 +241,3 @@ EOF
 %{_mandir}/man5/sudo_plugin_python.5.gz
 %attr(0644,root,root) %{_libexecdir}/sudo/python_plugin.so
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.9.17-1
-- Prepare for Oreon 11 (RP1)

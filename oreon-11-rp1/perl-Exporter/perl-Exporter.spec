@@ -1,16 +1,18 @@
-%global source0_hash bd17e99219aa2fb6a8acb3d11deffcb588708c70fc29f346e20ea7f71d3a48f0
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global base_version 5.78
+%global source0_hash 229459746e6933aabad983aafee125a9fad492db49af2887509eb4311287d7a2
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           perl-Exporter
 Version:        5.79
-Release:        521%{?dist}
+Release:        1%{?dist}
 Summary:        Implements default import method for modules
 License:        GPL-1.0-or-later OR Artistic-1.0-Perl
 URL:            https://metacpan.org/release/Exporter
-Source0:        https://cpan.metacpan.org/authors/id/T/TO/TODDR/Exporter-5.78.tar.gz
-# Upgrade to 5.79 based on perl-5.42.0
-Patch0:         Exporter-5.78-Upgrade-to-5.79.patch
+Source0:        https://cpan.metacpan.org/authors/id/T/TO/TODDR/Exporter-5.79.tar.gz
 BuildArch:      noarch
 BuildRequires:  coreutils
 BuildRequires:  make
@@ -18,12 +20,14 @@ BuildRequires:  perl-generators
 BuildRequires:  perl-interpreter
 BuildRequires:  perl(Config)
 BuildRequires:  perl(ExtUtils::MakeMaker) >= 6.76
+BuildRequires:  perl(Test::More)
 # Run-time:
 BuildRequires:  perl(Carp) >= 1.05
 BuildRequires:  perl(strict)
 BuildRequires:  perl(warnings)
 # Tests:
 BuildRequires:  perl(vars)
+BuildRequires:  oreon-rpm-macros
 Requires:       perl(Carp) >= 1.05
 Requires:       perl(warnings)
 
@@ -44,9 +48,9 @@ Tests from %{name}. Execute them
 with "%{_libexecdir}/%{name}/test".
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%setup -q -n Exporter-%{base_version}
-%patch -P0 -p1
+%oreon_sha256
+
+%setup -q -n Exporter-%{version}
 
 # Help generators to recognize Perl scripts
 for F in t/*.t; do
@@ -82,6 +86,3 @@ make test
 %files tests
 %{_libexecdir}/%{name}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 5.79-521
-- Prepare for Oreon 11 (RP1)

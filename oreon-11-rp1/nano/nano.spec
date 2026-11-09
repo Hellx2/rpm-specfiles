@@ -1,21 +1,22 @@
-%global source0_hash 76f0dcb248f2e2f1251d4ecd20fd30fb400a360a3a37c6c340e0a52c2d1cdedf
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-# build nano-default-editor by default only on fedora
-%if 0%{?fedora}
+%global source0_hash 05ecb99247b782e8a5b3a25ed4101dd034b0236902f7449bc9795b717642f7e9
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_without default_editor
-%else
-%bcond_with default_editor
-%endif
 
 Summary:         A small text editor
 Name:            nano
-Version:         9.2
-Release:         1%{?dist}
+Version:        9.2
+Release:        1%{?dist}
 License:         GPL-3.0-or-later
 URL:             https://www.nano-editor.org
 
-Source0:        https://www.nano-editor.org/dist/latest/%{name}-%{version}.tar.xz
-Source1:        https://www.nano-editor.org/dist/latest/%{name}-%{version}.tar.xz.asc
+Source0:        https://www.nano-editor.org/dist/latest/nano-%{version}.tar.xz
+Source1:        nano-9.2.tar.xz.asc
 # gpg --keyserver keyserver.ubuntu.com --recv-key 168E6F4297BFD7A79AFD4496514BBE2EB8E1961F
 # gpg --output bensberg.pgp --armor --export bensberg@telfort.nl
 Source2:         bensberg.pgp
@@ -33,11 +34,10 @@ BuildRequires:   gettext-devel
 BuildRequires:   gcc
 BuildRequires:   git-core
 BuildRequires:   gnupg2
-BuildRequires:   groff
 BuildRequires:   make
 BuildRequires:   ncurses-devel
 BuildRequires:   sed
-BuildRequires:   texinfo
+BuildRequires:  oreon-rpm-macros
 Conflicts:       filesystem < 3
 
 %description
@@ -69,8 +69,9 @@ who don't have nano as a default editor during upgrade.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -S git_am
 
 %build
@@ -135,12 +136,3 @@ install -Dpm 0644 %{SOURCE13} %{buildroot}%{_datadir}/fish/vendor_conf.d/%{basen
 %endif
 
 
-%changelog
-* Sun Apr 12 2026 Oreon Packaging Team <packaging@oreonhq.com> - 8.7.1-3
-- Fix %%changelog weekday on prior entry
-
-* Sun Apr 12 2026 Oreon Packaging Team <packaging@oreonhq.com> - 8.7.1-2
-- Point Source0 or Source1 at dist/v8 (latest/ is not a stable path and 404s)
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 8.7.1-1
-- Prepare for Oreon 11 (RP1)

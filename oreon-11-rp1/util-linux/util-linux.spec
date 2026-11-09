@@ -1,18 +1,23 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash fbd62a100ab7bb8746ba0661255c3c48185b1e9021507c624da01fbc696330ec
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 ### Header
 Summary: Collection of basic system utilities
 Name: util-linux
-Version: 2.42.3
+Version:        2.42.4
 # -p -e rc1
-Release: %autorelease -b7
-License: GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-Fedora-Public-Domain
+Release:        1%{?dist}
+License: GPL-1.0-or-later AND GPL-2.0-only AND GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-2.1-or-later AND BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-Oreon-Public-Domain
 URL: https://en.wikipedia.org/wiki/Util-linux
 
 ### Macros
 %global upstream_version %{version}
-# First two numeric components (e.g. 2.42.3 -> 2.41). sed %%global was expanding wrong for spectool; kernel.org uses v2.41/ not v2.41.3/
-%global upstream_major %(echo %{version} | cut -d. -f1-2)
+%global upstream_major %(eval echo %{version} | sed -e 's/\([[:digit:]]*\)\.\([[:digit:]]*\)\.[[:digit:]]*$/\1.\2/')
 
 %global compldir %{_datadir}/bash-completion/completions/
 
@@ -49,9 +54,10 @@ BuildRequires: librtas-devel
 #BuildRequires: libtool
 BuildRequires: bison
 BuildRequires: flex
+BuildRequires:  oreon-rpm-macros
 
 ### Sources
-Source0:        https://www.kernel.org/pub/linux/utils/util-linux/v%{upstream_major}/util-linux-%{upstream_version}.tar.xz
+Source0:        https://cdn.kernel.org/pub/linux/utils/util-linux/v2.42/util-linux-%{version}.tar.xz
 Source1: util-linux-login.pamd
 Source2: util-linux-remote.pamd
 Source3: util-linux-chsh-chfn.pamd
@@ -106,17 +112,8 @@ Provides:       /usr/sbin/runuser
 Provides:       /usr/sbin/sfdisk
 %endif
 
-### Fedora specific patches
-Patch0: 0000-login-use-O_CREAT-on-lastlog.patch
-Patch1: 0001-login-add-run-motd.d-to-the-hardcoded-MOTD_FILE.patch
-
-### Temporary dracut workaround
-Patch2: 0002-libmount-disable-EROFS-backing-file-support.patch
-
-# Upstream backports
-Patch3: 0003-build-sys-gcc-ignore-Wunused-but-set-variable-for-bi.patch
-Patch4: 0004-blkid-Drop-const-from-blkid_partitions_get_name.patch
-
+Patch0:        0000-login-use-O_CREAT-on-lastlog.patch
+Patch1:        0001-login-add-run-motd.d-to-the-hardcoded-MOTD_FILE.patch
 
 %description
 The util-linux package contains a large variety of low-level system
@@ -127,7 +124,7 @@ program.
 
 %package -n util-linux-core
 Summary: The most essential utilities from the util-linux suite
-License: GPL-2.0-only AND GPL-2.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-Fedora-Public-Domain
+License: GPL-2.0-only AND GPL-2.0-or-later AND BSD-2-Clause AND BSD-3-Clause AND BSD-4-Clause-UC AND LicenseRef-Oreon-Public-Domain
 
 Provides: /bin/dmesg
 Provides: /bin/kill
@@ -338,7 +335,8 @@ Requires: util-linux = %{version}-%{release}
 The utilities scripts, scriptreplay, and scriptlive are used to create and replay terminal sessions.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n %{name}-%{upstream_version}
 
 %build
@@ -456,8 +454,8 @@ rm -f %{buildroot}/sbin/sfdisk \
 
 # we install getopt-*.{bash,tcsh} by doc directive
 #chmod 644 misc-utils/getopt-*.{bash,tcsh}
-#rm -f %%{buildroot}%%{_datadir}/doc/util-linux/getopt/*
-#rmdir %%{buildroot}%%{_datadir}/doc/util-linux/getopt
+#rm -f %{buildroot}%{_datadir}/doc/util-linux/getopt/*
+#rmdir %{buildroot}%{_datadir}/doc/util-linux/getopt
 
 ln -sf ../proc/self/mounts %{buildroot}/etc/mtab
 
@@ -565,6 +563,7 @@ fi
 %{_bindir}/colcrt
 %{_bindir}/colrm
 %{_bindir}/column
+%{_bindir}/copyfilerange
 %{_bindir}/coresched
 %{_bindir}/eject
 %{_bindir}/enosys
@@ -572,6 +571,7 @@ fi
 %{_bindir}/fallocate
 %{_bindir}/fincore
 %{_bindir}/fadvise
+%{_bindir}/getino
 %{_bindir}/getopt
 %{_bindir}/hexdump
 %{_bindir}/irqtop
@@ -621,6 +621,7 @@ fi
 %{_mandir}/man1/colcrt.1*
 %{_mandir}/man1/colrm.1*
 %{_mandir}/man1/column.1*
+%{_mandir}/man1/copyfilerange.1*
 %{_mandir}/man1/coresched.1.*
 %{_mandir}/man1/eject.1*
 %{_mandir}/man1/enosys.1*
@@ -628,6 +629,7 @@ fi
 %{_mandir}/man1/fadvise.1*
 %{_mandir}/man1/fallocate.1*
 %{_mandir}/man1/fincore.1*
+%{_mandir}/man1/getino.1*
 %{_mandir}/man1/getopt.1*
 %{_mandir}/man1/hexdump.1*
 %{_mandir}/man1/irqtop.1*
@@ -743,6 +745,7 @@ fi
 %{compldir}/colcrt
 %{compldir}/colrm
 %{compldir}/column
+%{compldir}/copyfilerange
 %{compldir}/coresched
 %{compldir}/ctrlaltdel
 %{compldir}/delpart
@@ -758,6 +761,7 @@ fi
 %{compldir}/fsck.minix
 %{compldir}/fsfreeze
 %{compldir}/fstrim
+%{compldir}/getino
 %{compldir}/getopt
 %{compldir}/hexdump
 %{compldir}/irqtop
@@ -991,10 +995,12 @@ fi
 %{_libdir}/pkgconfig/lastlog2.pc
 %{_mandir}/man3/lastlog2.3.*
 %{_mandir}/man3/ll2_import_lastlog.3*
+%{_mandir}/man3/ll2_new_context.3*
 %{_mandir}/man3/ll2_read_all.3*
 %{_mandir}/man3/ll2_read_entry.3*
 %{_mandir}/man3/ll2_remove_entry.3*
 %{_mandir}/man3/ll2_rename_user.3*
+%{_mandir}/man3/ll2_unref_context.3*
 %{_mandir}/man3/ll2_update_login_time.3*
 %{_mandir}/man3/ll2_write_entry.3*
 
@@ -1051,12 +1057,3 @@ fi
 %{compldir}/scriptlive
 %{compldir}/scriptreplay
 
-%changelog
-* Thu Apr 09 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.41.3-3
-- Fix upstream_major for spectool (cut -f1-2 so URL uses v2.41 not v2.41.3)
-
-* Thu Apr 09 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.41.3-2
-- Source0 from kernel.org mirror (mirrors.edge.kernel.org 404 for this point release)
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.41.3-1
-- Prepare for Oreon 11 (RP1)

@@ -1,108 +1,102 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%define release_pack RP1
-%define dist_version 11
+%global source0_hash 8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%global debug_package %{nil}
 
-Summary:        Oreon release files
-Name:           oreon-release
-Version:        11
-Release:        4%{?dist}
-License:        MIT
-URL:            https://oreonhq.com/oreon
+%global distro Oreon
+%global major 11
+%global release_name RP1
 
+Name: oreon-release
+Version: %{major}
+Release: 1%{?dist}
+Summary: %{distro} release files
+License: GPL-2.0-or-later
+URL: https://oreonhq.com/
+BuildArch: noarch
+Source0: LICENSE
 
-Provides:       oreon-release = %{version}-%{release}
-Provides:       oreon-release(%{version}) = %{release}
-Provides:       system-release = 11-%{release}
-Provides:       system-release(11) = %{release}
-Provides:       base-module(platform:or%{version})
-Requires:       oreon-repos(%{version})
-BuildArch:      noarch
-BuildRequires:  bash
+BuildRequires: oreon-rpm-macros
 
-Source0:        LICENSE
-Source1:        85-display-manager.preset
-Source2:        90-default.preset
-Source3:        99-default-disable.preset
+Provides: system-release = %{version}-%{release}
+Provides: system-release(releasever) = %{major}
+Provides: system-release(releasever_major) = %{major}
+Provides: base-module(platform:or%{major})
+Requires: oreon-release-common = %{version}-%{release}
+Conflicts: system-release
 
 %description
-Oreon release files including base system configuration and identification.
+Release files for %{distro} %{major}: os-release, the system-release
+files, and the dist tag macros used by rpmbuild.
+
+%package common
+Summary: %{distro} release files shared by every edition
+Provides: system-release-common = %{version}-%{release}
+
+%description common
+os-release, system-release-cpe, issue files, and the rpm dist macros for
+%{distro} %{major}.
 
 %prep
+%oreon_sha256
+%setup -c -T
+cp -p %{SOURCE0} .
 
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
 %build
-cat > os-release << EOF
-NAME="Oreon"
-VERSION="%{version}"
-ID=oreon
-VERSION_ID=%{version}
-VERSION_CODENAME="Horizon"
-PLATFORM_ID="platform:or%{version}"
-PRETTY_NAME="Oreon 11 (%{release_pack})"
-ANSI_COLOR="0;38;2;60;110;180"
-LOGO=oreon-logo-icon
-CPE_NAME="cpe:/o:oreonhq:oreon:%{version}"
-HOME_URL="https://oreonhq.com/"
-DOCUMENTATION_URL="https://wiki.oreonhq.com/"
-SUPPORT_URL="https://oreonhq.com/help/"
-BUG_REPORT_URL="https://community.oreonhq.com/"
-PRIVACY_POLICY_URL="https://oreonhq.com/legal/"
-EOF
-
-cat > issue << EOF
-Oreon 11 (%{release_pack})
-Kernel \r on an \m (\l)
-
-EOF
-
-cat > issue.net << EOF
-Oreon 11 (%{release_pack})
-Kernel \r on an \m (\l)
-EOF
 
 %install
-install -d -m 755 %{buildroot}/etc
-install -d -m 755 %{buildroot}%{_prefix}/lib
-install -d -m 755 %{buildroot}%{_rpmmacrodir}
+install -d -m 0755 %{buildroot}%{_sysconfdir} %{buildroot}%{_prefix}/lib %{buildroot}%{_rpmmacrodir} %{buildroot}%{_sysconfdir}/issue.d
+echo "%{distro} release %{major} (%{release_name})" > %{buildroot}%{_sysconfdir}/oreon-release
+ln -s oreon-release %{buildroot}%{_sysconfdir}/system-release
+echo "cpe:/o:oreon:oreon:%{major}" > %{buildroot}%{_sysconfdir}/system-release-cpe
 
-# Defines %%oreon for specs (kernel/shim/grub2 secure boot branding). Builders
-# should have oreon-release installed so mock/koji expands %%{?oreon}.
-cat > %{buildroot}%{_rpmmacrodir}/macros.oreon-release << 'EOF'
-%%oreon 11
-%%python_wheel_pkg_prefix python3
-EOF
+cat > %{buildroot}%{_prefix}/lib/os-release <<EOT
+NAME="%{distro}"
+VERSION="%{major} (%{release_name})"
+ID=oreon
+VERSION_ID=%{major}
+VERSION_CODENAME=""
+PLATFORM_ID="platform:or%{major}"
+PRETTY_NAME="%{distro} %{major} (%{release_name})"
+ANSI_COLOR="0;34"
+CPE_NAME="cpe:/o:oreon:oreon:%{major}"
+HOME_URL="https://oreonhq.com/"
+DOCUMENTATION_URL="https://oreonhq.com/help"
+BUG_REPORT_URL="https://github.com/oreonhq/rpm-specfiles/issues"
+VENDOR_NAME="Oreon"
+VENDOR_URL="https://oreonhq.com/"
+EOT
+ln -s ../usr/lib/os-release %{buildroot}%{_sysconfdir}/os-release
 
-# Install os-release
-install -m 644 os-release %{buildroot}%{_prefix}/lib/os-release
-ln -s ../usr/lib/os-release %{buildroot}/etc/os-release
+printf '\\S\nKernel \\r on an \\m\n\n' > %{buildroot}%{_sysconfdir}/issue
+printf '\\S\nKernel \\r on an \\m\n' > %{buildroot}%{_sysconfdir}/issue.net
 
-# Install system-release files
-echo "Oreon release 11 (%{release_pack})" > %{buildroot}/etc/system-release
-ln -s system-release %{buildroot}/etc/oreon-release
-echo "cpe:/o:oreonhq:oreon:%{version}" > %{buildroot}%{_prefix}/lib/system-release-cpe
-
-# Install issue files
-install -m 644 issue %{buildroot}/etc/issue
-install -m 644 issue.net %{buildroot}/etc/issue.net
-
-# Install systemd presets
-install -d -m 755 %{buildroot}%{_prefix}/lib/systemd/system-preset
-install -m 644 %{SOURCE1} %{buildroot}%{_prefix}/lib/systemd/system-preset/
-install -m 644 %{SOURCE2} %{buildroot}%{_prefix}/lib/systemd/system-preset/
-install -m 644 %{SOURCE3} %{buildroot}%{_prefix}/lib/systemd/system-preset/
+cat > %{buildroot}%{_rpmmacrodir}/macros.dist <<EOT
+%%__bootstrap ~bootstrap
+%%oreon %{major}
+%%oreon_ver %{major}
+%%distcore .or%{major}
+%%dist %%{!?distprefix0:%%{?distprefix}}%%{expand:%%{lua:for i=0,9999 do print("%%{?distprefix" .. i .."}") end}}%%{distcore}%%{?distsuffix}%%{?with_bootstrap:%%{__bootstrap}}
+%%dist_vendor Oreon
+%%dist_name %{distro}
+%%dist_home_url https://oreonhq.com/
+%%dist_bug_report_url https://github.com/oreonhq/rpm-specfiles/issues
+EOT
 
 %files
-%{_prefix}/lib/os-release
-/etc/os-release
-/etc/oreon-release
-/etc/system-release
-%{_prefix}/lib/system-release-cpe
-%config(noreplace) /etc/issue
-%config(noreplace) /etc/issue.net
-%{_prefix}/lib/systemd/system-preset/*
-%{_rpmmacrodir}/macros.oreon-release
+%{_sysconfdir}/oreon-release
+%{_sysconfdir}/system-release
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 11-2
-- Import
+%files common
+%license LICENSE
+%{_prefix}/lib/os-release
+%{_sysconfdir}/os-release
+%{_sysconfdir}/system-release-cpe
+%config(noreplace) %{_sysconfdir}/issue
+%config(noreplace) %{_sysconfdir}/issue.net
+%dir %{_sysconfdir}/issue.d
+%{_rpmmacrodir}/macros.dist

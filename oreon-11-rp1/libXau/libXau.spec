@@ -1,13 +1,19 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-Name: libXau
-Version: 1.0.12
-Release: 4%{?dist}
+%global source0_hash 74d0e4dfa3d39ad8939e99bda37f5967aba528211076828464d2777d477fc0fb
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: Sample Authorization Protocol for X
+Name: libXau
+Version:        1.0.12
+Release:        1%{?dist}
 License: MIT-open-group
 URL: http://www.x.org
 
-Source0:        https://xorg.freedesktop.org/releases/individual/lib/libXau-1.0.12.tar.xz
+Source0:        https://www.x.org/pub/individual/lib/libXau-%{version}.tar.xz
 
 BuildRequires: make
 BuildRequires: xorg-x11-util-macros
@@ -28,12 +34,14 @@ Requires: %{name} = %{version}-%{release}
 Requires: xorg-x11-proto-devel
 Requires: pkgconfig
 BuildRequires: xorg-x11-proto-devel
+BuildRequires:  oreon-rpm-macros
 
 %description devel
 X.Org X11 libXau development package
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 #patch0 -p1 -b .local
 
@@ -68,6 +76,3 @@ make check
 %{_libdir}/pkgconfig/xau.pc
 %{_mandir}/man3/*.3*
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0.12-4
-- Import

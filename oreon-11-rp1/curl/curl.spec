@@ -1,51 +1,43 @@
-%global source0_hash 40df79166e74aa20149365e11ee4c798a46ad57c34e4f68fd13100e2c9a91946
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash aa1b66a70eace83dc624508745646c08ae561de512ab403adffb93ac87fc72e6
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # OpenSSL ENGINE support
-# This is deprecated by OpenSSL since OpenSSL 3.0 and by Fedora since Fedora 41
-# 
 # Change the bcond to 0 to turn off ENGINE support by default
-%bcond openssl_engine_support %[%{defined fedora} || 0%{?rhel} < 10]
+%bcond openssl_engine_support 0
 
 # HTTP/3 support
 # This is using ngtcp2 with OpenSSL 3.5 QUIC support instead of curl's
 # experimental native OpenSSL 3.5 support.
-%bcond http3 %[0%{?fedora} >= 43]
+%bcond http3 1
 
 Summary: A utility for getting files from remote servers (FTP, HTTP, and others)
 Name: curl
-Version: 8.18.0
-Release: 6%{?dist}
+Version:        8.21.0
+Release:        1%{?dist}
 License: curl
-Source0:        https://curl.se/download/%{name}-%{version_no_tilde}.tar.xz
-Source1:        https://curl.se/download/%{name}-%{version_no_tilde}.tar.xz.asc
+Source0:        https://curl.se/download/curl-%{version}.tar.xz
+Source1:        curl-8.21.0.tar.xz.asc
 # The curl download page ( https://curl.se/download.html ) links
 # to Daniel's address page https://daniel.haxx.se/address.html for the GPG Key,
 # which points to the GPG key as of April 7th 2016 of https://daniel.haxx.se/mykey.asc
-Source2:        mykey.asc
+Source2: mykey.asc
 
-# update timer unconditionally in multi_remove_handle
-# rubygem-ethon: FTBFS in Fedora Rawhide
-# https://bugzilla.redhat.com/show_bug.cgi?id=2405328
-Patch001: 0001-curl-8.18.0-multi-update-timer-unconditionally-in-multi_remove_h.patch
-
-# Fix `Could not find digest algorithm UNDEF (NID 0)`
-# https://bugzilla.redhat.com/show_bug.cgi?id=2438170
-Patch002: 0002-curl-8.18.0-openssl-channel_binding-lookup-digest-algorithm-with.patch
-
-# Fix bad reuse of HTTP Negotiate connection (CVE-2026-1965)
-Patch003: 0003-curl-8.18.0-CVE-2026-1965.patch
-
-# Fix token leak with redirect and netrc (CVE-2026-3783)
-Patch004: 0004-curl-8.18.0-CVE-2026-3783.patch
-
-# Fix wrong proxy connection reuse with credentials (CVE-2026-3784)
-Patch005: 0005-curl-8.18.0-CVE-2026-3784.patch
-
-# Fix use after free in SMB connection reuse (CVE-2026-3805)
-Patch006: 0006-curl-8.18.0-CVE-2026-3805.patch
-
-# patch making libcurl multilib ready
-Patch101: 0101-curl-7.32.0-multilib.patch
+Patch0001:        0001-prevent-multilib-conflicts-on-the-curl-config-script.patch
+Patch0002:        0002-lib-add-multi_wakeup_internal.patch
+Patch0003:        0003-http2-make-server-push-transfers-inherit-share-from-.patch
+Patch0004:        0004-connections-use-admin-handles-only-for-maintenance.patch
+Patch0005:        0005-tests-remove-test1701.patch
+Patch0006:        0006-cookie-improve-TAB-handling.patch
+Patch0007:        0007-openssl-avoid-conn-reuse-if-provider-is-used.patch
+Patch0008:        0008-openldap-handle-Curl_sasl_continue-returns-better.patch
+Patch0009:        0009-openssl-no-server-cert-is-only-okay-if-also-not-pinn.patch
+Patch0010:        0010-ci-setup-packit.patch
+Patch0011:        0011-multi-adjust-the-cleanup-order-in-multi_done.patch
 
 Provides: curl-full = %{version}-%{release}
 # do not fail when trying to install curl-minimal after drop
@@ -53,21 +45,17 @@ Provides: curl-minimal = %{version}-%{release}
 Provides: webclient
 URL: https://curl.se/
 
-%if 0%{?fedora} || (0%{?oreon} >= 11)
 # instead of bundled wcurl utility, recommend wcurl package
 Recommends: wcurl
-%endif
 
 # The reason for maintaining two separate packages for curl is no longer valid.
 # The curl-minimal is currently almost identical to curl-full, so let's drop curl-minimal.
-# For more details, see https://bugzilla.redhat.com/show_bug.cgi?id=2262096
 Obsoletes: curl-minimal < 8.6.0-4
 
 BuildRequires: automake
 BuildRequires: brotli-devel
 BuildRequires: coreutils
 BuildRequires: gcc
-BuildRequires: groff
 BuildRequires: krb5-devel
 BuildRequires: libidn2-devel
 BuildRequires: libnghttp2-devel
@@ -77,6 +65,7 @@ BuildRequires: libnghttp3-devel
 BuildRequires: libpsl-devel
 BuildRequires: libssh-devel
 BuildRequires: libtool
+BuildRequires: libzstd-devel
 BuildRequires: make
 %if %{with http3}
 BuildRequires: ngtcp2-crypto-ossl-devel
@@ -86,7 +75,7 @@ BuildRequires: openssh-clients
 BuildRequires: openssh-server
 BuildRequires: openssl
 BuildRequires: openssl-devel
-%if %{with openssl_engine_support} && 0%{?fedora} >= 41 || (0%{?oreon} >= 11)
+%if %{with openssl_engine_support}
 BuildRequires:  openssl-devel-engine
 %endif
 BuildRequires: perl-interpreter
@@ -98,9 +87,6 @@ BuildRequires: zlib-devel
 
 # For gpg verification of source tarball
 BuildRequires: gnupg2
-
-# needed to compress content of tool_hugehelp.c after changing curl.1 man page
-BuildRequires: perl(IO::Compress::Gzip)
 
 # needed for generation of shell completions
 BuildRequires: perl(Getopt::Long)
@@ -142,10 +128,8 @@ BuildRequires: perl(Time::HiRes)
 BuildRequires: perl(Time::Local)
 BuildRequires: perl(vars)
 
-%if 0%{?fedora} || (0%{?oreon} >= 11)
 # needed for upstream test 1451
 BuildRequires: python3-impacket
-%endif
 
 # The test-suite runs automatically through valgrind if valgrind is available
 # on the system.  By not installing valgrind into mock's chroot, we disable
@@ -159,6 +143,7 @@ BuildRequires: valgrind
 
 # stunnel is used by upstream tests but it does not seem to work reliably
 # on aarch64/s390x and occasionally breaks some tests (mainly 1561 and 1562)
+BuildRequires:  oreon-rpm-macros
 %ifnarch aarch64 s390x
 BuildRequires: stunnel
 %endif
@@ -193,8 +178,12 @@ Requires: libcurl%{?_isa} >= %{version}-%{release}
 
 # require at least the version of openssl-libs that we were built against,
 # to ensure that we have the necessary symbols available (#1462184, #1462211)
-# (we need to translate 3.0.0-alpha16 -> 3.0.0-0.alpha16 and 3.0.0-beta1 -> 3.0.0-0.beta1 though)
-%global openssl_version %({ pkg-config --modversion openssl 2>/dev/null || echo 0;} | sed 's|-|-0.|')
+# (we need to translate 4.0.0-beta1 -> 4.0.0~beta1 though)
+%global openssl_version %({ pkg-config --modversion openssl 2>/dev/null || echo 0;} | sed 's|-|~|')
+
+# require at least the version of libzstd that we were built against,
+# to ensure that we have the necessary symbols available
+%global libzstd_version %(pkg-config --modversion libzstd 2>/dev/null || echo 0)
 
 %description
 curl is a command line tool for transferring data with URL syntax, supporting
@@ -202,7 +191,7 @@ FTP, FTPS, HTTP, HTTPS, SCP, SFTP, TFTP, TELNET, DICT, LDAP, LDAPS, FILE, IMAP,
 SMTP, POP3 and RTSP.  curl supports SSL certificates, HTTP POST, HTTP PUT, FTP
 uploading, HTTP form based upload, proxies, cookies, user+password
 authentication (Basic, Digest, NTLM, Negotiate, kerberos...), file transfer
-resume, proxy tunneling and a busload of other useful tricks. 
+resume, proxy tunneling and a busload of other useful tricks.
 
 %package -n libcurl
 Summary: A library for getting files from web servers
@@ -218,6 +207,7 @@ Requires: ngtcp2%{?_isa} >= %{ngtcp2_version}
 Requires: openssl-libs%{?_isa} >= 1:%{openssl_version}
 Provides: libcurl-full = %{version}-%{release}
 Provides: libcurl-full%{?_isa} = %{version}-%{release}
+Requires: libzstd%{?_isa} >= %{libzstd_version}
 
 %description -n libcurl
 libcurl is a free and easy-to-use client-side URL transfer library, supporting
@@ -258,13 +248,35 @@ other hand, the package is smaller and requires fewer run-time dependencies to
 be installed.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -n %{name}-%{version_no_tilde} -p1
 
 # disable test 1801
 # <https://github.com/bagder/curl/commit/21e82bd6#commitcomment-12226582>
 printf "1801\n" >>tests/data/DISABLED
+
+printf "1085\n" >>tests/data/DISABLED
+printf "656\n776\n" >>tests/data/DISABLED
+
+# test 303: raise timeout from 8s to 20s so it doesn't expire during TLS
+# handshake under valgrind
+%ifarch x86_64
+sed -e 's|-m 8|-m 20|' -i tests/data/test303
+%endif
+
+%ifarch s390x
+# SFTP/SCP tests fail due to libssh port-setting bug on big-endian
+# ("Could not set remote port")
+printf "582\n600\n601\n602\n603\n604\n605\n606\n607\n608\n" >>tests/data/DISABLED
+printf "609\n610\n611\n612\n613\n614\n615\n616\n617\n618\n" >>tests/data/DISABLED
+printf "619\n620\n621\n622\n623\n624\n625\n626\n627\n628\n" >>tests/data/DISABLED
+printf "629\n630\n631\n633\n634\n635\n636\n637\n638\n639\n" >>tests/data/DISABLED
+printf "640\n641\n642\n656\n664\n665\n" >>tests/data/DISABLED
+printf "1446\n1459\n1583\n1725\n2004\n2007\n" >>tests/data/DISABLED
+printf "3021\n3022\n" >>tests/data/DISABLED
+%endif
 
 # test3026: avoid pthread_create() failure due to resource exhaustion on i386
 %ifarch %{ix86}
@@ -301,7 +313,6 @@ export common_configure_opts="          \
     --enable-ipv6                       \
     --enable-symbol-hiding              \
     --enable-threaded-resolver          \
-    --without-zstd                      \
     --with-gssapi                       \
     --with-libidn2                      \
     --with-nghttp2                      \
@@ -331,7 +342,10 @@ export common_configure_opts="          \
         --disable-websockets            \
         --without-brotli                \
         --without-libpsl                \
-        --without-libssh
+        --without-libssh                \
+        --without-nghttp3               \
+        --without-ngtcp2                \
+        --without-zstd
 )
 
 # configure full build
@@ -356,6 +370,7 @@ export common_configure_opts="          \
         --with-brotli                   \
         --with-libpsl                   \
         --with-libssh                   \
+        --with-zstd                     \
 %if %{with http3}
         --with-nghttp3                  \
         --with-ngtcp2                   \
@@ -379,11 +394,7 @@ sed -e 's/^runpath_var=.*/runpath_var=/' \
 export OPENSSL_SYSTEM_CIPHERS_OVERRIDE=XXX
 export OPENSSL_CONF=
 
-# make runtests.pl work for out-of-tree builds
-export srcdir=../../tests
-
 # prevent valgrind from being extremely slow (#1662656)
-# 
 unset DEBUGINFOD_URLS
 
 # run the upstream test-suite for both curl-minimal and curl-full
@@ -393,8 +404,16 @@ for size in minimal full; do (
     # we have to override LD_LIBRARY_PATH because we eliminated rpath
     export LD_LIBRARY_PATH="${PWD}/lib/.libs"
 
-    cd tests
-    perl -I../../tests ../../tests/runtests.pl -a -p -v '!flaky'
+    # tests that must run in serial to avoid intermittent failures under parallel execution
+    serial_tests="766 1399 2402 2404 2500 2502 3300 3301"
+    serial_excludes=$(for t in $serial_tests; do printf ' !%s' "$t"; done)
+    # run the bulk of tests in parallel, excluding serial ones
+    # cap at 64 jobs to avoid overwhelming system resources on high-CPU machines
+    test_jobs=$(( %{_smp_build_ncpus} * 7 ))
+    [ $test_jobs -gt 64 ] && test_jobs=64
+    TFLAGS="-v -j${test_jobs}${serial_excludes}" make test-nonflaky
+    # run serial tests one at a time
+    TFLAGS="-v ${serial_tests}" make test-nonflaky
 )
 done
 
@@ -465,6 +484,3 @@ rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/wcurl.1*
 %{_libdir}/libcurl.so.4.minimal
 %{_libdir}/libcurl.so.4.[0-9].[0-9].minimal
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 8.18.0-6
-- Import

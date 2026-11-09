@@ -1,7 +1,7 @@
-From a0339453b9b0ac515752d0c60ffd9bcb46563e71 Mon Sep 17 00:00:00 2001
+From 86e6acc12639c293fb98f1949348a1d6a7f77702 Mon Sep 17 00:00:00 2001
 From: Dmitry Belyavskiy <beldmit@gmail.com>
 Date: Thu, 15 May 2025 13:43:28 +0200
-Subject: [PATCH 14/54] openssh-6.6p1-force_krb
+Subject: [PATCH 14/53] openssh-6.6p1-force_krb
 
 #http://www.mail-archive.com/kerberos@mit.edu/msg17591.html
 ---
@@ -218,10 +218,10 @@ index be401fe0e..c26174928 100644
  /* This writes out any forwarded credentials from the structure populated
   * during userauth. Called after we have setuid to the user */
 diff --git a/session.c b/session.c
-index f14d5fab8..610a2cc6f 100644
+index 2fbc1f735..27e09cccd 100644
 --- a/session.c
 +++ b/session.c
-@@ -643,6 +643,29 @@ do_exec(struct ssh *ssh, Session *s, const char *command)
+@@ -648,6 +648,29 @@ do_exec(struct ssh *ssh, Session *s, const char *command)
  		command = auth_opts->force_command;
  		forced = "(key-option)";
  	}
@@ -252,7 +252,7 @@ index f14d5fab8..610a2cc6f 100644
  	if (forced != NULL) {
  		s->forced = 1;
 diff --git a/ssh-gss.h b/ssh-gss.h
-index 8ec451926..db34d77f4 100644
+index 122830f39..7df47cae2 100644
 --- a/ssh-gss.h
 +++ b/ssh-gss.h
 @@ -49,6 +49,10 @@
@@ -267,10 +267,10 @@ index 8ec451926..db34d77f4 100644
  
  /* draft-ietf-secsh-gsskeyex-06 */
 diff --git a/sshd.8 b/sshd.8
-index 0226a8303..e2d8ff003 100644
+index 4bfbeaf63..d8a4b8090 100644
 --- a/sshd.8
 +++ b/sshd.8
-@@ -286,6 +286,7 @@ Finally, the server and the client enter an authentication dialog.
+@@ -287,6 +287,7 @@ Finally, the server and the client enter an authentication dialog.
  The client tries to authenticate itself using
  host-based authentication,
  public key authentication,
@@ -278,7 +278,7 @@ index 0226a8303..e2d8ff003 100644
  challenge-response authentication,
  or password authentication.
  .Pp
-@@ -874,6 +875,12 @@ This file is used in exactly the same way as
+@@ -878,6 +879,12 @@ This file is used in exactly the same way as
  but allows host-based authentication without permitting login with
  rlogin/rsh.
  .Pp
@@ -292,5 +292,5 @@ index 0226a8303..e2d8ff003 100644
  This directory is the default location for all user-specific configuration
  and authentication information.
 -- 
-2.53.0
+2.56.0
 

@@ -1,6 +1,13 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 96d33abb4bb0070c7be0fed4246cd38416188325f820468214471938545b1ac8
 %global source1_hash b70a224cd52e82b7a8150aedac5efa2d0cb3941696fd829bdbe674f9f65c3926
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 # Whether to package the compatibility .so from the previous release.
 # This installs self as a build dependency and copies the files.
 # Once disabled, it can only be built when the previous version is tagged in.
@@ -9,7 +16,7 @@
 
 Name:           mpdecimal
 Version:        4.0.1
-Release:        %autorelease
+Release:        1%{?dist}
 Summary:        Library for general decimal arithmetic
 License:        BSD-2-Clause
 
@@ -23,6 +30,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  unzip
 %if %{with compat}
 BuildRequires:  %{name}
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description
@@ -50,8 +58,9 @@ Summary:        Development headers for mpdecimal library
 The package contains development headers for the mpdecimal library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source1_hash}" = "none" || { f="%{SOURCE1}"; test -f "$f" || { echo "oreon: missing Source1 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source1_hash}" || { echo "oreon: Source1 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
 %autosetup
 unzip -d tests/testdata %{SOURCE1}
 
@@ -98,6 +107,3 @@ cp -a %{_libdir}/libmpdec.so.2.5.1 %{buildroot}%{_libdir}/libmpdec.so.3
 %{_mandir}/man3/libmpdec++.3*
 %{_mandir}/man3/mpdecimal*.3*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.0.1-1
-- Prepare for Oreon 11 (RP1)

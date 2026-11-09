@@ -1,15 +1,21 @@
-%global source0_hash 7740ada353262808c12f19b5efc37b3c7bfb6be3be4abc0404557806d0204b26
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 7c697a447f7ee95ccbf71619478a024f43016f8448e8eb4ce683e2baff124d9d
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           iotop-c
-Version:        1.31
+Version:        1.33
 Release:        1%{?dist}
 Summary:        Simple top-like I/O monitor (implemented in C)
 
 License:        GPL-2.0-or-later
 URL:            https://github.com/Tomas-M/iotop/
 Source0:        https://github.com/Tomas-M/iotop/releases/download/v%{version}/iotop-%{version}.tar.xz
-Source1:        https://github.com/Tomas-M/iotop/releases/download/v%{version}/iotop-%{version}.tar.xz.asc
-Source2:        https://raw.githubusercontent.com/Tomas-M/iotop/v%{version}/debian/upstream/signing-key.asc
+Source1:        iotop-1.33.tar.xz.asc
+Source2:        signing-key.asc
 
 Provides:       iotop
 Obsoletes:      iotop < 0.7
@@ -19,6 +25,7 @@ BuildRequires:  gnupg2
 BuildRequires:  ncurses-devel
 BuildRequires:  make
 BuildRequires:  pkgconfig(ncursesw)
+BuildRequires:  oreon-rpm-macros
 
 %description
 iotop-c does for I/O usage what top(1) does for CPU usage. It watches I/O
@@ -38,8 +45,9 @@ possible.
 %global _hardened_build 1
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -n iotop-%{version}
 
 %build
@@ -55,6 +63,3 @@ V=1 STRIP=: BINDIR=$RPM_BUILD_ROOT%{_bindir} %make_install
 %{_bindir}/iotop
 %{_mandir}/man8/iotop.8*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.31-1
-- Prepare for Oreon 11 (RP1)

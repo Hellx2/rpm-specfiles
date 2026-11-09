@@ -1,6 +1,12 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-# Fedora spec file for libsodium
+%global source0_hash adbdd8f16149e81ac6078a03aca6fc03b592b89ef7b5ed83841c086191be3349
+%global source1_hash c0186d6cf8c9c2ec5c6dbb6d4ff4f701e5592376490e8ad97a4ceeecabbff0f3
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 #
 # License: MIT
 # http://opensource.org/licenses/MIT
@@ -12,11 +18,7 @@
 # Uncomment to update to final version
 #global versuf  -stable
 
-%if 0%{?fedora} || (0%{?oreon} >= 11)
 %bcond_without  mingw
-%else
-%bcond_with     mingw
-%endif
 
 
 Name:           libsodium
@@ -37,8 +39,8 @@ Summary:        The Sodium crypto library
 License:        ISC AND BSD-2-Clause AND CC0-1.0
 URL:            https://libsodium.org/
 
-Source0:        https://download.libsodium.org/libsodium/releases/%{name}-%{version}%{?versuf}.tar.gz
-Source1:        https://download.libsodium.org/libsodium/releases/%{name}-%{version}%{?versuf}.tar.gz.minisig
+Source0:        https://download.libsodium.org/libsodium/releases/libsodium-%{version}.tar.gz
+Source1:        https://download.libsodium.org/libsodium/releases/libsodium-%{version}.tar.gz.minisig
 
 BuildRequires: minisign
 BuildRequires: gcc
@@ -50,6 +52,7 @@ BuildRequires: mingw32-gcc
 
 BuildRequires: mingw64-gcc
 BuildRequires: mingw64-filesystem
+BuildRequires:  oreon-rpm-macros
 %endif
 
 # manage update from 3rd party repository
@@ -110,7 +113,9 @@ for Win64 target.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
 # https://doc.libsodium.org/installation#integrity-checking
 minisign -VP RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3 -m %{SOURCE0}
 
@@ -199,6 +204,3 @@ make -C build_native check
 %endif
 
 
-%changelog
-* Thu May 28 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0.22-1
-- Import

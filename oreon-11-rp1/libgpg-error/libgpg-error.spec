@@ -1,16 +1,22 @@
-%global source0_hash a19bc5087fd97026d93cb4b45d51638d1a25202a5e1fbc3905799f424cfa6134
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 7a85413f2bc354f4f8aa832b718af122e48965e9e0eb9012ee659c13c6385c93
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name: libgpg-error
-Version: 1.61
-Release: 1%{?dist}
+Version:        1.61
+Release:        1%{?dist}
 Summary: Library for error values used by GnuPG components
 URL: https://www.gnupg.org/related_software/libgpg-error/
 License: LGPL-2.1-or-later AND (BSD-3-Clause OR LGPL-2.1-or-later) AND FSFULLR AND GPL-2.0-or-later
 
-Source0:        https://www.gnupg.org/ftp/gcrypt/libgpg-error/%{name}-%{version}.tar.bz2
-Source1:        https://www.gnupg.org/ftp/gcrypt/libgpg-error/%{name}-%{version}.tar.bz2.sig
-Source2: https://gnupg.org/signature_key.asc
-Patch1: libgpg-error-1.29-multilib.patch
+Source0:        https://www.gnupg.org/ftp/gcrypt/libgpg-error/libgpg-error-%{version}.tar.bz2
+Source1:        libgpg-error-1.61.tar.bz2.sig
+Source2:        signature_key.asc
+Patch1:        libgpg-error-1.29-multilib.patch
 
 BuildRequires: gcc
 BuildRequires: gnupg2
@@ -18,6 +24,7 @@ BuildRequires: gawk, gettext, autoconf, automake, gettext-devel, libtool
 BuildRequires: texinfo
 BuildRequires: gettext-autopoint
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 This is a library that defines common error values for all GnuPG
@@ -36,10 +43,10 @@ pinentry, SmartCard Daemon and possibly more in the future. This package
 contains files necessary to develop applications using libgpg-error.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
-%setup -q
-%patch 1 -p1 -b .multilib
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
+%autosetup -p1
 
 autoreconf -f
 
@@ -91,6 +98,3 @@ make check
 %{_mandir}/man1/gpg-error-config.*
 %{_mandir}/man1/gpgrt-config.*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.59-1
-- Prepare for Oreon 11 (RP1)

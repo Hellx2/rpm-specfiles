@@ -1,26 +1,33 @@
-%global source0_hash fa026f9bb0124f4d6c808f9aef4057aad65e7b35d8ff43951cef0abe06bb9a9a
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 69606f485c2c07c14ef64f75b7bb326d48587af33795d9ab3e607c0b5f94f11c
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global tarball libX11
 #global gitdate 20130524
 #global gitversion a3bdd2b09
 
 Summary: Core X11 protocol client library
 Name: libX11
-Version: 1.8.13
-Release: 1%{?gitdate:.%{gitdate}git%{gitversion}}%{?dist}
+Version:        1.8.13
+Release:        1%{?dist}
 License: MIT AND X11
 URL: http://www.x.org
 
 %if 0%{?gitdate}
-Source0:        https://www.x.org/archive/individual/lib/%{name}-%{version}.tar.xz
+Source0:        https://xorg.freedesktop.org/archive/individual/lib/libX11-%{version}.tar.xz
 Source1:    make-git-snapshot.sh
 Source2:    commitid
 %else
-Source0:        https://www.x.org/archive/individual/lib/%{name}-%{version}.tar.xz
+Source0:        https://xorg.freedesktop.org/archive/individual/lib/libX11-%{version}.tar.xz
 %endif
 
 
-Patch2: dont-forward-keycode-0.patch
+Patch2:        dont-forward-keycode-0.patch
+Patch0001:        0001-xkb-Check-the-keysym-range-in-_XkbReadKeyActions-CVE.patch
 
 BuildRequires: libtool
 BuildRequires: make
@@ -30,6 +37,7 @@ BuildRequires: xorg-x11-xtrans-devel >= 1.0.3-4
 BuildRequires: libxcb-devel >= 1.2
 BuildRequires: pkgconfig(xau) pkgconfig(xdmcp)
 BuildRequires: perl(Pod::Usage)
+BuildRequires:  oreon-rpm-macros
 
 Requires: %{name}-common >= %{version}-%{release}
 
@@ -59,7 +67,8 @@ Conflicts: %{name} < %{version}-%{release}
 libX11/libxcb interoperability library
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n %{tarball}-%{?gitdate:%{gitdate}}%{!?gitdate:%{version}}
 
 %build
@@ -125,6 +134,3 @@ make %{?_smp_mflags} check
 %{_mandir}/man3/*.3*
 %{_mandir}/man5/*.5*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.8.12-3
-- Prepare for Oreon 11 (RP1)

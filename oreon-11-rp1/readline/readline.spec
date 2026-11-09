@@ -1,9 +1,15 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: A library for editing typed command lines
 Name: readline
-Version: 8.3
-Release: 4%{?dist}
+Version:        8.3
+Release:        1%{?dist}
 
 # * Main sources are GPL-3.0-or-later
 # * examples/rlfe are GPL-2.0-or-later
@@ -11,21 +17,22 @@ Release: 4%{?dist}
 License: GPL-3.0-or-later AND GPL-2.0-or-later AND GFDL-1.3-no-invariants-or-later
 
 URL: https://tiswww.case.edu/php/chet/readline/rltop.html
-Source:        https://mirrors.kernel.org/gnu/readline/readline-%{version}.tar.gz
+Source0:        https://mirror.cs.odu.edu/gnu/readline/readline-%{version}.tar.gz
 
 # Official upstream patches
 # Patches are converted to apply with '-p1'
-Patch1: readline-8.3-patch-1.patch
-Patch2: readline-8.3-patch-2.patch
-Patch3: readline-8.3-patch-3.patch
+Patch1:        readline-8.3-patch-1.patch
+Patch2:        readline-8.3-patch-2.patch
+Patch3:        readline-8.3-patch-3.patch
 
 # Other patches
 # Remove RPATH, use CFLAGS
-Patch101: readline-8.0-shlib.patch
+Patch101:        readline-8.0-shlib.patch
 
 BuildRequires: make
 BuildRequires: gcc
 BuildRequires: ncurses-devel
+BuildRequires:  oreon-rpm-macros
 
 %description
 The Readline library provides a set of functions that allow users to
@@ -54,7 +61,8 @@ The readline-static package contains the static version of the readline
 library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -92,6 +100,3 @@ rm -vf %{buildroot}%{_infodir}/dir*
 %{_libdir}/libreadline.a
 %{_libdir}/libhistory.a
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 8.3-4
-- Prepare for Oreon 11 (RP1)

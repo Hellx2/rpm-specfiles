@@ -1,29 +1,26 @@
-%global source0_hash 3f49c53a8dfd231cd40232dae9518e1c74e60707c80d86f6feacd6123c758f76
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 2219a37cb3cd9ab5ae271c7a03c5dc0d2458ffb922f67def5b89a3a065662697
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Do not terminate build if language files are empty.
 %define _empty_manifest_terminate_build 0
 
 Name:           authselect
 Version:        1.8.0
-Release:        %autorelease
+Release:        1%{?dist}
 Summary:        Configures authentication and identity sources from supported profiles
 URL:            https://github.com/authselect/authselect
 
 License:        GPL-3.0-or-later
-Source0:        https://github.com/authselect/authselect/archive/refs/tags/1.8.0.tar.gz#/authselect-1.7.1.tar.gz
+Source0:        https://github.com/authselect/authselect/archive/%{version}/authselect-%{version}.tar.gz
+Source1:        authselect.conf.oreon
+Source2:        authselect.conf.rhel
 
 %global makedir %{_builddir}/%{name}-%{version}
-
-# Disable NIS profile on RHEL
-%if 0%{?rhel}
-%global with_nis_profile 0
-%else
-%global with_nis_profile 1
-%endif
-
-# Set the default profile
-%{?fedora:%global default_profile local with-silent-lastlog}
-%{?rhel:%global default_profile local}
 
 BuildRequires:  autoconf
 BuildRequires:  automake
@@ -33,6 +30,7 @@ BuildRequires:  m4
 BuildRequires:  gcc
 BuildRequires:  pkgconfig
 BuildRequires:  pkgconfig(popt)
+BuildRequires:  pkgconfig(bash-completion)
 BuildRequires:  gettext-devel
 BuildRequires:  po4a
 BuildRequires:  %{_bindir}/a2x
@@ -40,20 +38,13 @@ BuildRequires:  libcmocka-devel >= 1.0.0
 BuildRequires:  libselinux-devel
 BuildRequires:  systemd-devel
 BuildRequires:  systemd-rpm-macros
+BuildRequires:  oreon-rpm-macros
 Requires: authselect-libs%{?_isa} = %{version}-%{release}
 
-# RHEL does not have meta flag yet
-%if 0%{?rhel} <= 10
 Suggests: sssd
 Suggests: samba-winbind
 Suggests: fprintd-pam
 Suggests: oddjob-mkhomedir
-%else
-Suggests(meta): sssd
-Suggests(meta): samba-winbind
-Suggests(meta): fprintd-pam
-Suggests(meta): oddjob-mkhomedir
-%endif
 
 # Properly obsolete removed authselect-compat package.
 Obsoletes: authselect-compat < 1.3
@@ -87,7 +78,8 @@ System header files and development libraries for authselect. Useful if
 you develop a front-end for the authselect library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 
 for p in %patches ; do
@@ -97,9 +89,6 @@ done
 %build
 autoreconf -if
 %configure \
-%if %{with_nis_profile}
-    --with-nis-profile \
-%endif
     %{nil}
 %make_build
 
@@ -108,6 +97,9 @@ autoreconf -if
 
 %install
 %make_install
+
+# Install distribution-specific configuration
+%__install -m 644 -D %{SOURCE1} $RPM_BUILD_ROOT%{_datadir}/authselect/authselect.conf
 
 # Find translations
 %find_lang %{name}
@@ -121,8 +113,6 @@ autoreconf -if
 # Remove .la and .a files created by libtool
 find $RPM_BUILD_ROOT -name "*.la" -exec %__rm -f {} \;
 find $RPM_BUILD_ROOT -name "*.a" -exec %__rm -f {} \;
-
-%ldconfig_scriptlets libs
 
 %files libs -f %{name}.lang -f %{name}-profiles.5.lang
 %dir %{_sysconfdir}/authselect
@@ -150,6 +140,7 @@ find $RPM_BUILD_ROOT -name "*.a" -exec %__rm -f {} \;
 %dir %{_datadir}/authselect/default/local/
 %dir %{_datadir}/authselect/default/sssd/
 %dir %{_datadir}/authselect/default/winbind/
+%config(noreplace) %{_datadir}/authselect/authselect.conf
 %verify(not md5 size mtime) %{_datadir}/authselect/checksum
 %{_datadir}/authselect/default/local/dconf-db
 %{_datadir}/authselect/default/local/dconf-locks
@@ -184,26 +175,13 @@ find $RPM_BUILD_ROOT -name "*.a" -exec %__rm -f {} \;
 %{_datadir}/authselect/default/winbind/smartcard-auth
 %{_datadir}/authselect/default/winbind/switchable-auth
 %{_datadir}/authselect/default/winbind/system-auth
-%if %{with_nis_profile}
-%dir %{_datadir}/authselect/default/nis/
-%{_datadir}/authselect/default/nis/dconf-db
-%{_datadir}/authselect/default/nis/dconf-locks
-%{_datadir}/authselect/default/nis/fingerprint-auth
-%{_datadir}/authselect/default/nis/nsswitch.conf
-%{_datadir}/authselect/default/nis/password-auth
-%{_datadir}/authselect/default/nis/postlogin
-%{_datadir}/authselect/default/nis/README
-%{_datadir}/authselect/default/nis/REQUIREMENTS
-%{_datadir}/authselect/default/nis/smartcard-auth
-%{_datadir}/authselect/default/nis/switchable-auth
-%{_datadir}/authselect/default/nis/system-auth
-%endif
 %{_libdir}/libauthselect.so.*
 %{_mandir}/man5/authselect-profiles.5*
 %dir %{_datadir}/doc/authselect
 %{_datadir}/doc/authselect/COPYING
 %{_datadir}/doc/authselect/README.md
 %{_unitdir}/authselect-apply-changes.service
+%{_unitdir}/authselect-first-boot.service
 %license COPYING
 %doc README.md
 
@@ -216,16 +194,18 @@ find $RPM_BUILD_ROOT -name "*.a" -exec %__rm -f {} \;
 %{_bindir}/authselect
 %{_mandir}/man8/authselect.8*
 %{_mandir}/man7/authselect-migration.7*
-%{_sysconfdir}/bash_completion.d/authselect-completion.sh
+%{_datadir}/bash-completion/completions/authselect.bash
 
 %post libs
-%systemd_post authselect-apply-changes.service
+/sbin/ldconfig
+%systemd_post authselect-apply-changes.service authselect-first-boot.service
 
 %preun libs
-%systemd_preun authselect-apply-changes.service
+%systemd_preun authselect-apply-changes.service authselect-first-boot.service
 
 %postun libs
-%systemd_postun authselect-apply-changes.service
+/sbin/ldconfig
+%systemd_postun authselect-apply-changes.service authselect-first-boot.service
 
 %posttrans libs
 # Keep nss-altfiles for all rpm-ostree based systems.
@@ -239,7 +219,7 @@ fi
 
 # If this is a new installation select the default configuration.
 if [ $1 == 1 ] ; then
-    %{_bindir}/authselect select %{default_profile} --force --nobackup &> /dev/null
+    %{_bindir}/authselect select @system-default --force --nobackup &> /dev/null
     exit 0
 fi
 

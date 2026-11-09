@@ -1,22 +1,30 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
 
-%bcond compat_libs %[!(0%{?rhel} >= 10) || %{defined eln}]
-%bcond gpm %[!(0%{?rhel} >= 10)]
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%bcond compat_libs 1
+%bcond gpm 1
 
 Summary: Ncurses support utilities
 Name: ncurses
-Version: 6.6
-Release: 1%{?dist}
+Version:        6.6
+Release:        1%{?dist}
 License: MIT-open-group
 URL: https://invisible-island.net/ncurses/ncurses.html
 Source0:        https://invisible-mirror.net/archives/ncurses/ncurses-%{version}.tar.gz
-Source1:        https://invisible-mirror.net/archives/ncurses/ncurses-%{version}.tar.gz.asc
-Source2: https://invisible-island.net/public/dickey@invisible-island.net-rsa3072.asc
+Source1:        ncurses-6.6.tar.gz.asc
+Source2:        dickey@invisible-island.net-rsa3072.asc
 
-Patch8: ncurses-config.patch
-Patch9: ncurses-libs.patch
-Patch11: ncurses-urxvt.patch
+Patch8:        ncurses-config.patch
+Patch9:        ncurses-libs.patch
+Patch11:        ncurses-urxvt.patch
 BuildRequires: gcc gcc-c++ gnupg2 make pkgconfig
+BuildRequires:  gnupg2
+BuildRequires:  oreon-rpm-macros
 %{?with_gpm:BuildRequires: gpm-devel}
 
 Requires: %{name}-libs%{?_isa} = %{version}-%{release}
@@ -108,8 +116,9 @@ Requires: %{name}-devel%{?_isa} = %{version}-%{release}
 The ncurses-static package includes static libraries of the ncurses library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring=%{SOURCE2} --signature=%{SOURCE1} --data=%{SOURCE0}
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 
 %setup -q -n %{name}-%{version}
 
@@ -247,8 +256,9 @@ xz NEWS
 %{_mandir}/man7/*
 
 %files libs
-%exclude %{_libdir}/libncurses++*.so.6*
-%{_libdir}/lib*.so.6*
+%{_libdir}/lib[fmpt]*.so.6*
+%{_libdir}/libncursesw.so.6*
+%{_libdir}/libncurses.so.6*
 
 %if %{with compat_libs}
 %files compat-libs
@@ -286,6 +296,3 @@ xz NEWS
 %files static
 %{_libdir}/lib*.a
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 6.6-1
-- Prepare for Oreon 11 (RP1)

@@ -1,7 +1,7 @@
-From db4ca336e4bddfc4c5ce651fbdf1f40348d93b8f Mon Sep 17 00:00:00 2001
+From 1a50fefcfb6d01eff7a5f0074d964dda24887233 Mon Sep 17 00:00:00 2001
 From: Dmitry Belyavskiy <beldmit@gmail.com>
 Date: Thu, 15 May 2025 13:43:28 +0200
-Subject: [PATCH 10/54] openssh-4.3p2-askpass-grab-info
+Subject: [PATCH 10/53] openssh-4.3p2-askpass-grab-info
 
 #https://bugzilla.redhat.com/show_bug.cgi?id=198332
 ---
@@ -28,5 +28,5 @@ index cb7152dc8..bbe93d838 100644
  
  	gtk_dialog_run(GTK_DIALOG(err));
 -- 
-2.53.0
+2.56.0
 

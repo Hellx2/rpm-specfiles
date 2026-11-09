@@ -1,23 +1,30 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 0103081ffc27838a2e50479153ca105e873d3d65d8a9593282e9c94c7e6afb76
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:    libassuan
 Summary: GnuPG IPC library
-Version: 3.0.2
-Release: 1%{?dist}
+Version:        2.5.7
+Release:        1%{?dist}
 
 # The library is LGPLv2+, the documentation GPLv3+
 License: GPL-3.0-or-later AND LGPL-2.1-or-later AND LGPL-3.0-or-later
 Source0:        https://gnupg.org/ftp/gcrypt/libassuan/libassuan-%{version}.tar.bz2
-Source1:        https://gnupg.org/ftp/gcrypt/libassuan/libassuan-%{version}.tar.bz2.sig
+Source1:        libassuan-2.5.7.tar.bz2.sig
 URL:     https://www.gnupg.org/
 
-Patch1:  libassuan-2.5.2-multilib.patch
-Patch2:  libassuan-2.5.5-coverity.patch
+Patch1:        libassuan-2.5.2-multilib.patch
+Patch2:        libassuan-2.5.5-coverity.patch
 
 BuildRequires: gcc
 BuildRequires: gawk
 BuildRequires: libgpg-error-devel >= 1.8
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 This is the IPC library used by GnuPG 2, GPGME and a few other
@@ -37,7 +44,8 @@ This package contains files needed to develop applications using %{name}.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 
 %patch 1 -p1 -b .multilib
@@ -79,6 +87,3 @@ make check
 %{_infodir}/assuan.info*
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.5.7-5
-- Prepare for Oreon 11 (RP1)

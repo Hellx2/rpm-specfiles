@@ -1,5 +1,13 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 26c56c296b38c0695b26fa95f475f1d01704d2d38e73465ca30b0b2f5dc789d3
+%global source1_hash bee7d2f96844063557b07b43811d81e1fc54563e0da2c36a975dfd432b196a5c
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 # Pass --without docs to rpmbuild if you don't want the documentation
 %bcond_without docs
 
@@ -8,70 +16,36 @@
 
 %global gitexecdir          %{_libexecdir}/git-core
 
-# Settings for Fedora
-%if 0%{?fedora}
 # linkchecker is not available on EL
 %bcond_without              linkcheck
-%else
-%bcond_with                 linkcheck
-%endif
 
-# Settings for Fedora >= 38 and EL >= 10
-%if 0%{?fedora} >= 38 || 0%{?rhel} >= 10
 %bcond_with                 perl_modcompat
-%else
-%bcond_without              perl_modcompat
-%endif
 
-# Settings for Fedora and EL == 9
 # In EL >= 10 docbook5-style-xsl, needed by asciidoctor, is unwanted package
-%if 0%{?fedora} || 0%{?rhel} == 9
 %bcond_without              asciidoctor
-%else
-%bcond_with                 asciidoctor
-%endif
 
-# Settings for Fedora and EL >= 8
-%if 0%{?fedora} || 0%{?rhel} >= 8
 %bcond_with                 python2
 %bcond_without              python3
 %global gitweb_httpd_conf   gitweb.conf
 %global use_glibc_langpacks 1
 %global use_perl_generators 1
 %global use_perl_interpreter 1
-%else
-%bcond_without              python2
-%bcond_with                 python3
-%global build_cflags        %{build_cflags} -fPIC -std=gnu99
-%global gitweb_httpd_conf   git.conf
-%global use_glibc_langpacks 0
-%global use_perl_generators 0
-%global use_perl_interpreter 0
-%endif
+
+# Build with Rust support
+%bcond_without              rust
 
 # Allow cvs subpackage to be toggled via --with/--without
 # Disable cvs subpackage by default on EL >= 8
-%if 0%{?rhel} >= 8
-%bcond_with                 cvs
-%else
 %bcond_without              cvs
-%endif
 
 # Allow credential-libsecret subpackage to be toggled via --with/--without
 %bcond_without              libsecret
 
 # Allow p4 subpackage to be toggled via --with/--without
 # Disable p4 package by default on EL >= 10
-%if 0%{?rhel} >= 10
-%bcond_with                 p4
-%else
 %bcond_without              p4
-%endif
 
 # Hardening flags for EL-7
-%if 0%{?rhel} == 7
-%global _hardened_build     1
-%endif
 
 # Define %%bash_completions_dir for EL <= 9
 %{?!bash_completions_dir:%global bash_completions_dir %{_datadir}/bash-completion/completions}
@@ -80,7 +54,7 @@
 %global _package_note_file  %{_builddir}/%{name}-%{real_version}/.package_note-%{name}-%{version}-%{release}.%{_arch}.ld
 
 Name:           git
-Version:        2.53.0
+Version:        2.56.0
 Release:        1%{?dist}
 Summary:        Fast Version Control System
 License:        BSD-3-Clause AND GPL-2.0-only AND GPL-2.0-or-later AND LGPL-2.1-or-later AND MIT
@@ -92,8 +66,8 @@ URL:            https://git-scm.com/
 # Adjust Source URL path for release candidates
 %global rcpath  %(test "%{version}" = "%{real_version}" || echo testing/)
 
-Source0:        https://www.kernel.org/pub/software/scm/git/%{rcpath}%{name}-%{real_version}.tar.xz
-Source1:        https://www.kernel.org/pub/software/scm/git/%{rcpath}%{name}-%{real_version}.tar.sign
+Source0:        https://www.kernel.org/pub/software/scm/git/git-%{version}.tar.xz
+Source1:        https://www.kernel.org/pub/software/scm/git/git-%{version}.tar.sign
 
 # Junio C Hamano's key is used to sign git releases, it can be found in the
 # junio-gpg-pub tag within git.
@@ -117,29 +91,20 @@ Source16:       git.socket
 # Script to print test failure output (used in %%check)
 Source99:       print-failed-test-output
 
-# https://bugzilla.redhat.com/490602
-Patch0:         git-cvsimport-Ignore-cvsps-2.2b1-Branches-output.patch
+Patch0:        git-cvsimport-Ignore-cvsps-2.2b1-Branches-output.patch
 
-# https://bugzilla.redhat.com/2114531
 # tests: try harder to find open ports for apache, git, and svn
 #
 # https://github.com/tmzullinger/git/commit/aedeaaf788
-Patch1:         0001-t-lib-httpd-try-harder-to-find-a-port-for-apache.patch
+Patch1:        0001-t-lib-httpd-try-harder-to-find-a-port-for-apache.patch
 # https://github.com/tmzullinger/git/commit/16750d024c
-Patch2:         0002-t-lib-git-daemon-try-harder-to-find-a-port.patch
+Patch2:        0002-t-lib-git-daemon-try-harder-to-find-a-port.patch
 # https://github.com/tmzullinger/git/commit/aa5105dc11
-Patch3:         0003-t-lib-git-svn-try-harder-to-find-a-port.patch
+Patch3:        0003-t-lib-git-svn-try-harder-to-find-a-port.patch
 
 # Configurates Apache test server to use `DavLockDBType sdbm`
 # Prevents t5540 failures on i686, s390x and ppc64le
-Patch5:         git-test-apache-davlockdbtype-config.patch
-
-# Adds the option to sanitize sideband channel messages
-# CVE-2024-52005 wasn't fixed by upstream. This patch adds the option to harden Git against it.
-# The default behaviour of Git remains unchanged.
-#
-# https://github.com/gitgitgadget/git/pull/1853
-Patch6:         git-2.52-sanitize-sideband-channel-messages.patch
+Patch4:        git-test-apache-davlockdbtype-config.patch
 
 %if %{with docs}
 # pod2man is needed to build Git.3pm
@@ -161,12 +126,6 @@ BuildRequires:  linkchecker
 BuildRequires:  coreutils
 BuildRequires:  desktop-file-utils
 BuildRequires:  diffutils
-%if 0%{?rhel} && 0%{?rhel} < 9
-# Require epel-rpm-macros for the %%gpgverify macro on EL-7/EL-8, and
-# %%build_cflags & %%build_ldflags on EL-7.
-BuildRequires:  epel-rpm-macros
-%endif
-# endif rhel < 9
 BuildRequires:  expat-devel
 BuildRequires:  findutils
 BuildRequires:  gawk
@@ -178,6 +137,10 @@ BuildRequires:  libcurl-devel
 BuildRequires:  make
 BuildRequires:  openssl-devel
 BuildRequires:  pcre2-devel
+%if %{with rust}
+BuildRequires:  cargo
+BuildRequires:  rust
+%endif
 BuildRequires:  perl(Error)
 BuildRequires:  perl(lib)
 %if %{use_perl_generators}
@@ -192,11 +155,7 @@ BuildRequires:  perl
 # endif use_perl_interpreter
 BuildRequires:  pkgconfig(bash-completion)
 BuildRequires:  sed
-%if 0%{?fedora} || 0%{?rhel} >= 8
 BuildRequires:  systemd-rpm-macros
-%else
-BuildRequires:  systemd
-%endif
 BuildRequires:  tcl
 BuildRequires:  tk
 BuildRequires:  xz
@@ -205,15 +164,8 @@ BuildRequires:  zlib-devel >= 1.2
 %if %{with tests}
 # Test suite requirements
 BuildRequires:  acl
-%if (0%{?fedora} && 0%{?fedora} < 40) || (0%{?rhel} >= 8 && 0%{?rhel} < 10)
-# Needed by t5540-http-push-webdav.sh; recent httpd obviates this
-BuildRequires: apr-util-bdb
-%endif
-%if 0%{?fedora} || 0%{?rhel} >= 8
 # Needed by t5559-http-fetch-smart-http2.sh
 BuildRequires: mod_http2
-%endif
-# endif fedora or rhel >= 8
 BuildRequires:  bash
 %if %{with cvs}
 BuildRequires:  cvs
@@ -228,24 +180,9 @@ BuildRequires:  glibc-langpack-en
 BuildRequires:  glibc-langpack-is
 %endif
 # endif use_glibc_langpacks
-%if 0%{?fedora} || 0%{?rhel} >= 9
 BuildRequires:  gnupg2-smime
-%endif
-# endif fedora or el >= 9
-%if 0%{?fedora} || 0%{?rhel} >= 8 || ( 0%{?rhel} == 7 && ( "%{_arch}" == "ppc64le" || "%{_arch}" == "x86_64" ) )
 BuildRequires:  highlight
-%endif
-# endif fedora or el7+ (ppc64le/x86_64)
-%if 0%{?fedora} >= 37
 BuildRequires:  httpd-core
-%else
-BuildRequires:  httpd
-%endif
-# endif fedora >= 37
-%if 0%{?fedora} && ! ( 0%{?fedora} >= 35 || "%{_arch}" == "i386" || "%{_arch}" == "s390x" )
-BuildRequires:  jgit
-%endif
-# endif fedora (except i386 and s390x)
 BuildRequires:  mod_dav_svn
 BuildRequires:  openssh-clients
 BuildRequires:  perl(App::Prove)
@@ -254,6 +191,7 @@ BuildRequires:  perl(CGI::Carp)
 BuildRequires:  perl(CGI::Util)
 BuildRequires:  perl(DBD::SQLite)
 BuildRequires:  perl(Digest::MD5)
+BuildRequires:  perl(Digest::SHA)
 BuildRequires:  perl(Fcntl)
 BuildRequires:  perl(File::Basename)
 BuildRequires:  perl(File::Copy)
@@ -377,7 +315,7 @@ Documentation files for git-core package including man pages.
 %package credential-libsecret
 Summary:        Git helper for accessing credentials via libsecret
 BuildRequires:  libsecret-devel
-Requires:       git = %{version}-%{release}
+Requires:       git-core = %{version}-%{release}
 %description credential-libsecret
 %{summary}.
 %endif
@@ -409,10 +347,7 @@ BuildArch:      noarch
 Requires:       git = %{version}-%{release}
 Requires:       perl(Authen::SASL)
 Requires:       perl(Cwd)
-%if ! 0%{?rhel}
-# RHEL lacks perl-Email-Valid (rhbz#2166718)
 Requires:       perl(Email::Valid)
-%endif
 Requires:       perl(File::Spec)
 Requires:       perl(File::Spec::Functions)
 Requires:       perl(File::Temp)
@@ -459,11 +394,7 @@ Summary:        Repository browser in gitweb
 BuildArch:      noarch
 Requires:       git = %{version}-%{release}
 Requires:       gitweb = %{version}-%{release}
-%if 0%{?rhel} >= 9
-Requires:       httpd
-%else
 Requires:       lighttpd
-%endif
 
 %description instaweb
 A simple script to set up gitweb and a web server for browsing the local
@@ -478,6 +409,7 @@ BuildRequires:  python3-devel
 %else
 %if %{with python2}
 BuildRequires:  python2-devel
+BuildRequires:  oreon-rpm-macros
 %endif
 # endif with python2
 %endif
@@ -531,9 +463,13 @@ Requires:       subversion
 %{summary}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
 # Verify GPG signatures
-xz -dc '%{SOURCE0}' | %{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data=-
+xz -dc '%{SOURCE0}' > %{_builddir}/git-verify.tar
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{_builddir}/git-verify.tar
+rm -f %{_builddir}/git-verify.tar
 
 %autosetup -p1 -n %{name}-%{real_version}
 
@@ -570,9 +506,6 @@ INSTALL_SYMLINKS = 1
 GITWEB_PROJECTROOT = %{_localstatedir}/lib/git
 GNU_ROFF = 1
 NO_PERL_CPAN_FALLBACKS = 1
-%if 0%{?rhel} && 0%{?rhel} < 8
-NO_UNCOMPRESS2 = 1
-%endif
 %if %{with python3}
 PYTHON_PATH = %{__python3}
 %else
@@ -584,6 +517,9 @@ NO_PYTHON = 1
 %endif
 %if %{with asciidoctor}
 USE_ASCIIDOCTOR = 1
+%endif
+%if %{without rust}
+NO_RUST = 1
 %endif
 htmldir = %{?_pkgdocdir}%{!?_pkgdocdir:%{_docdir}/%{name}-%{version}}
 prefix = %{_prefix}
@@ -824,11 +760,6 @@ find %{buildroot}%{_pkgdocdir} -name "*.html" -print0 | xargs -r0 linkchecker
 # https://lore.kernel.org/git/Y4fUntdlc1mqwad5@pobox.com/
 GIT_SKIP_TESTS="t5559"
 
-%if 0%{?rhel} && 0%{?rhel} < 8
-# Skip tests which require mod_http2 on el7
-GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5559"
-%endif
-# endif rhel < 8
 
 %ifarch aarch64 %{arm} %{power64}
 # Skip tests which fail on aarch64, arm, and ppc
@@ -841,35 +772,6 @@ GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5541.37 t5551.25"
 %endif
 # endif aarch64 %%{arm} %%{power64}
 
-%if 0%{?rhel} == 8 && "%{_arch}" == "s390x"
-# Skip tests which fail on s390x on rhel-8
-#
-# The following tests fail on s390x & el8.  The cause should be investigated.
-# However, it's a lower priority since the same tests work consistently on
-# s390x with Fedora and RHEL-9.  The failures seem to originate in t5300.
-#
-# t5300.10 'unpack without delta'
-# t5300.12 'unpack with REF_DELTA'
-# t5300.13 'unpack with REF_DELTA'
-# t5300.14 'unpack with OFS_DELTA'
-# t5300.18 'compare delta flavors'
-# t5300.20 'use packed deltified (REF_DELTA) objects'
-# t5300.23 'verify pack'
-# t5300.24 'verify pack -v'
-# t5300.25 'verify-pack catches mismatched .idx and .pack files'
-# t5300.29 'verify-pack catches a corrupted sum of the index file itself'
-# t5300.30 'build pack index for an existing pack'
-# t5300.45 'make sure index-pack detects the SHA1 collision'
-# t5300.46 'make sure index-pack detects the SHA1 collision (large blobs)'
-# t5303.5  'create corruption in data of first object'
-# t5303.7  '... and loose copy of second object allows for partial recovery'
-# t5303.11 'create corruption in data of first delta'
-# t6300.35 'basic atom: head objectsize:disk'
-# t6300.91 'basic atom: tag objectsize:disk'
-# t6300.92 'basic atom: tag *objectsize:disk'
-GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5300.1[02348] t5300.2[03459] t5300.30 t5300.4[56] t5303.[57] t5303.11 t6300.35 t6300.9[12]"
-%endif
-# endif rhel == 8 && arch == s390x
 
 %if "%{_arch}" == "s390x"
 # Skip tests which fail on s390x
@@ -881,7 +783,7 @@ GIT_SKIP_TESTS="$GIT_SKIP_TESTS t5300.1[02348] t5300.2[03459] t5300.30 t5300.4[5
 # t8020.19 'last-modified merge undoes changes'
 GIT_SKIP_TESTS="$GIT_SKIP_TESTS t8020.16 t8020.19"
 %endif
-# endif "%%{_arch}" == "s390x"
+# endif "%{_arch}" == "s390x"
 export GIT_SKIP_TESTS
 
 # Set LANG so various UTF-8 tests are run
@@ -942,11 +844,6 @@ rmdir --ignore-fail-on-non-empty "$testdir"
 %{_datadir}/git-core/
 
 %files core-doc -f man-doc-files-core
-%if 0%{?rhel} && 0%{?rhel} <= 7
-# .py files are only bytecompiled on EL <= 7
-%exclude %{_pkgdocdir}/contrib/*/*.py[co]
-%endif
-# endif rhel <= 7
 
 %if %{with libsecret}
 %files credential-libsecret
@@ -1042,6 +939,3 @@ rmdir --ignore-fail-on-non-empty "$testdir"
 %{?with_docs:%{_mandir}/man1/git-svn.1*}
 %{?with_docs:%{_pkgdocdir}/git-svn.html}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.53.0-1
-- Prepare for Oreon 11 (RP1)

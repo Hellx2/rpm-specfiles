@@ -1,6 +1,12 @@
-%global source0_hash 23bc9067e28fe0d37b3cc441f2865b9e022ce3c624babe22918b8dd90c031ee8
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global device_mapper_version 1.02.213
+%global source0_hash d87ec0dac9061f1fa58ebced5c6b1360c87d4c5cd7b455dc0ebe1d3f036920d7
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%global device_mapper_version 1.02.217
 
 %global enable_cache 1
 %global enable_lvmdbusd 1
@@ -13,11 +19,7 @@
 %global enable_writecache 1
 %global enable_integrity 1
 
-%if 0%{?oreon} >= 11
-%global system_release_version 11
-%else
 %global system_release_version 23
-%endif
 %global systemd_version 256~rc1
 %global dracut_version 002-18
 %global util_linux_version 2.24
@@ -28,21 +30,8 @@
 %global sanlock_version 5.0.0-1
 
 %global enable_lockd_sanlock %{enable_lvmlockd}
-%if 0%{?rhel} >= 10
-%global enable_lockd_dlm 0
-%else
 %global enable_lockd_dlm %{enable_lvmlockd}
-%endif
 
-%if 0%{?rhel} && 0%{?rhel} <= 8
-  %ifnarch i686 x86_64 ppc64le s390x
-    %global enable_lockd_dlm 0
-  %endif
-
-  %ifnarch x86_64 ppc64 aarch64
-    %global enable_lockd_sanlock 0
-  %endif
-%endif
 
 # Do not reset Release to 1 unless both lvm2 and device-mapper
 # versions are increased together.
@@ -52,14 +41,12 @@
 
 Summary: Userland logical volume management tools
 Name: lvm2
-%if 0%{?rhel}
-Epoch: %{rhel}
-%endif
-Version: 2.03.42
-Release: %autorelease
+Version:        2.03.43
+Release:        1%{?dist}
 License: GPL-2.0-only
 URL: https://sourceware.org/lvm2
 Source0:        https://sourceware.org/pub/lvm2/releases/LVM2.%{version}.tgz
+Patch1:        0001-pvscan-preserve-preferred-device-name-when-importing.patch
 
 BuildRequires: make
 BuildRequires: gcc
@@ -91,11 +78,10 @@ BuildRequires: device-mapper-persistent-data >= %{persistent_data_version}
 %endif
 %if %{enable_lockd_sanlock}
 BuildRequires: sanlock-devel >= %{sanlock_version}
+BuildRequires:  oreon-rpm-macros
 %endif
 Requires: %{name}-libs = %{?epoch}:%{version}-%{release}
-%if 0%{?fedora} || 0%{?oreon}
 Requires(post): (system-release >= %{system_release_version} if system-release)
-%endif
 Requires: bash >= %{bash_version}
 Requires(post): systemd-units >= %{systemd_version}
 Requires(preun): systemd-units >= %{systemd_version}
@@ -104,6 +90,7 @@ Requires: module-init-tools
 %if %{enable_thin} || %{enable_cache}
 Requires: device-mapper-persistent-data >= %{persistent_data_version}
 %endif
+Requires: jq
 
 %if "%{_sbindir}" == "%{_bindir}"
 # Compat symlinks for Requires in other packages.
@@ -121,7 +108,8 @@ or more physical volumes and creating one or more logical volumes
 (kind of logical partitions) in volume groups.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n LVM2.%{version}
 
 %build
@@ -194,7 +182,7 @@ V=1 make install_system_dirs DESTDIR=$RPM_BUILD_ROOT
 V=1 make install_systemd_units DESTDIR=$RPM_BUILD_ROOT
 V=1 make install_systemd_generators DESTDIR=$RPM_BUILD_ROOT
 V=1 make install_tmpfiles_configuration DESTDIR=$RPM_BUILD_ROOT
-#install -d ${RPM_BUILD_ROOT}%%{_sysconfdir}/lvm/devices
+#install -d ${RPM_BUILD_ROOT}%{_sysconfdir}/lvm/devices
 %if %{enable_testsuite}
 %make_install -C test
 %endif
@@ -559,8 +547,10 @@ for the kernel device-mapper.
 %{_sbindir}/dmsetup
 %{_sbindir}/blkdeactivate
 %{_sbindir}/dmstats
+%{_sbindir}/dmvdostats
 %{_mandir}/man8/dmsetup.8.gz
 %{_mandir}/man8/dmstats.8.gz
+%{_mandir}/man8/dmvdostats.8.gz
 %{_mandir}/man8/blkdeactivate.8.gz
 %if %{enable_dmfilemapd}
 %{_sbindir}/dmfilemapd
@@ -684,6 +674,3 @@ An extensive functional testsuite for LVM2.
 %{_bindir}/lvm2-testsuite
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.03.39-1
-- Prepare for Oreon 11 (RP1)

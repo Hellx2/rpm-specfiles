@@ -1,56 +1,39 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 0f6966a6cb62912cd3520ef2a09ddfcdb48aa3091009f9834526b04f6de9a70a
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %{?!dnf_lowest_compatible: %global dnf_lowest_compatible 4.19.0}
 %global dnf_plugins_extra 2.0.0
 %global hawkey_version 0.73.0
 %global yum_utils_subpackage_name dnf-utils
-%if 0%{?rhel} > 7
-%global yum_utils_subpackage_name yum-utils
-%endif
 
 %define __cmake_in_source_build 1
 
-%bcond dnf5_obsoletes_dnf %[0%{?fedora} > 40 || 0%{?rhel} > 10]
+%bcond dnf5_obsoletes_dnf 1
 
-%if (0%{?fedora} && 0%{?fedora} >= 41) || (0%{?rhel} && 0%{?rhel} >= 10)
 %bcond_with debug_plugin
-%else
-%bcond_without debug_plugin
-%endif
 
-%if 0%{?rhel} && 0%{?rhel} <= 7
-%bcond_with python3
-%else
 %bcond_without python3
-%endif
 
-%if 0%{?rhel} > 7 || 0%{?fedora} > 29
 %bcond_with python2
-%else
-%bcond_without python2
-%endif
 
-%if 0%{?rhel} > 7 || 0%{?fedora} > 30
 %bcond_without yumcompatibility
-%else
-%bcond_with yumcompatibility
-%endif
 
-%if 0%{?rhel} && 0%{?rhel} <= 7
-%bcond_with yumutils
-%else
 %bcond_without yumutils
-%endif
 
 Name:           dnf-plugins-core
 Version:        4.10.1
-Release:        9%{?dist}
+Release:        1%{?dist}
 Summary:        Core Plugins for DNF
 License:        GPL-2.0-or-later
 URL:            https://github.com/rpm-software-management/dnf-plugins-core
-Source0:        https://github.com/rpm-software-management/dnf-plugins-core/archive/refs/tags/4.10.1.tar.gz#/dnf-plugins-core-4.10.1.tar.gz
-Patch1:         0001-Fix-building-with-CMake-4.patch
-Patch2:         0002-spec-Use-cmake-macros-for-invoking-a-build-script.patch
+Source0:        https://github.com/rpm-software-management/dnf-plugins-core/archive/%{version}/dnf-plugins-core-%{version}.tar.gz
+Patch1:        0001-Fix-building-with-CMake-4.patch
+Patch2:        0002-spec-Use-cmake-macros-for-invoking-a-build-script.patch
 BuildArch:      noarch
 BuildRequires:  cmake >= 3.18.0
 BuildRequires:  gettext
@@ -118,24 +101,13 @@ provides generate_completion_cache passive plugin.
 Summary:        Core Plugins for DNF
 %{?python_provide:%python_provide python2-%{name}}
 BuildRequires:  python2-dnf >= %{dnf_lowest_compatible}
-%if 0%{?rhel} && 0%{?rhel} <= 7
-BuildRequires:  dbus-python
-%else
 BuildRequires:  python2-dbus
-%endif
 BuildRequires:  python2-devel
-%if 0%{?fedora}
 Requires:       python2-distro
-%endif
 Requires:       python2-dnf >= %{dnf_lowest_compatible}
 Requires:       python2-hawkey >= %{hawkey_version}
-%if 0%{?rhel} && 0%{?rhel} <= 7
-Requires:       dbus-python
-Requires:       python-dateutil
-%else
 Requires:       python2-dbus
 Requires:       python2-dateutil
-%endif
 %if %{with debug_plugin}
 Provides:       python2-dnf-plugins-extras-debug = %{version}-%{release}
 %endif
@@ -172,10 +144,9 @@ BuildRequires:  python3-dnf >= %{dnf_lowest_compatible}
 BuildRequires:  python3-systemd
 BuildRequires:  pkgconfig(systemd)
 BuildRequires:  systemd
+BuildRequires:  oreon-rpm-macros
 %{?systemd_ordering}
-%if 0%{?fedora}
 Requires:       python3-distro
-%endif
 Requires:       python3-dbus
 Requires:       python3-dnf >= %{dnf_lowest_compatible}
 Requires:       python3-hawkey >= %{hawkey_version}
@@ -213,9 +184,7 @@ Additionally provides generate_completion_cache passive plugin.
 %package -n %{yum_utils_subpackage_name}
 %if "%{yum_utils_subpackage_name}" == "dnf-utils"
 Conflicts:      yum-utils < 1.1.31-520
-%if 0%{?rhel} != 7
 Provides:       yum-utils = %{version}-%{release}
-%endif
 %else
 Provides:       dnf-utils = %{version}-%{release}
 Obsoletes:      dnf-utils < %{version}-%{release}
@@ -271,7 +240,7 @@ Leaves Plugin for DNF, Python 3 version. List all installed packages
 not required by any other installed package.
 %endif
 
-%if 0%{?rhel} == 0 && %{with python2}
+%if %{with python2}
 %package -n python2-dnf-plugin-local
 Summary:        Local Plugin for DNF
 Requires:       %{_bindir}/createrepo_c
@@ -290,7 +259,7 @@ Local Plugin for DNF, Python 2 version. Automatically copy all downloaded packag
 repository on the local filesystem and generating repo metadata.
 %endif
 
-%if %{with python3} && 0%{?rhel} == 0
+%if %{with python3}
 %package -n python3-dnf-plugin-local
 Summary:        Local Plugin for DNF
 Requires:       %{_bindir}/createrepo_c
@@ -478,7 +447,8 @@ repository.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 %if %{with python2}
 mkdir build-py2
@@ -492,7 +462,7 @@ mkdir build-py3
 pushd build-py2
   %cmake ../ -DPYTHON_DESIRED:FILEPATH=%{__python2} \
     -DWITHOUT_DEBUG:str=0%{!?with_debug_plugin:1} \
-    -DWITHOUT_LOCAL:str=0%{?rhel}
+    -DWITHOUT_LOCAL:str=0
   %cmake_build
   %cmake_build --target doc-man
 popd
@@ -501,7 +471,7 @@ popd
 pushd build-py3
   %cmake ../ -DPYTHON_DESIRED:FILEPATH=%{__python3} \
     -DWITHOUT_DEBUG:str=0%{!?with_debug_plugin:1} \
-    -DWITHOUT_LOCAL:str=0%{?rhel}
+    -DWITHOUT_LOCAL:str=0
   %cmake_build
   %cmake_build --target doc-man
 popd
@@ -539,11 +509,11 @@ done
 
 %find_lang %{name}
 %if %{with yumutils}
-  %if %{with python3}
+%if %{with python3}
   mv %{buildroot}%{_libexecdir}/dnf-utils-3 %{buildroot}%{_libexecdir}/dnf-utils
-  %else
+%else
   mv %{buildroot}%{_libexecdir}/dnf-utils-2 %{buildroot}%{_libexecdir}/dnf-utils
-  %endif
+%endif
 %endif
 rm -vf %{buildroot}%{_libexecdir}/dnf-utils-*
 
@@ -774,14 +744,14 @@ ln -sf %{yum_utils_subpackage_name}.1.gz %{buildroot}%{_mandir}/man1/repotrack.1
 %{_mandir}/man8/dnf*-leaves.*
 %endif
 
-%if 0%{?rhel} == 0 && %{with python2}
+%if %{with python2}
 %files -n python2-dnf-plugin-local
 %config(noreplace) %{_sysconfdir}/dnf/plugins/local.conf
 %{python2_sitelib}/dnf-plugins/local.*
 %{_mandir}/man8/dnf*-local.*
 %endif
 
-%if %{with python3} && 0%{?rhel} == 0
+%if %{with python3}
 %files -n python3-dnf-plugin-local
 %config(noreplace) %{_sysconfdir}/dnf/plugins/local.conf
 %{python3_sitelib}/dnf-plugins/local.*
@@ -882,6 +852,3 @@ ln -sf %{yum_utils_subpackage_name}.1.gz %{buildroot}%{_mandir}/man1/repotrack.1
 %{_mandir}/man8/dnf*-modulesync.*
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.10.1-9
-- Prepare for Oreon 11 (RP1)

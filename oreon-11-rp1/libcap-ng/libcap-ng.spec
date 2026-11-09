@@ -1,22 +1,29 @@
-%global source0_hash 52418b8940f83dcc00dcd01d187e67c3399ff65f3fa558442e3a21b415cc46c0
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 399040138e0ca62fa2bcabd63da9af4431a246ef7a654561a0ca3cb00010a539
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global bpf_supported_arches aarch64 x86_64 ppc64le riscv64 s390x
 Summary: Alternate posix capabilities library
 Name: libcap-ng
-Version: 0.9.6
-Release: 1%{?dist}
+Version:        0.9.6
+Release:        1%{?dist}
 License: LGPL-2.0-or-later
 URL: https://github.com/stevegrubb/libcap-ng
-Source0:        https://github.com/stevegrubb/libcap-ng/archive/refs/tags/v0.9.1.tar.gz#/libcap-ng-0.9.1.tar.gz
+Source0:        https://github.com/stevegrubb/libcap-ng/archive/refs/tags/v%{version}.tar.gz
 BuildRequires: gcc make
 BuildRequires: autoconf automake libtool
 BuildRequires: kernel-headers >= 2.6.11 
 BuildRequires: libattr-devel
 %ifarch %{bpf_supported_arches}
 # These next ones are needed by cap-audit
-BuildRequires: clang
+BuildRequires: clang, llvm
 BuildRequires: bpftool libbpf-devel
 BuildRequires: audit-libs-devel
+BuildRequires: kernel-devel
 %endif
 
 %description
@@ -37,6 +44,7 @@ applications that need to use the libcap-ng library.
 Summary: Python3 bindings for libcap-ng library
 License: LGPL-2.0-or-later
 BuildRequires: python3-devel swig python-unversioned-command
+BuildRequires:  oreon-rpm-macros
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description python3
@@ -59,15 +67,23 @@ lets you set the file system based capabilities, and use cap-audit
 to determine the necessary capabilities for a program.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
-touch NEWS
-autoreconf -fv --install
+touch -d @${SOURCE_DATE_EPOCH:-0} NEWS
 
 %build
+# Locate suitable vmlinux.h. In normal builds under mock,
+# there'll be just one. But in case multiple kernel-devel packages
+# are installed, sort alphabetically and pick the last version.
+vmlinux_h="$(ls -1 /usr/src/kernels/*/vmlinux.h | sort -g | tail -n 1)"
+
+autoreconf -fv --install
 %configure --libdir=%{_libdir} \
 %ifarch %{bpf_supported_arches}
-	 --enable-cap-audit=yes \
+	--enable-cap-audit=yes \
+	--with-vmlinux-h-path="${vmlinux_h}" \
+	--with-vmlinux-h=provided \
 %endif
 	--with-python3
 
@@ -114,11 +130,13 @@ make check
 %attr(0644,root,root) %{_mandir}/man8/filecap.8.gz
 %attr(0644,root,root) %{_mandir}/man8/netcap.8.gz
 %attr(0644,root,root) %{_mandir}/man8/pscap.8.gz
+%attr(0644,root,root) %{_datadir}/bash-completion/completions/libcap-ng.bash_completion
+%{_datadir}/bash-completion/completions/cap-audit
+%{_datadir}/bash-completion/completions/filecap
+%{_datadir}/bash-completion/completions/netcap
+%{_datadir}/bash-completion/completions/pscap
 %ifarch %{bpf_supported_arches}
 %attr(0755,root,root) %{_bindir}/cap-audit
 %attr(0644,root,root) %{_mandir}/man8/cap-audit.8.gz
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.9.1-1
-- Prepare for Oreon 11 (RP1)

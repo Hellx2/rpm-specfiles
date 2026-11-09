@@ -1,13 +1,17 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash f9c65aa9c852eb8255b636fd9f07ce1c406f061ec19a2e7d508b318ca0c907d1
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_without compat
 %bcond_without sanitizers
 
 # Be explicit about the soname in order to avoid unintentional changes.
-# Before modifying any of the sonames, this must be announced to the Fedora
 # community as it may break many other packages.
 # A change proposal is needed:
-# https://docs.fedoraproject.org/en-US/program_management/changes_policy/
 %global soname libz-ng.so.2
 %global compat_soname libz.so.1
 
@@ -20,20 +24,21 @@
 %global supported_abi_test aarch64 ppc64le x86_64
 
 Name:		zlib-ng
-Version:	2.3.3
-Release:	%autorelease
+Version:        2.3.3
+Release:        1%{?dist}
 Summary:	Zlib replacement with optimizations
 License:	Zlib
 Url:		https://github.com/zlib-ng/zlib-ng
-Source0:        https://github.com/zlib-ng/zlib-ng/archive/refs/tags/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+Source0:        https://github.com/zlib-ng/zlib-ng/archive/%{version}/zlib-ng-%{version}.tar.gz
 
-Patch:		far.diff
-Patch:		pr2152.patch
+Patch:        far.diff
+Patch:        pr2152.patch
 
 BuildRequires:	cmake >= 3.1
 BuildRequires:	gcc-c++
 BuildRequires:	cmake(GTest)
 BuildRequires:	libabigail
+BuildRequires:  oreon-rpm-macros
 
 %description
 zlib-ng is a zlib replacement that provides optimizations for "next generation"
@@ -89,7 +94,8 @@ developing applications that use zlib.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n %{name}-%{version}
 
 %build
@@ -112,14 +118,6 @@ _EOF_
 %global cmake_param %cmake_param -DWITH_DFLTCC_DEFLATE=ON -DWITH_DFLTCC_INFLATE=ON
 %endif
 
-%if 0%{?rhel} >= 10
-%ifarch x86_64
-# RHEL 10 has x86_64-v3 as baseline, turning the CRC32 Chorba optimization
-# unnecessary.
-# More info: https://github.com/zlib-ng/zlib-ng/releases/tag/2.3.1
-%global cmake_param %cmake_param -DWITH_CRC32_CHORBA=OFF
-%endif
-%endif
 
 # Setting __cmake_builddir is not necessary in this step, but do it anyway for symmetry.
 %global __cmake_builddir %{_vpath_builddir}
@@ -235,6 +233,3 @@ CHOST=%{target_cpu}-%{cpu_vendor}-linux-gnu sh test/abicheck.sh --zlib-compat
 %endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.3.3-1
-- Prepare for Oreon 11 (RP1)

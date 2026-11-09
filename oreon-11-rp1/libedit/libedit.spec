@@ -1,14 +1,20 @@
-%global source0_hash 21362b00653bbfc1c71f71a7578da66b5b5203559d43134d2dd7719e313ce041
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global snap 20251016
+%global source0_hash 432d5e7ea8b0116dd39f2eca7bc11d0eed77faa6b77ea526ace89907c23ea4a0
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%global snap 20260512
 
 # Build man pages with mdoc2man.awk to avoid circular dependencies
 %bcond bootstrap 0
 
 Summary:	The NetBSD Editline library
 Name:		libedit
-Version:	3.1
-Release:	58.%{snap}cvs%{?dist}
+Version:        3.1
+Release:        1%{?dist}
 
 # The project as a whole is BSD-3-Clause.
 # These files are BSD-2-Clause:
@@ -31,7 +37,7 @@ Release:	58.%{snap}cvs%{?dist}
 # - src/strlcpy.c
 License:	BSD-3-Clause AND BSD-2-Clause AND ISC
 URL:		https://www.thrysoee.dk/editline/
-Source:        https://www.thrysoee.dk/editline//libedit-20251016-3.1.tar.gz
+Source0:        https://www.thrysoee.dk/editline//libedit-20260512-%{version}.tar.gz
 
 BuildRequires:	gcc
 BuildRequires:	make
@@ -39,6 +45,7 @@ BuildRequires:	ncurses-devel
 
 %if %{without bootstrap}
 BuildRequires:	groff-base
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description
@@ -56,7 +63,8 @@ Requires:	ncurses-devel%{?_isa}
 This package contains development files for %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n %{name}-%{snap}-%{version}
 
 %conf
@@ -88,6 +96,3 @@ sed -i "s/lncurses/ltinfo/" configure
 %dir %{_includedir}/editline
 %{_includedir}/editline/readline.h
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.1-58.
-- Prepare for Oreon 11 (RP1)

@@ -1,24 +1,27 @@
-%global source0_hash none
-%global source1_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash fc51ca7196f1a3f5fdf6ffd3864b50f4f9c02333be28be4eeca057e103c0dd18
+%global source1_hash a4f9813fe769cd82a67e0be94296a9eafe14e0c3ca1dd198331e3ee6db25c1a1
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 Name: libnl3
-Version: 3.12.0
-Release: 3%{?dist}
+Version:        3.12.0
+Release:        1%{?dist}
 Summary: Convenience library for kernel netlink sockets
 License: LGPL-2.1-only
 URL: http://www.infradead.org/~tgr/libnl/
 
 %global version_path libnl%(echo %{version} | tr . _)
 
-%if 0%{?rhel} > 8 || 0%{?fedora} > 43
 # Disable python3 build by default
 %bcond_with python3
-%else
-%bcond_without python3
-%endif
 
-Source0:        https://github.com/thom311/libnl/releases/download/%{version_path}/libnl-%{version}.tar.gz
-Source1:        https://github.com/thom311/libnl/releases/download/%{version_path}/libnl-doc-%{version}.tar.gz
+Source0:        https://github.com/thom311/libnl/releases/download/libnl3_12_0/libnl-%{version}.tar.gz
+Source1:        https://github.com/thom311/libnl/releases/download/libnl3_12_0/libnl-doc-%{version}.tar.gz
 
 #Patch1: some.patch
 
@@ -72,6 +75,7 @@ BuildRequires: python3-devel
 BuildRequires: python3-pip
 BuildRequires: python3-setuptools
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 Requires: %{name} = %{version}-%{release}
 
 %description -n python3-libnl3
@@ -79,8 +83,9 @@ Python 3 bindings for libnl3
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source1_hash}" = "none" || { f="%{SOURCE1}"; test -f "$f" || { echo "oreon: missing Source1 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source1_hash}" || { echo "oreon: Source1 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source1_hash}  %{SOURCE1}' | sha256sum -c -
+
 %autosetup -p1 -n libnl-%{version}
 
 tar -xzf %SOURCE1
@@ -158,6 +163,3 @@ popd
 %{python3_sitearch}/netlink-*.dist-info
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.12.0-3
-- Prepare for Oreon 11 (RP1)

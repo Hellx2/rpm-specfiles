@@ -1,18 +1,19 @@
-%global source0_hash 7efaccde8c5a6b2968bad6ce0fe60e19b6e10701a12fce948c2bf79bac8a11e9
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash f51b3c729f85d8dde46a92c071d2826ea6afb77d850f46894125de7cc51baa77
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Do we add appdata-files?
 # consider conditional on whether %%_metainfodir is defined or not instead -- rex
-%if 0%{?fedora} || 0%{?rhel} > 7 || 0%{?oreon} >= 11
 %bcond_without appdata
-%else
-%bcond_with appdata
-%endif
 
 # Set to bcond_without or use --with bootstrap if bootstrapping a new release
 # or architecture
 %bcond_with bootstrap
 
-# bootstrap: bcond_without bootstrap 1
 # Build with Emacs support
 %bcond_without emacs
 
@@ -26,24 +27,15 @@
 %bcond_without ncurses
 
 # Setting the Python-version used by default
-%if 0%{?rhel} && 0%{?rhel} < 8
-%bcond_with python3
-%else
 %bcond_without python3
-%endif
 
 # Enable RPM dependency generators for cmake files written in Python
 %bcond_without rpm
 
 %bcond_without sphinx
 
-%if !0%{?rhel}
 %bcond_with bundled_jsoncpp
 %bcond_with bundled_rhash
-%else
-%bcond_without bundled_jsoncpp
-%bcond_without bundled_rhash
-%endif
 
 # cppdap is currently shipped as a static lib from upstream,
 # so we do not have it in the repos.
@@ -73,11 +65,11 @@
 %{!?_vpath_builddir:%global _vpath_builddir %{_target_platform}}
 
 %global major_version 4
-%global minor_version 2
-%global patch_version 3
+%global minor_version 3
+%global patch_version 0
 
 # For handling bump release by rpmdev-bumpspec and mass rebuild
-%global baserelease 2
+%global baserelease 5
 
 # Set to RC version if building RC, else comment out.
 #%%global rcsuf rc3
@@ -95,10 +87,8 @@
 %global orig_name cmake
 
 Name:           %{orig_name}%{?name_suffix}
-Version:        %{pkg_version}
-Release:        %{baserelease}%{?dist}
-Provides:       cmake3 = %{version}-%{release}
-Provides:       cmake3%{?_isa} = %{version}-%{release}
+Version:        4.3.0
+Release:        1%{?dist}
 Summary:        Cross-platform make system
 
 # most sources are BSD
@@ -108,11 +98,10 @@ Summary:        Cross-platform make system
 # exception granting redistribution under terms of your choice
 License:        BSD-3-Clause AND MIT-open-group AND Zlib%{?with_bundled_cppdap: AND Apache-2.0}
 URL:            http://www.cmake.org
-Source0:        https://www.cmake.org/files/v4.2/cmake-4.2.3.tar.gz
+Source0:        http://www.cmake.org/files/v4.3/cmake-%{version}.tar.gz
 Source1:        %{name}-init.el
 Source2:        macros.%{name}.in
 Source3:        macros.aaa-%{name}-srpm
-# See https://bugzilla.redhat.com/show_bug.cgi?id=1202899
 Source4:        %{name}.attr
 Source5:        %{name}.prov
 Source6:        %{name}.req
@@ -123,16 +112,13 @@ Source6:        %{name}.req
 #
 # Patch to fix RindRuby vendor settings
 # http://public.kitware.com/Bug/view.php?id=12965
-# https://bugzilla.redhat.com/show_bug.cgi?id=822796
 # TODO: Find better wat to handle this
-Patch100:       %{name}-findruby.patch
-# apply upstream fix for FindLua.cmake which is ... not getting pulled into their tarballs?!?
-Patch101:	https://github.com/Kitware/CMake/commit/261b7b933c6604095687d473503e24bae6ec0d6f.patch
+Patch100:        cmake-findruby.patch
 
 # TODO: Remove this patch
 # Patch for renaming on EPEL
 %if 0%{?name_suffix:1}
-Patch1:         %{name}-rename.patch
+Patch1:        cmake-rename.patch
 %endif
 
 BuildRequires:  coreutils
@@ -169,11 +155,7 @@ Provides: bundled(jsoncpp)
 %else
 BuildRequires:  jsoncpp-devel
 %endif
-%if 0%{?fedora} || 0%{?rhel} >= 7 || 0%{?oreon} >= 11
 BuildRequires:  libarchive-devel
-%else
-BuildRequires:  libarchive3-devel
-%endif
 BuildRequires:  libuv-devel
 %if %{with bundled_rhash}
 Provides:  bundled(rhash)
@@ -197,13 +179,7 @@ BuildRequires:  python2-devel
 %endif
 %endif
 %if %{with gui}
-%if 0%{?fedora} || 0%{?rhel} > 9 || 0%{?oreon} >= 11
 BuildRequires: pkgconfig(Qt6Widgets)
-%elif 0%{?rhel} > 7
-BuildRequires: pkgconfig(Qt5Widgets)
-%else
-BuildRequires: pkgconfig(QtGui)
-%endif
 BuildRequires: desktop-file-utils
 %endif
 
@@ -215,6 +191,7 @@ BuildRequires: pkgconfig(bash-completion)
 BuildRequires:  %{name}-rpm-macros
 %endif
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 Requires:       %{name}-data = %{version}-%{release}
 Requires:       (%{name}-rpm-macros = %{version}-%{release} if rpm-build)
@@ -232,10 +209,8 @@ Requires:       make
 Provides: %{orig_name}%{major_version} = %{version}-%{release}
 
 # Source/kwsys/MD5.c
-# see https://fedoraproject.org/wiki/Packaging:No_Bundled_Libraries
 Provides: bundled(md5-deutsch)
 
-# https://fedorahosted.org/fpc/ticket/555
 Provides: bundled(kwsys)
 
 %description
@@ -253,9 +228,7 @@ Requires:       %{name} = %{version}-%{release}
 Requires:       %{name}-filesystem = %{version}-%{release}
 Requires:       (%{name}-rpm-macros = %{version}-%{release} if rpm-build)
 %if %{with emacs}
-%if 0%{?fedora} || 0%{?rhel} >= 7 || 0%{?oreon} >= 11
 Requires:       emacs-filesystem%{?_emacs_version: >= %{_emacs_version}}
-%endif
 %endif
 Requires:       vim-filesystem
 
@@ -331,7 +304,8 @@ using anything from the PyPI package called cmake.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f"  | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n %{orig_name}-%{tar_version} -p 1
 
 %if %{with rpm}
@@ -537,16 +511,12 @@ NO_TEST="$NO_TEST|curl"
 # These three tests timeout on riscv64, skip them.
 NO_TEST="$NO_TEST|Qt5Autogen.ManySources|Qt5Autogen.MocInclude|Qt5Autogen.MocIncludeSymlink|Qt6Autogen.MocIncludeSymlink"
 %endif
-%if 0%{?fedora} == 41
-# Test failing on Fedora 41, only.
-NO_TEST="$NO_TEST|RunCMake.Make|RunCMake.BuildDepends|Qt6Autogen.RerunMocBasic|Qt6Autogen.RerunRccDepends"
-%endif
 # TODO: check why this fails
 NO_TEST="$NO_TEST|RunCMake.ParseImplicitLinkInfo"
 bin/ctest%{?name_suffix} %{?_smp_mflags} -V -E "$NO_TEST" --output-on-failure
 ## do this only periodically, not for every build -- besser82 20221102
 # Keep an eye on failing tests
-#bin/ctest%%{?name_suffix} %%{?_smp_mflags} -V -R "$NO_TEST" --output-on-failure || :
+#bin/ctest%{?name_suffix} %{?_smp_mflags} -V -R "$NO_TEST" --output-on-failure || :
 popd
 %endif
 
@@ -572,13 +542,8 @@ popd
 %{_datadir}/aclocal/%{name}.m4
 %{bash_completionsdir}/c*
 %if %{with emacs}
-%if 0%{?fedora} || 0%{?rhel} >= 7 || 0%{?oreon} >= 11
 %{_emacs_sitelispdir}/%{name}
 %{_emacs_sitestartdir}/%{name}-init.el
-%else
-%{_emacs_sitelispdir}
-%{_emacs_sitestartdir}
-%endif
 %endif
 %{vimfiles_root}/indent/%{name}.vim
 %{vimfiles_root}/syntax/%{name}.vim
@@ -625,5 +590,3 @@ popd
 %{python3_sitelib}/%{cmake_distinfo}
 
 
-%changelog
-%autochangelog

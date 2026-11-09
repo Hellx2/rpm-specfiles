@@ -1,11 +1,17 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
 Summary: A tool for generating scanners (text pattern recognizers)
 Name: flex
-Version: 2.6.4
-Release: 24%{?dist}
+Version:        2.6.4
+Release:        1%{?dist}
 
 # An SPDX license string check done against flex-2.6.4 using fossology
 # found strings corresponding to the licenses noted below across the flex
@@ -13,13 +19,14 @@ Release: 24%{?dist}
 License: BSD-3-Clause-flex AND GPL-3.0-or-later WITH Autoconf-exception-generic-3.0 AND GPL-3.0-or-later WITH Bison-exception-2.2 AND GPL-3.0-or-later WITH Texinfo-exception AND FSFAP AND FSFUL AND FSFULLR AND FSFULLRWD AND GPL-2.0-or-later AND X11
 
 URL: https://github.com/westes/flex
-Source:        https://github.com/westes/flex/releases/download/v%{version}/flex-%{version}.tar.gz
+Source0:        https://github.com/westes/flex/releases/download/v%{version}/flex-%{version}.tar.gz
 
-Patch0: flex-rh1389575.patch
+Patch0:        flex-rh1389575.patch
 
 Requires: m4
 BuildRequires: gettext gettext-devel bison m4 help2man gcc gcc-c++ automake libtool
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 Obsoletes: flex-doc < 2.6.4-8
 Provides: flex-doc = %{version}-%{release}
@@ -83,7 +90,8 @@ This package contains the static library with default implementations of
 statically link against instead of implementing their own.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -95,7 +103,6 @@ autoreconf -i
 %make_install
 rm -f $RPM_BUILD_ROOT%{_infodir}/dir
 rm -f $RPM_BUILD_ROOT%{_pkgdocdir}/{README.cvs,TODO,AUTHORS,COPYING,ONEWS}
-# Exclude libtool archives (.la) as per Fedora packaging guidelines
 find %{buildroot} -name '*.la' -delete
 
 ( cd ${RPM_BUILD_ROOT}
@@ -135,6 +142,3 @@ echo ============END TESTING===========
 %license COPYING
 %{_libdir}/*.a
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.6.4-24
-- Prepare for Oreon 11 (RP1)

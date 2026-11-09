@@ -1,7 +1,12 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr DA98F25C0871C49A59EAFF2C4DE8FF2A63C7CC90
+%global source0_hash 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 %global _hardened_build 1
 %{!?_pkgdocdir: %global _pkgdocdir %{_docdir}/%{name}-%{version}}
 
@@ -9,29 +14,31 @@
 
 %global libselinux_version      2.0.86
 
-# fedora-release-30-0.2 and generic-release-0.1 added required presets to enable systemd-unit symlinks
 %global fedora_release_version  30-0.2
 %global generic_release_version 30-0.1
 
 # Allow extra dependencies required for some tests to be disabled.
-%bcond_without tests
+%bcond tests 1
 # Disabled in June 2014: http://lists.freedesktop.org/archives/dbus/2014-June/016223.html
-%bcond_with check
+%bcond check 0
 # Allow cmake support to be disabled. #1497257
-%bcond_without cmake
+%bcond cmake 1
+# API documentation requires doxygen
+# Design documentation requires ducktype, yelp-tools
+%bcond docs 1
 
 Name:    dbus
 Epoch:   1
-Version: 1.16.2
-Release: %autorelease
+Version:        1.16.2
+Release:        1%{?dist}
 Summary: D-BUS message bus
 
 # The effective license of the majority of the package, including the shared
 # library, is "GPL-2+ or AFL-2.1". Certain utilities are "GPL-2+" only.
 License: (AFL-2.1 OR GPL-2.0-or-later) AND GPL-2.0-or-later
 URL:     https://www.freedesktop.org/wiki/Software/dbus/
-Source0:        https://dbus.freedesktop.org/releases/%{name}/%{name}-%{version}.tar.xz
-Source1:        https://dbus.freedesktop.org/releases/%{name}/%{name}-%{version}.tar.xz.asc
+Source0:        https://dbus.freedesktop.org/releases/dbus/dbus-%{version}.tar.xz
+Source1:        dbus-1.16.2.tar.xz.asc
 # gpg --keyserver keyring.debian.org --recv-keys DA98F25C0871C49A59EAFF2C4DE8FF2A63C7CC90
 # gpg --export --export-options export-minimal > gpgkey-DA98F25C0871C49A59EAFF2C4DE8FF2A63C7CC90.gpg
 Source2: gpgkey-DA98F25C0871C49A59EAFF2C4DE8FF2A63C7CC90.gpg
@@ -41,7 +48,7 @@ Source5: dbus-daemon.service
 Source6: dbus.user.socket
 Source7: dbus-daemon.user.service
 Source8: dbus-systemd-sysusers.conf
-Patch0: 0001-tools-Use-Python3-for-GetAllMatchRules.patch
+Patch0:        0001-tools-Use-Python3-for-GetAllMatchRules.patch
 
 BuildRequires: gcc
 BuildRequires: meson
@@ -53,10 +60,12 @@ BuildRequires: pkgconfig(expat)
 BuildRequires: pkgconfig(libselinux) >= %{libselinux_version}
 BuildRequires: pkgconfig(libsystemd)
 BuildRequires: pkgconfig(systemd)
+%if %{with docs}
 BuildRequires: doxygen
 # For Ducktype documentation.
 BuildRequires: /usr/bin/ducktype
 BuildRequires: /usr/bin/yelp-build
+%endif
 # For building XML documentation.
 BuildRequires: /usr/bin/xsltproc
 BuildRequires: xmlto
@@ -77,6 +86,7 @@ BuildRequires: python3-gobject
 %endif
 %if %{with check}
 BuildRequires: /usr/bin/Xvfb
+BuildRequires:  oreon-rpm-macros
 %endif
 
 # Since F30 the default implementation is dbus-broker over dbus-daemon
@@ -90,7 +100,7 @@ per-user-login-session messaging facility.
 %package common
 Summary:        D-BUS message bus configuration
 BuildArch:      noarch
-Conflicts:      fedora-release < %{fedora_release_version}
+Conflicts:      oreon-release < %{fedora_release_version}
 Conflicts:      generic-release < %{generic_release_version}
 
 %description common
@@ -99,7 +109,7 @@ implementations to provide a System and User Message Bus.
 
 %package daemon
 Summary:        D-BUS message bus
-Conflicts:      fedora-release < %{fedora_release_version}
+Conflicts:      oreon-release < %{fedora_release_version}
 Conflicts:      generic-release < %{generic_release_version}
 Requires:       libselinux%{?_isa} >= %{libselinux_version}
 Requires:       dbus-common = %{epoch}:%{version}-%{release}
@@ -164,8 +174,9 @@ in this separate package so server systems need not install X.
 
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 
@@ -183,8 +194,8 @@ CONFIG_OPTIONS=(
 %global _vpath_builddir build
 %meson \
   "${CONFIG_OPTIONS[@]}" \
-  -Ddoxygen_docs=enabled \
-  -Dducktype_docs=enabled \
+  -Ddoxygen_docs=%{?with_docs:enabled}%{!?with_docs:disabled} \
+  -Dducktype_docs=%{?with_docs:enabled}%{!?with_docs:disabled} \
   -Dxml_docs=enabled \
   -Dasserts=false \
   -Dqt_help=disabled \
@@ -437,6 +448,3 @@ fi
 %{_includedir}/*
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.16.2-1
-- Prepare for Oreon 11 (RP1)

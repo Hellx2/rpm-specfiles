@@ -1,13 +1,19 @@
-%global source0_hash 86b0b75bf319ca42e525c098675b6ed10a06b76e69ec9ccf20ef5e03883b3a14
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 1af13a9745d5c2b5ef691623c9a435417fb5549d549f17633723463c34095162
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global build_type_safety_c 0
 
 %bcond_without autoconf
 
 Summary: Gives a fake root environment
 Name: fakeroot
-Version: 2.1.4
-Release: 1%{?dist}
+Version:        1.37.1
+Release:        1%{?dist}
 # setenv.c: LGPLv2+
 # contrib/Fakeroot-Stat-1.8.8: Perl (GPL+ or Artistic)
 # the rest: GPLv3+
@@ -15,14 +21,13 @@ Release: 1%{?dist}
 License: GPL-3.0-or-later AND LicenseRef-Callaway-LGPLv2+ AND (GPL-1.0-or-later OR Artistic-1.0-Perl)
 # Source code: https://salsa.debian.org/clint/fakeroot/-/tree/upstream
 URL: https://tracker.debian.org/pkg/fakeroot
-Source0: https://deb.debian.org/debian/pool/main/f/fakeroot/%{name}_%{version}.orig.tar.gz
+Source0:        https://snapshot.debian.org/archive/debian/20250316T205041Z/pool/main/f/fakeroot/fakeroot_%{version}.orig.tar.gz
 
 # Debian package patches, from debian.tar.xz
-Patch2: debian_fix-shell-in-fakeroot.patch
+Patch2:        debian_fix-shell-in-fakeroot.patch
 # git commit 8ce7846 2013-07-26  Address some POSIX-types related problems.
 # Patch4: fakeroot-inttypes.patch
-# Fix LD_LIBRARY_PATH for multilib: https://bugzilla.redhat.com/show_bug.cgi?id=1241527
-Patch5: fakeroot-multilib.patch
+Patch5:        fakeroot-multilib.patch
 # Patch7: relax_tartest.patch
 
 
@@ -35,11 +40,11 @@ BuildRequires:  po4a
 %endif
 BuildRequires: /usr/bin/getopt
 BuildRequires: gcc
-# https://bugzilla.redhat.com/show_bug.cgi?id=887001
 BuildRequires: libacl-devel
 BuildRequires: libcap-devel
 # uudecode used by tests/tartest
 BuildRequires: sharutils
+BuildRequires:  oreon-rpm-macros
 Requires: /usr/bin/getopt
 Requires: fakeroot-libs = %{version}-%{release}
 Requires(post): /usr/sbin/alternatives
@@ -61,7 +66,7 @@ Summary: Gives a fake root environment (libraries)
 This package contains the libraries required by %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
 
 %autosetup -p1
 sed -i 's#AC_PREREQ(\[2.71\])#AC_PREREQ([2.69])#' configure.ac
@@ -119,11 +124,7 @@ sed -e 's/-tcp//g' fake{d,root}-tcp.lang > fakeroot.lang
 %check
 for type in sysv tcp; do
 %ifarch ppc64le
-%if 0%{?rhel}
-  make -C obj-$type check VERBOSE=1 || :
-%else
   make -C obj-$type check VERBOSE=1
-%endif
 %else
   make -C obj-$type check VERBOSE=1
 %endif
@@ -175,5 +176,3 @@ fi
 %{_libdir}/libfakeroot/libfakeroot-tcp.so
 %ghost %{_libdir}/libfakeroot/libfakeroot-0.so
 
-%changelog
-%autochangelog

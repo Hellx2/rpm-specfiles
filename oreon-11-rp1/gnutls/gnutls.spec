@@ -1,15 +1,28 @@
-%global source0_hash a7b341421bfd459acf7a374ca4af3b9e06608dcd7bd792b2bf470bea012b8e51
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_hash a47ae67e65375cedf0e0af830db4f29b29365283c1c3661a47d3d67601b9eada
-%global source2_key_fpr 5D46CB0F763405A7053556F47A75A648B3F9220C
+%global source0_hash ffed8ec1bf09c2426d4f14aae377de4753b53e537d685e604e99a8b16ca9c97e
+%global source300_hash b5057cfb990108c4a9f21832f1f35f3d98115012d1628e00650558e6b49e8285
 
-Version: 3.8.13
-Release: 1%{?dist}
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%define srpmhash() %{lua:
+local files = rpm.expand("%_specdir/gnutls.spec")
+for i, p in ipairs(patches) do
+   files = files.." "..p
+end
+for i, p in ipairs(sources) do
+   files = files.." "..p
+end
+local sha256sum = assert(io.popen("cat "..files.."| sha256sum"))
+local hash = sha256sum:read("*a")
+sha256sum:close()
+print(string.sub(hash, 0, 16))
+}
 
-# FIPS --with-fips140-module-version uses this. The old Lua macro ran cat on every
-# Source/Patch under %%_specdir at parse time, which breaks rpmspec and any prep
-# before SOURCES exist. Use a short hash of version-release instead.
-%global srpmhash %(echo %{version}-%{release} | sha256sum | awk '{print substr($1,1,16)}')
+Version:        3.8.13
+Release:        2%{?dist}
 Patch:        gnutls-3.2.7-rpath.patch
 
 # follow https://gitlab.com/gnutls/gnutls/-/issues/1443
@@ -20,33 +33,17 @@ Patch:        gnutls-3.8.8-tests-ktls-skip-tls12-chachapoly.patch
 %bcond_without fips
 %bcond_with tpm12
 %bcond_without tpm2
-%if 0%{?rhel} >= 9
-%bcond_with gost
-%else
 %bcond_without gost
-%endif
 %bcond_without certificate_compression
 %bcond_without leancrypto
 %bcond_without crypto_auditing
 %bcond_without tests
 
-%if 0%{?fedora} && 0%{?fedora} < 38
-%bcond_without srp
-%else
 %bcond_with srp
-%endif
 
-%if 0%{?fedora}
 %bcond_without mingw
-%else
-%bcond_with mingw
-%endif
 
-%if 0%{?rhel} >= 9 && %{with fips}
-%bcond_without bundled_gmp
-%else
 %bcond_with bundled_gmp
-%endif
 
 
 %define fips_requires() %{lua:
@@ -120,29 +117,28 @@ BuildRequires:  mingw64-libtasn1 >= 4.3
 BuildRequires:  mingw64-readline
 BuildRequires:  mingw64-zlib
 BuildRequires:  mingw64-nettle >= 3.6
+BuildRequires:  oreon-rpm-macros
 %endif
 
 URL: http://www.gnutls.org/
 %define short_version %(echo %{version} | grep -m1 -o "[0-9]*\.[0-9]*" | head -1)
-Source0:        https://www.gnupg.org/ftp/gcrypt/gnutls/v%{short_version}/%{name}-%{version}.tar.xz
-Source1:        https://www.gnupg.org/ftp/gcrypt/gnutls/v%{short_version}/%{name}-%{version}.tar.xz.sig
-Source2:        https://gnutls.org/gnutls-release-keyring.gpg
+Source0:        https://www.gnupg.org/ftp/gcrypt/gnutls/v3.8/gnutls-%{version}.tar.xz
+Source1:        gnutls-3.8.13.tar.xz.sig
+Source2:        gnutls-release-keyring.gpg
 
 %if %{with bundled_gmp}
 Provides:	bundled(gmp) = 6.2.1
-Source100:	https://mirrors.kernel.org/gnu/gmp/gmp-6.2.1.tar.xz
+Source100:	gmp-6.2.1.tar.xz
 # Taken from the main gmp package
-Source101:        gmp-6.2.1-intel-cet.patch
-Source102:        gmp-6.2.1-c23.patch
+Source101:	gmp-6.2.1-intel-cet.patch
+Source102:	gmp-6.2.1-c23.patch
 %endif
 
 %if %{with leancrypto}
 Provides:	bundled(leancrypto) = 1.6.0
-# GitHub release has no upload asset, use archive URL that Content-Disposition names leancrypto-1.6.0.tar.gz
-Source300:	https://github.com/smuellerDD/leancrypto/archive/v1.6.0/leancrypto-1.6.0.tar.gz#/gnutls-3.8.12.tar.gz
+Source300:        https://github.com/smuellerDD/leancrypto/archive/refs/tags/v1.6.0.tar.gz
 %endif
 
-# Wildcard bundling exception https://fedorahosted.org/fpc/ticket/174
 Provides: bundled(gnulib) = 20130424
 
 %package c++
@@ -261,11 +257,11 @@ for MinGW.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | cut -d' ' -f1); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" 2>/dev/null | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
 
-%autosetup -p1 -S git -n gnutls-3.8.12
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
+
+%autosetup -p1 -S git
 
 %if %{with bundled_gmp}
 mkdir -p bundled_gmp
@@ -280,6 +276,7 @@ popd
 %define _lto_cflags %{nil}
 
 %if %{with leancrypto}
+echo "%{source300_hash}  %{SOURCE300}" | sha256sum -c -
 mkdir -p bundled_leancrypto
 pushd bundled_leancrypto
 tar --strip-components=1 -xf %{SOURCE300}
@@ -487,7 +484,6 @@ rm -f $RPM_BUILD_ROOT%{mingw64_libdir}/*.la
 rm -f $RPM_BUILD_ROOT%{mingw32_bindir}/*.def
 rm -f $RPM_BUILD_ROOT%{mingw64_bindir}/*.def
 
-# Remove info and man pages which duplicate stuff in Fedora already.
 rm -rf $RPM_BUILD_ROOT%{mingw32_infodir}
 rm -rf $RPM_BUILD_ROOT%{mingw32_mandir}
 rm -rf $RPM_BUILD_ROOT%{mingw32_docdir}/gnutls
@@ -598,10 +594,3 @@ popd
 %{mingw64_includedir}/gnutls/
 %endif
 
-%changelog
-* Tue Apr 14 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.8.12-2
-- Replace parse-time srpmhash Lua (cat on SOURCES) with version-release sha256 prefix
-- Use HTTPS for bundled gmp and leancrypto tarballs so spectool can fetch them
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.8.12-1
-- Prepare for Oreon 11 (RP1)

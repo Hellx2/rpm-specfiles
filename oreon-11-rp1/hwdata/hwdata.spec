@@ -1,15 +1,21 @@
-%global source0_hash 13605519e72e46aa13d5eede1901a07a6c83cd25ef866a86e7458047b5c81ce5
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 5a71ab7a48c668ef912fcfdbec046949087019f8dd7fb967445d36fbeb778350
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name: hwdata
 Summary: Hardware identification and configuration data
-Version: 0.411
-Release: 1%{?dist}
+Version:        0.413
+Release:        1%{?dist}
 License: GPL-2.0-or-later
-Source:        https://github.com/vcrhonek/hwdata/archive/refs/tags/v%{version}.tar.gz#/hwdata-0.405.tar.gz
-
+Source0:        https://github.com/vcrhonek/hwdata/archive/v%{version}.tar.gz
 URL:    https://github.com/vcrhonek/hwdata
 BuildArch: noarch
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 hwdata contains various hardware identification and configuration data,
@@ -24,7 +30,8 @@ The %{name}-devel package contains files for developing applications that use
 %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
 
 %build
@@ -45,6 +52,3 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %files devel
 %{_datadir}/pkgconfig/%{name}.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.405-1
-- Prepare for Oreon 11 (RP1)

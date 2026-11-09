@@ -1,5 +1,12 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 59048b53be8d3904bf939313debf13956a881b0de79da40f7719a77bcd1e9c53
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+BuildRequires: oreon-rpm-macros
 # Uncomment on initial build for soname bump.
 #global bump_soname 1
 %global sover 3
@@ -10,20 +17,21 @@
 %endif
 
 Name:       libnsl2
-Version:    2.0.1
-Release:    5%{?relsuffix}%{?dist}
+Version:        2.0.1
+Release:        1%{?dist}
 Summary:    Public client interface library for NIS(YP) and NIS+
 
 License:    BSD-3-Clause AND LGPL-2.1-or-later
 URL:        https://github.com/thkukuk/libnsl
 
-Source0:        https://github.com/thkukuk/libnsl/archive/refs/tags/v%{version}.tar.gz#/libnsl2-2.0.1.tar.gz
+Source0:        https://github.com/thkukuk/libnsl/archive/v%{version}.tar.gz
 
 BuildRequires: autoconf, automake, gettext-devel, libtool, libtirpc-devel
 BuildRequires: make
 BuildRequires: gcc
 %if 0%{?bump_soname}
 BuildRequires: libnsl2 < %{version}
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description
@@ -42,7 +50,8 @@ Development files for libnsl2
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n libnsl-%{version}
 
 %build
@@ -76,6 +85,3 @@ cp -p %{_libdir}/libnsl.so.%{old_sover}* %{buildroot}%{_libdir}
 %{_includedir}/*
 %{_libdir}/pkgconfig/libnsl.pc
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.0.1-5
-- Prepare for Oreon 11 (RP1)

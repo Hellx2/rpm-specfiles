@@ -1,23 +1,30 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global source2_key_fpr 63191CE94183098689CAB8DB7EF137EC935B0EAF
+%global source0_hash e76160286bbfb0821602c6c0c3220ebcf366ad3246d3b9d0a0fbefcd35e86043
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %define libsepolver 3.11-1
 %define libselinuxver 3.11-1
 
 Summary: SELinux binary policy manipulation library
 Name: libsemanage
-Version: 3.11
-Release: 1%{?dist}
+Version:        3.11
+Release:        1%{?dist}
 License: LGPL-2.1-or-later
 Source0:        https://github.com/SELinuxProject/selinux/releases/download/%{version}/libsemanage-%{version}.tar.gz
-Source1:        https://github.com/SELinuxProject/selinux/releases/download/%{version}/libsemanage-%{version}.tar.gz.asc
-Source2:        https://github.com/perfinion.gpg
+Source1:        libsemanage-3.11.tar.gz.asc
+Source2:        bachradsusi.gpg
 # git format-patch -N 3.11 -- libsemanage
 # i=1; for j in 00*patch; do printf "Patch%04d: %s\n" $i $j; i=$((i+1));done
 # Patch list start
+Patch0001:        0001-libsemanage-optionally-sort-file_contexts.local-by-s.patch
+Patch0002:        0002-libsemanage-genhomedircon-reject-users-with-a-relati.patch
 # Patch list end
 URL: https://github.com/SELinuxProject/selinux/wiki
+VCS: git:https://github.com/SELinuxProject/selinux.git
 Source3: semanage.conf
 
 BuildRequires: gcc make
@@ -30,6 +37,7 @@ BuildRequires: gnupg2
 BuildRequires: python3
 BuildRequires: python3-devel
 BuildRequires: python3-setuptools
+BuildRequires:  oreon-rpm-macros
 
 Requires: bzip2-libs audit-libs
 Requires: libselinux%{?_isa} >= %{libselinuxver}
@@ -82,8 +90,9 @@ The libsemanage-python3 package contains the python 3 bindings for developing
 SELinux management applications.
 
 %prep
-%(test -z "%{source2_key_fpr}" || { f="%{SOURCE2}"; test -f "$f" || { echo "oreon: missing Source2 key $f" >&2; exit 1; }; fpr=$(GNUPGHOME=$(mktemp -d); export GNUPGHOME; trap 'rm -rf "$GNUPGHOME"' EXIT; gpg --batch --with-colons --import-options show-only --import "$f" | awk -F: '/^fpr:/ {print toupper($10); exit}'); test "$fpr" = "%{source2_key_fpr}" || { echo "oreon: Source2 key fingerprint mismatch" >&2; exit 1; }; })
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p 2 -n libsemanage-%{version}
 
 
@@ -161,6 +170,3 @@ cp %{SOURCE3} ${RPM_BUILD_ROOT}%{_sysconfdir}/selinux/semanage.conf
 %{python3_sitearch}/__pycache__/semanage*
 %{_libexecdir}/selinux/semanage_migrate_store
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.10-1
-- Prepare for Oreon 11 (RP1)

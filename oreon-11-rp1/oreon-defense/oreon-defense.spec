@@ -1,56 +1,119 @@
-%global source0_hash 27283b046942d369132966e5cdb0cdfb0bf64e32859b6d8028925d9fbf9cc946
-%global gitcommit 930171a34e1de1e84f62c49beaa3eaeb8644915e
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 Name:           oreon-defense
-Version:        0.1.0
-Release:        1%{?dist}
-Summary:        Oreon security app
+Version:        1.0.17
+Release:        2%{?dist}
+Summary:        Oreon security system with real-time protection
 License:        GPL-3.0-or-later
-URL:            https://github.com/oreonhq/oreon-defense-cpp
-Source0:        https://github.com/oreonhq/oreon-defense-cpp/archive/%{gitcommit}.tar.gz#/oreon-defense-%{version}.tar.gz
-Source1:        oreon-defense.desktop
+URL:            https://oreonhq.com
+Source0:        https://tarballs.oreonhq.com/%{name}-%{version}.tar.gz
 
-BuildRequires:  clamav-devel
-BuildRequires:  cmake
+BuildRequires:  cmake >= 3.16
 BuildRequires:  gcc-c++
-BuildRequires:  ninja-build
-BuildRequires:  pkgconfig(libclamav)
+BuildRequires: pkgconf
 BuildRequires:  qt6-qtbase-devel
-BuildRequires:  qt6-qtdeclarative-devel
-BuildRequires:  qt6-qt5compat-devel
-BuildRequires:  cmake(Qt6Core)
-BuildRequires:  cmake(Qt6Gui)
-BuildRequires:  cmake(Qt6Qml)
-BuildRequires:  cmake(Qt6Quick)
-BuildRequires:  cmake(Qt6Widgets)
+BuildRequires:  openssl-devel
+BuildRequires:  yaml-cpp-devel
+BuildRequires:  json-devel
+BuildRequires:  clamav-devel
+BuildRequires:  libcurl-devel
+BuildRequires:  systemd-rpm-macros
 
-Requires:       qt6-qtbase%{?_isa}
-Requires:       qt6-qtdeclarative%{?_isa}
-Requires:       qt6-qt5compat%{?_isa}
-Requires:       clamav-lib%{?_isa}
-Requires:       clamav-data
-Recommends:     firewalld
+Requires:       qt6-qtbase
+Requires:       qt6-qtbase-gui
+Requires:       openssl-libs
+Requires:       yaml-cpp
+Requires:       clamav-lib
+Requires:       (clamav-update or clamav-data)
+Requires:       libcurl
+Requires:       nftables
+Requires:       polkit
+Requires:       systemd
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
 
 %description
-Qt6 GUI for ClamAV, firewalld, and other Oreon security tools.
+Straightforward protection and visibility with real-time alerts.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%autosetup -n oreon-defense-cpp-%{gitcommit}
+%autosetup
 
 %build
-%cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
+%cmake -DOREON_BUILD_TESTS=OFF -DCMAKE_INSTALL_SYSCONFDIR=%{_sysconfdir}
 %cmake_build
 
 %install
-install -Dpm 0755 %{__cmake_builddir}/oreon-defense %{buildroot}%{_bindir}/oreon-defense
-install -Dpm 0644 %{SOURCE1} %{buildroot}%{_datadir}/applications/oreon-defense.desktop
+%cmake_install
+install -D -m 0755 scripts/trigger-scan.sh %{buildroot}%{_libexecdir}/oreon-defense/trigger-scan.sh
+install -D -m 0755 scripts/test_installed_detection.sh %{buildroot}%{_libexecdir}/oreon-defense/test_installed_detection.sh
+install -D -m 0755 scripts/verify_detection.sh %{buildroot}%{_libexecdir}/oreon-defense/verify_detection.sh
+install -D -m 0644 data/keys/od-rules-ed25519.pub %{buildroot}%{_datadir}/oreon-defense/keys/od-rules-ed25519.pub
+install -D -m 0644 config/config.json.example %{buildroot}%{_sysconfdir}/oreon-defense/config.json
+mkdir -p %{buildroot}%{_sysconfdir}/xdg/autostart
+cat > %{buildroot}%{_sysconfdir}/xdg/autostart/oreon-defense-autostart.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Oreon Defense
+Comment=Start Oreon Defense tray at login
+Exec=oreon-defense --tray
+Icon=oreon-defense
+Terminal=false
+Categories=System;Security;Qt;
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=true
+EOF
+mkdir -p %{buildroot}%{_localstatedir}/lib/oreon-defense/quarantine
+
+%post
+%systemd_post oreon-defense.service
+%systemd_post oreon-defense-scan.timer
+if [ -x /usr/bin/systemctl ]; then
+  systemctl daemon-reload >/dev/null 2>&1 || :
+  if systemctl cat clamav-freshclam.service >/dev/null 2>&1; then
+    systemctl enable --now clamav-freshclam.service >/dev/null 2>&1 || :
+  fi
+  systemctl enable --now oreon-defense.service >/dev/null 2>&1 || :
+  systemctl enable --now oreon-defense-scan.timer >/dev/null 2>&1 || :
+fi
+if [ -x /usr/bin/dbus-send ]; then
+  dbus-send --system --type=method_call --dest=org.freedesktop.DBus \
+    /org/freedesktop/DBus org.freedesktop.DBus.ReloadConfig >/dev/null 2>&1 || :
+fi
+if [ -x /usr/bin/gtk-update-icon-cache ]; then
+  gtk-update-icon-cache -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || :
+fi
+
+%preun
+%systemd_preun oreon-defense.service
+%systemd_preun oreon-defense-scan.timer
+
+%postun
+%systemd_postun_with_restart oreon-defense.service
+%systemd_postun oreon-defense-scan.timer
 
 %files
 %license LICENSE
-%doc README.md TODO.md
+%doc README.md
 %{_bindir}/oreon-defense
+%{_bindir}/oreon-defense-daemon
+%{_libexecdir}/oreon-defense/trigger-scan.sh
+%{_libexecdir}/oreon-defense/test_installed_detection.sh
+%{_libexecdir}/oreon-defense/verify_detection.sh
 %{_datadir}/applications/oreon-defense.desktop
+%{_sysconfdir}/xdg/autostart/oreon-defense-autostart.desktop
+%{_datadir}/oreon-defense/
+%{_datadir}/icons/hicolor/*/apps/oreon-defense.*
+%{_datadir}/polkit-1/actions/org.oreon.defense.policy
+%{_datadir}/dbus-1/system.d/org.oreon.Defense1.conf
+%{_unitdir}/oreon-defense.service
+%{_unitdir}/oreon-defense-scan.service
+%{_unitdir}/oreon-defense-scan.timer
+%config(noreplace) %{_sysconfdir}/oreon-defense/config.json
+%dir %attr(0700,root,root) %{_localstatedir}/lib/oreon-defense
+%dir %attr(0700,root,root) %{_localstatedir}/lib/oreon-defense/quarantine
 
 %changelog
 %autochangelog

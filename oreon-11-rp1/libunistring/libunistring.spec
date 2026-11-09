@@ -1,18 +1,24 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 827c1eb9cb6e7c738b171745dac0888aa58c5924df2e59239318383de0729b98
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # This spec file has been automatically updated
-Version:	1.4.2
-Release: %{?autorelease}%{!?autorelease:1%{?dist}}
+Version:        1.1
+Release:        1%{?dist}
 Name: libunistring
 Summary: GNU Unicode string library
 License: GPL-2.0-or-later OR LGPL-3.0-or-later
 URL: https://www.gnu.org/software/libunistring/
-
-Provides: bundled(gnulib)
-
-Source0:        https://mirrors.kernel.org/gnu/libunistring/%{name}-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/libunistring/libunistring-%{version}.tar.xz
 BuildRequires: gcc
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
+Provides: bundled(gnulib)
+
 %description
 This portable C library implements Unicode string types in three flavours:
 (UTF-8, UTF-16, UTF-32), together with functions for character processing
@@ -28,7 +34,8 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 Development files for programs using libunistring.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup
 
 %build
@@ -57,6 +64,3 @@ mv $RPM_BUILD_ROOT%{_datadir}/doc/%{name} __doc
 
 %ldconfig_scriptlets
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.1-1
-- Import

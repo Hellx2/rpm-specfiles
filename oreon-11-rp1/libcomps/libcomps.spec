@@ -1,5 +1,11 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash c24a81dea8e9f7f3c877618d3812a5293df772abc6b90fad1d34fa62326141bc
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %define __cmake_in_source_build 1
 
 Name:           libcomps
@@ -9,7 +15,7 @@ Summary:        Comps XML file manipulation library
 
 License:        GPL-2.0-or-later
 URL:            https://github.com/rpm-software-management/libcomps
-Source0:        https://github.com/rpm-software-management/libcomps/archive/refs/tags/0.1.24.tar.gz#/libcomps-0.1.24.tar.gz
+Source0:        https://github.com/rpm-software-management/libcomps/archive/%{version}/libcomps-%{version}.tar.gz
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake >= 3.10
@@ -54,6 +60,7 @@ Summary:        Python 3 bindings for libcomps library
 BuildRequires:  python3-devel
 BuildRequires:  python3-setuptools
 BuildRequires:  make
+BuildRequires:  oreon-rpm-macros
 %{?python_provide:%python_provide python3-%{name}}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Obsoletes:      platform-python-%{name} < %{version}-%{release}
@@ -62,7 +69,8 @@ Obsoletes:      platform-python-%{name} < %{version}-%{release}
 Python3 bindings for libcomps library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n %{name}-%{version}
 
 mkdir build-py3
@@ -118,6 +126,3 @@ popd
 %{python3_sitearch}/%{name}/
 %{python3_sitearch}/%{name}-%{version}-py%{python3_version}.egg-info
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.1.24-1
-- Prepare for Oreon 11 (RP1)

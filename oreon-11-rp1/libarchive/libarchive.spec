@@ -1,5 +1,11 @@
-%global source0_hash 213269b05aac957c98f6e944774bb438d0bd168a2ec60b9e4f8d92035925821c
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash f5a6539059cf5e597dbeda37bfa4874b1e8dea063c8d93bf85a2b44af90a5bd4
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_without check
 
 Name:           libarchive
@@ -15,7 +21,7 @@ Summary:        A library for handling streaming archive formats
 # ./aclocal.m4: (FSFULLR and/or GPL-2) with Libtool-exception exception
 License:        BSD-2-Clause AND FSFULLR AND GPL-2.0-or-later WITH Libtool-exception AND BSD-3-Clause AND FSFUL
 URL:            https://www.libarchive.org/
-Source0:        https://libarchive.org/downloads/%{name}-%{version}.tar.gz
+Source0:        https://libarchive.org/downloads/libarchive-%{version}.tar.gz
 
 BuildRequires:  autoconf
 BuildRequires:  automake
@@ -37,13 +43,14 @@ BuildRequires:  openssl-devel
 BuildRequires:  xz-devel
 BuildRequires:  zlib-devel
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 # When configured against OpenSSL 1.1, the RIPEMD-160 support was not detected,
 # so it was not compiled in previously. With OpenSSL 3.0, it's now detected as
 # being available, but it only actually works when the legacy provider is
 # loaded, which breaks the RIPEMD-160 test. This patch disables the RIPEMD-160
 # support explicitly.
-Patch0001: 0001-Drop-rmd160-from-OpenSSL.patch
+Patch0001:        0001-Drop-rmd160-from-OpenSSL.patch
 
 %description
 Libarchive is a programming library that can create and read several different
@@ -98,7 +105,8 @@ libarchive packages. It is designed to provide an interface compatible with Info
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 
@@ -242,6 +250,3 @@ run_testsuite
 %{_mandir}/*/bsdunzip*
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.8.6-1
-- Prepare for Oreon 11 (RP1)

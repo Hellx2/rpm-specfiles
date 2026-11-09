@@ -1,19 +1,25 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 42b4080ee99c9fb6a7d12d8e787637d057a635194e25971997eebbe8d5e57618
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: Rotates, compresses, removes and mails system log files
 Name: logrotate
-Version: 3.22.0
-Release: 5%{?dist}
+Version:        3.22.0
+Release:        1%{?dist}
 License: GPL-2.0-or-later
 URL: https://github.com/logrotate/logrotate
 Source0:        https://github.com/logrotate/logrotate/releases/download/%{version}/logrotate-%{version}.tar.xz
-Source1:        https://github.com/logrotate/logrotate/releases/download/%{version}/logrotate-%{version}.tar.xz.asc
+Source1:        logrotate-3.22.0.tar.xz.asc
 
 # gpg --keyserver pgp.mit.edu --recv-key 8ECCDF12100AD84DA2EE7EBFC78CE737A3C3E28E
 # gpg --output cgzones.pgp --armor --export cgzones@googlemail.com
-Source2:        https://raw.githubusercontent.com/logrotate/logrotate/HEAD/cgzones.pgp
+Source2: cgzones.pgp
 
-Source3:        https://raw.githubusercontent.com/logrotate/logrotate/HEAD/rwtab
+Source3: rwtab
 
 BuildRequires: acl
 BuildRequires: automake
@@ -25,6 +31,7 @@ BuildRequires: libselinux-devel
 BuildRequires: make
 BuildRequires: popt-devel
 BuildRequires: systemd-rpm-macros
+BuildRequires:  oreon-rpm-macros
 Requires: coreutils
 Requires(post): systemd
 Requires(preun): systemd
@@ -40,8 +47,9 @@ Install the logrotate package if you need a utility to deal with the
 log files on your system.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -S git
 
 cat >> .gitignore << EOF
@@ -117,6 +125,3 @@ fi
 %ghost %verify(not size md5 mtime) %attr(0640, root, root) %{_localstatedir}/lib/logrotate/logrotate.status
 %config(noreplace) %{_sysconfdir}/rwtab.d/logrotate
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.22.0-5
-- Import

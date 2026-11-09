@@ -1,17 +1,24 @@
-%global source0_hash 2c187055e2206e62cef4559845e7c2ec6ec5a07ce1e0a6044e4342e0c5d7771d
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 2ab8ef54475aa2b2c0120fc6ae6d0788e0c3d4d4b671985edc6a19c8096a02cc
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           zchunk
-Version:        1.5.4
+Version:        1.5.5
 Release:        1%{?dist}
 Summary:        Compressed file format that allows easy deltas
 License:        BSD-2-Clause AND MIT
 URL:            https://github.com/zchunk/zchunk
-Source0:        https://github.com/zchunk/zchunk/archive/refs/tags/1.5.4.tar.gz#/zchunk-1.5.1.tar.gz
+Source0:        https://github.com/zchunk/zchunk/archive/%{version}/zchunk-%{version}.tar.gz
 BuildRequires:  gcc
 BuildRequires:  pkgconfig(libzstd)
 BuildRequires:  pkgconfig(libcurl)
 BuildRequires:  pkgconfig(openssl)
 BuildRequires:  meson
+BuildRequires:  oreon-rpm-macros
 Requires:       %{name}-libs%{_isa} = %{version}-%{release}
 Provides:       bundled(buzhash-urlblock) = 0.1
 
@@ -49,7 +56,8 @@ This package contains the headers necessary for building against the zchunk
 library, libzck.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup
 # Remove bundled sha libraries
 rm -rf src/lib/hash/sha*
@@ -86,6 +94,3 @@ install contrib/gen_xml_dictionary %{buildroot}%{_libexecdir}/zck_gen_xml_dictio
 %{_libdir}/pkgconfig/zck.pc
 %{_includedir}/zck.h
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.5.1-4
-- Prepare for Oreon 11 (RP1)

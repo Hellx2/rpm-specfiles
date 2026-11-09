@@ -1,6 +1,12 @@
-%global source0_hash d693b49517a42efb85a1a364a310aed16a53d428d1b46c0d31ef3fba78fcb656
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+%global source0_hash 8d8452bc3f56aa7a392c62dd377733f83d1314eed6c52fe44028439a3bb4df18
 %global source10_hash 45188b404eb71c3ba47e9eb5d77bfda53e636571bb1db70e9da8e88d48b17400
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global _hardened_build 1
 
 %global systemctl_bin /usr/bin/systemctl
@@ -13,17 +19,17 @@
 %bcond servers 1
 
 # Build with argon2 support
-%bcond argon2 %{undefined rhel}
+%bcond argon2 1
 
 # When you change "Version: " to the new major version, remember to change this value too
-%global major_version 2.7
+%global major_version 2.6
 
 # Disable automatic .la file removal
 %global __brp_remove_la_files %nil
 
 Name: openldap
-Version: 2.7.1
-Release: 1%{?dist}
+Version:        2.6.16
+Release:        1%{?dist}
 Summary: LDAP support libraries
 License: OLDAP-2.8
 URL: http://www.openldap.org/
@@ -34,33 +40,33 @@ Source2: slapd.tmpfiles
 Source3: slapd.ldif
 Source4: ldap.conf
 Source6: openldap.sysusers
-Source10:        https://github.com/ltb-project/openldap-ppolicy-check-password/archive/refs/tags/v1.1.tar.gz#/openldap-ppolicy-check-password-1.1.tar.gz
+Source10:        https://github.com/ltb-project/openldap-ppolicy-check-password/archive/v1.1/openldap-ppolicy-check-password-1.1.tar.gz
 Source50: libexec-functions
 Source52: libexec-check-config.sh
 
 # Patches for 2.6
-Patch0: openldap-manpages.patch
-Patch1: openldap-reentrant-gethostby.patch
+Patch0:        openldap-manpages.patch
+Patch1:        openldap-reentrant-gethostby.patch
 
-Patch3: openldap-smbk5pwd-overlay.patch
-Patch4: openldap-ai-addrconfig.patch
-Patch5: openldap-allop-overlay.patch
+Patch3:        openldap-smbk5pwd-overlay.patch
+Patch4:        openldap-ai-addrconfig.patch
+Patch5:        openldap-allop-overlay.patch
 
 # fix back_perl problems with lt_dlopen()
 # might cause crashes because of symbol collisions
 # the proper fix is to link all perl modules against libperl
 # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=327585
-Patch6: openldap-switch-to-lt_dlopenadvise-to-get-RTLD_GLOBAL-set.patch
+Patch6:        openldap-switch-to-lt_dlopenadvise-to-get-RTLD_GLOBAL-set.patch
 
 # System-wide default for CA certs
-Patch7: openldap-openssl-manpage-defaultCA.patch
-Patch8: openldap-add-export-symbols-LDAP_CONNECTIONLESS.patch
-Patch9: openldap-libldap-avoid-SSL-context-cleanup-during-library-des.patch
-Patch10: openldap-ITS-10297-Defer-hostname-resolution-til-first-use.patch
+Patch7:        openldap-openssl-manpage-defaultCA.patch
+Patch8:        openldap-add-export-symbols-LDAP_CONNECTIONLESS.patch
+Patch9:        openldap-libldap-avoid-SSL-context-cleanup-during-library-des.patch
+Patch10:        openldap-ITS-10297-Defer-hostname-resolution-til-first-use.patch
 
 # check-password module specific patches
-Patch90: check-password-makefile.patch
-Patch91: check-password.patch
+Patch90:        check-password-makefile.patch
+Patch91:        check-password.patch
 
 BuildRequires: cyrus-sasl-devel
 BuildRequires: gcc
@@ -82,6 +88,7 @@ BuildRequires: systemd
 BuildRequires: systemd-rpm-macros
 %if %{with argon2}
 BuildRequires: libsodium-devel
+BuildRequires:  oreon-rpm-macros
 %endif
 
 %description
@@ -168,8 +175,9 @@ over the Internet. The openldap-clients package contains the client
 programs needed for accessing and modifying OpenLDAP directories.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source10_hash}" = "none" || { f="%{SOURCE10}"; test -f "$f" || { echo "oreon: missing Source10 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source10_hash}" || { echo "oreon: Source10 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source10_hash}  %{SOURCE10}' | sha256sum -c -
+
 %setup -q -c -a 0 -a 10
 
 pushd openldap-%{version}
@@ -217,49 +225,50 @@ export CFLAGS="${CFLAGS} -DOPENSSL_NO_MD2"
 
 pushd openldap-%{version}
 %configure \
-	--enable-debug \
-	--enable-dynamic \
-	--enable-versioning \
-	\
-	--enable-dynacl \
-	--enable-cleartext \
-	--enable-crypt \
-	--enable-lmpasswd \
-	--enable-spasswd \
-	--enable-modules \
-	--enable-perl \
-	--enable-rewrite \
-	--enable-rlookups \
+        --enable-debug \
+        --enable-dynamic \
+        --enable-versioning \
+        \
+        --enable-dynacl \
+        --enable-cleartext \
+        --enable-crypt \
+        --enable-spasswd \
+        --enable-modules \
+        --enable-perl \
+        --enable-rlookups \
 %if %{with servers}
-	--enable-slapi \
+        --enable-slapi \
 %if %{with argon2}
         --enable-argon2 \
 %endif
 %endif
-	--disable-slp \
-	\
-	--enable-backends=mod \
-	--enable-bdb=yes \
-	--enable-hdb=yes \
-	--enable-mdb=yes \
-	--enable-monitor=yes \
-	--disable-ndb \
-	--disable-sql \
-	--disable-wt \
-	\
-	--enable-overlays=mod \
-	\
-	--disable-static \
-	\
-	--enable-balancer=mod \
+        --disable-slp \
         \
-	--with-cyrus-sasl \
-	--without-fetch \
-	--with-threads \
-	--with-pic \
-	--with-gnu-ld \
-	\
-	--libexecdir=%{_libdir}
+        --enable-backends=mod \
+        --enable-mdb=yes \
+        --disable-sql \
+        --disable-wt \
+        \
+        --enable-overlays=mod \
+        \
+        --disable-static \
+        \
+        --enable-balancer=mod \
+        \
+        --with-cyrus-sasl \
+        --without-fetch \
+        --with-threads \
+        --with-pic \
+        --with-gnu-ld \
+        \
+        --libexecdir=%{_libdir}
+
+find . -name Makefile -exec sed -i \
+  -e 's| -specs=/usr/lib/rpm/redhat/redhat-hardened-cc1||g' \
+  -e 's| -specs=/usr/lib/rpm/redhat/redhat-hardened-ld||g' \
+  -e 's| -specs=/usr/lib/rpm/redhat/redhat-hardened-ld-errors||g' \
+  -e 's| -specs=/usr/lib/rpm/redhat/redhat-annobin-cc1||g' \
+  {} +
 
 %make_build
 popd
@@ -286,7 +295,6 @@ pushd openldap-ppolicy-check-password-%{check_password_version}
 mv check_password.so check_password.so.%{check_password_version}
 ln -s check_password.so.%{check_password_version} %{buildroot}%{_libdir}/openldap/check_password.so
 install -m 755 check_password.so.%{check_password_version} %{buildroot}%{_libdir}/openldap/
-# install -m 644 README %%{buildroot}%%{_libdir}/openldap
 install -d -m 755 %{buildroot}%{_sysconfdir}/openldap
 cat > %{buildroot}%{_sysconfdir}/openldap/check_password.conf <<EOF
 # OpenLDAP pwdChecker library configuration
@@ -402,7 +410,7 @@ rm %{buildroot}%{_sysconfdir}/openldap/slapd.ldif
 mv %{buildroot}%{_sysconfdir}/openldap/schema/README README.schema
 
 # remove files which we don't want packaged
-rm %{buildroot}%{_libdir}/*.la  # because we do not want files in %{_libdir}/openldap/ removed, yet
+rm %{buildroot}%{_libdir}/*.la  # because we do not want files in %%{_libdir}/openldap/ removed, yet
 
 %ldconfig_scriptlets
 
@@ -569,6 +577,3 @@ exit 0
 %{_libdir}/libslapi-2.4*.so.*
 %endif
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.6.13-1
-- Prepare for Oreon 11 (RP1)

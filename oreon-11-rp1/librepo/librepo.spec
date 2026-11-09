@@ -1,22 +1,19 @@
-%global source0_hash c21dd3caefe97ea58bc865f92095a9d2db2ec8aab49d0c714d4742094db930b6
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash ce7ebdc9789ae51f3e7d26b5408de7395ddea0950d5d73568ed9565f5fae4d4c
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global libcurl_version 7.52.0
 
 %undefine __cmake_in_source_build
 
-%if 0%{?rhel}
-%bcond_with zchunk
-%else
 %bcond_without zchunk
-%endif
 
-%if 0%{?fedora} >= 39 || 0%{?rhel} >= 10
 %bcond_with use_gpgme
 %bcond_with use_selinux
-%else
-%bcond_without use_gpgme
-%bcond_without use_selinux
-%endif
 
 # Needs to match how gnupg2 is compiled
 %bcond_with run_gnupg_user_socket
@@ -32,13 +29,13 @@
 %global dnf_conflict 2.8.8
 
 Name:           librepo
-Version:        1.21.1
+Version:        1.22.0
 Release:        1%{?dist}
 Summary:        Repodata downloading library
 
 License:        LGPL-2.1-or-later
 URL:            https://github.com/rpm-software-management/librepo
-Source0:        https://github.com/rpm-software-management/librepo/archive/refs/tags/1.21.1.tar.gz#/librepo-1.20.0.tar.gz
+Source0:        https://github.com/rpm-software-management/librepo/archive/%{version}/librepo-%{version}.tar.gz
 
 BuildRequires:  cmake
 BuildRequires:  gcc
@@ -90,9 +87,8 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-gpg
 BuildRequires:  python3-pyxattr
 BuildRequires:  python3-requests
-BuildRequires:  python3-sphinx
+BuildRequires:  oreon-rpm-macros
 Requires:       %{name}%{?_isa} = %{version}-%{release}
-# Obsoletes Fedora 27 package
 Obsoletes:      platform-python-%{name} < %{version}-%{release}
 Conflicts:      python3-dnf < %{dnf_conflict}
 
@@ -100,7 +96,8 @@ Conflicts:      python3-dnf < %{dnf_conflict}
 Python 3 bindings for the librepo library.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %build
@@ -122,12 +119,7 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %install
 %cmake_install
 
-%if 0%{?rhel} && 0%{?rhel} <= 7
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
-%else
 %ldconfig_scriptlets
-%endif
 
 %files
 %license COPYING
@@ -142,6 +134,3 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %files -n python3-%{name}
 %{python3_sitearch}/%{name}/
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.20.0-5
-- Prepare for Oreon 11 (RP1)

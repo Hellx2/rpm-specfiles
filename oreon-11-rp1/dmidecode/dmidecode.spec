@@ -1,15 +1,22 @@
-%global source0_hash e40c65f3ec3dafe31ad8349a4ef1a97122d38f65004ed66575e1a8d575dd8bae
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 2c3aed12c85a1e6a9410d406d5e417c455466dc1bc7c89278bb32cf7cad91e8a
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary:        Tool to analyse BIOS DMI data
 Name:           dmidecode
 Version:        3.7
 Release:        1%{?dist}
 Epoch:          1
 License:        GPL-2.0-or-later
-Source0:        https://download.savannah.gnu.org/releases/%{name}/%{name}-%{version}.tar.xz
+Source0:        https://download.savannah.gnu.org/releases/dmidecode/dmidecode-%{version}.tar.xz
 URL:            https://www.nongnu.org/dmidecode/
 BuildRequires:  gcc make
 BuildRequires:  pkgconfig(bash-completion)
+BuildRequires:  oreon-rpm-macros
 ExclusiveArch:  %{ix86} x86_64 ia64 aarch64 riscv64
 
 %if "%{_sbindir}" == "%{_bindir}"
@@ -30,7 +37,8 @@ slots (e.g. AGP, PCI, ISA) and memory module slots, and the list of
 I/O ports (e.g. serial, parallel, USB).
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup
 
 %build
@@ -54,6 +62,3 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %{_mandir}/man8/*
 %{bash_completions_dir}/%{name}
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 3.6-9
-- Prepare for Oreon 11 (RP1)

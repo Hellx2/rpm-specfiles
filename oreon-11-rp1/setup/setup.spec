@@ -1,10 +1,15 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Summary: A set of system configuration and setup files
 Name: setup
-Version: 2.15.0
-Release: 5%{?dist}
-License: LicenseRef-Fedora-Public-Domain
+Version:        2.15.1
+Release:        1%{?dist}
+License: LicenseRef-Oreon-Public-Domain
 # This package is a downstream-only project
 URL: https://src.fedoraproject.org/rpms/setup
 
@@ -40,6 +45,7 @@ BuildRequires: perl-interpreter
 BuildRequires: /usr/bin/systemd-sysusers
 #systemd-rpm-macros: required to use _sysusersdir and _tmpfilesdir macro
 BuildRequires: systemd-rpm-macros
+BuildRequires:  oreon-rpm-macros
 #require system release for saner dependency order
 Requires: system-release
 
@@ -48,7 +54,7 @@ The setup package contains a set of important system configuration and
 setup files, such as passwd, group, and profile.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+
 mkdir -p etc/profile.d
 cp %{lua: for i=1,15 do print(sources[i]..' ') end} etc/
 cp %SOURCE21 %SOURCE22 etc/profile.d/
@@ -184,5 +190,3 @@ end
 %dir /usr/share/dnf5/libdnf.conf.d
 /usr/share/dnf5/libdnf.conf.d/protect-setup.conf
 
-%changelog
-%autochangelog

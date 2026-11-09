@@ -1,85 +1,76 @@
-%global source0_hash none
-%global source10_hash d511de1f556521041b0811c6fb9c3e175d9a527bce5ade9ca31ab79b0941823c
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 6451598a99e77f07571960f6b21d577399d3a30f33e80cbd2e3a4aae6535d265
+%global source2_hash e54b09a439647e006b4831eec9785cbaaf3e07ab371c3a6ee6a68e1bdb9fbc6b
+%global source10_hash 21bc47f96cf0eb535e532697dce4cdfdbc91f59223bdc00d8495d191888c5fe8
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           rust
-Version:        1.98.1
-Release:        %autorelease
+Version:        1.99.1
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (Apache-2.0 OR MIT) AND (Artistic-2.0 AND BSD-3-Clause AND ISC AND MIT AND MPL-2.0 AND Unicode-3.0)
 # ^ written as: (rust itself) and (bundled libraries)
 URL:            https://www.rust-lang.org
 
-# Only x86_64, i686, and aarch64 are Tier 1 platforms at this time.
-# https://doc.rust-lang.org/nightly/rustc/platform-support.html
-%global rust_arches x86_64 i686 armv7hl aarch64 ppc64le s390x riscv64
-ExclusiveArch:  %{rust_arches}
+# Use `autorelease -p -s YYYYMMDD` for stable prerelease testing, and the
+# source will be set from the corresponding path on upstream's "dev-static"
+# server. Remember to download the final release anew from the normal server!
+
+# Betas may be tested by appending a version suffix like `~beta.1`.
 
 # To bootstrap from scratch, set the channel and date from src/stage0
 # e.g. 1.89.0 wants rustc: 1.88.0-2025-06-26
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_version 1.93.0
-%global bootstrap_channel 1.93.0
-%global bootstrap_date 2026-01-22
+%global bootstrap_version 1.98.0
+%global bootstrap_channel 1.98.0
+%global bootstrap_date 2026-08-20
 
-# Only the specified arches will use bootstrap binaries from static.rust-lang.org
-# (see the Source1k* lines from the lua block below). That avoids BuildRequires on
-# rust/cargo in the same minor range, which breaks mock when the distro has not
-# published that toolchain yet. Limiting to the build arch keeps Source URLs to
-# the three stage0 tarballs this run actually unpacks in prep.
-%global bootstrap_arches %{_build_arch}
+# Only the specified arches will use bootstrap binaries.
+# NOTE: Those binaries used to be uploaded with every new release, but that was
+# a waste of lookaside cache space when they're most often unused.
+# Run "spectool -g rust.spec" after changing this and then "fedpkg upload" to
+# add them to sources. Remember to remove them again after the bootstrap build!
+#global bootstrap_arches x86_64 i686 aarch64 ppc64le s390x
 
 # We need CRT files for *-wasi targets, at least as new as the commit in
 # src/ci/docker/host-x86_64/dist-various-2/build-wasi-toolchain.sh
 %global wasi_libc_url https://github.com/WebAssembly/wasi-libc
-%global wasi_libc_ref wasi-sdk-29
+%global wasi_libc_ref wasi-sdk-34
 %global wasi_libc_name wasi-libc-%{wasi_libc_ref}
 %global wasi_libc_source %{wasi_libc_url}/archive/%{wasi_libc_ref}/%{wasi_libc_name}.tar.gz
 %global wasi_libc_dir %{_builddir}/%{wasi_libc_name}
-%if 0%{?fedora}
 %bcond_with bundled_wasi_libc
-%else
-%bcond_without bundled_wasi_libc
-%endif
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient. Rust currently requires LLVM 19.0+.
+# is insufficient. Rust currently requires LLVM 21.0+.
 # See src/bootstrap/src/core/build_steps/llvm.rs, fn check_llvm_version
 # See src/llvm-project/cmake/Modules/LLVMVersion.cmake for bundled version.
-%global min_llvm_version 20.0.0
-%global bundled_llvm_version 21.1.8
-#global llvm_compat_version 19
+%global min_llvm_version 21.0.0
+%global bundled_llvm_version 23.1.1
+#global llvm_compat_version 21
 %global llvm llvm%{?llvm_compat_version}
 %bcond_with bundled_llvm
 
 # Requires stable libgit2 1.9, and not the next minor soname change.
 # This needs to be consistent with the bindings in vendor/libgit2-sys.
-%global min_libgit2_version 1.9.2
+%global min_libgit2_version 1.9.6
 %global next_libgit2_version 1.10.0~
-%global bundled_libgit2_version 1.9.2
-%if 0%{?fedora} >= 41
+%global bundled_libgit2_version 1.9.6
 %bcond_with bundled_libgit2
-%else
-%bcond_without bundled_libgit2
-%endif
 
 # Cargo uses UPSERTs with omitted conflict targets
 %global min_sqlite3_version 3.35
-%global bundled_sqlite3_version 3.51.1
-%if 0%{?rhel} && 0%{?rhel} < 10
-%bcond_without bundled_sqlite3
-%else
+%global bundled_sqlite3_version 3.53.2
 %bcond_with bundled_sqlite3
-%endif
 
-%if 0%{?rhel}
-# Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
-%bcond_without disabled_libssh2
-%else
 %bcond_with disabled_libssh2
-%endif
 
 # Reduce rustc's own debuginfo and optimizations to conserve 32-bit memory.
 # e.g. https://github.com/rust-lang/rust/issues/45854
@@ -89,7 +80,6 @@ ExclusiveArch:  %{rust_arches}
 %endif
 # Also on current riscv64 hardware, although future hardware will be
 # able to handle it.
-# e.g. http://fedora.riscv.rocks/koji/buildinfo?buildID=249870
 %ifarch riscv64
 %global reduced_debuginfo 1
 %endif
@@ -112,47 +102,61 @@ ExclusiveArch:  %{rust_arches}
   rpm.define("channel " .. (subs ~= 0 and version_channel or "stable"))
   rpm.define("rustc_package rustc-" .. version_channel .. "-src")
 end}
-Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
-Source1:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz.asc
+
+# Detect prerelease dates from the release, like 0.1.20261013.fc46,
+# and if found then use upstream's "dev-static" source instead.
+%{lua: do
+  local release = rpm.expand("%{release}")
+  local year, month, day = release:match("^0%.%d+%.(%d%d%d%d)(%d%d)(%d%d)%.")
+  if year then
+    local date = year .. "-" .. month .. "-" .. day
+    rpm.define("source_dist https://dev-static.rust-lang.org/dist/" .. date)
+  else
+    rpm.define("source_dist https://static.rust-lang.org/dist")
+  end
+end}
+
+Source0:        https://static.rust-lang.org/dist/rustc-%{version}-src.tar.xz
+Source1:        rustc-1.99.1-src.tar.xz.asc
 Source2:        https://static.rust-lang.org/rust-key.gpg.ascii
 
-Source10:        https://github.com/WebAssembly/wasi-libc/archive/refs/tags/wasi-sdk-29.tar.gz#/wasi-libc-wasi-sdk-29.tar.gz
+Source10:        https://github.com/WebAssembly/wasi-libc/archive/wasi-sdk-34/wasi-libc-wasi-sdk-34.tar.gz
 
 # Sources for bootstrap_arches are inserted by lua below
 
 # By default, rust tries to use "rust-lld" as a linker for some targets.
-Patch1:         0001-Use-lld-provided-by-system.patch
+Patch1:        0001-Use-lld-provided-by-system.patch
 
 # Set a substitute-path in rust-gdb for standard library sources.
-Patch2:         rustc-1.70.0-rust-gdb-substitute-path.patch
+Patch2:        rustc-1.99.0-rust-gdb-substitute-path.patch
 
 # Override default target CPUs to match distro settings
 # TODO: upstream this ability into the actual build configuration
-Patch3:         0001-Let-environment-variables-override-some-default-CPUs.patch
+Patch3:        0001-Let-environment-variables-override-some-default-CPUs.patch
 
 # Override the default self-contained system libraries
 # TODO: the first can probably be upstreamed, but the second is hard-coded,
 # and we're only applying that if not with bundled_wasi_libc.
-Patch4:         0001-bootstrap-allow-disabling-target-self-contained.patch
-Patch5:         0002-set-an-external-library-path-for-wasm32-wasi.patch
+Patch4:        0001-bootstrap-allow-disabling-target-self-contained.patch
+Patch5:        0002-set-an-external-library-path-for-wasm32-wasi.patch
 
 # We don't want to use the bundled library in libsqlite3-sys
-Patch6:         rustc-1.94.0-unbundle-sqlite.patch
+Patch6:        rustc-1.99.0-unbundle-sqlite.patch
 
 # stage0 tries to copy all of /usr/lib, sometimes unsuccessfully, see #143735
-Patch7:         0001-only-copy-rustlib-into-stage0-sysroot.patch
+Patch7:        0001-only-copy-rustlib-into-stage0-sysroot.patch
 
-# bootstrap: always propagate `CARGO_TARGET_{host}_LINKER`
-# https://github.com/rust-lang/rust/pull/152077
-Patch8:         0001-bootstrap-always-propagate-CARGO_TARGET_-host-_LINKE.patch
+# This patch enables `-Zcf-protection=return` for SHSTK by default
+Patch8:        0001-Enable-SHSTK-by-default-on-x86_64-unknown-linux-gnu.patch
 
-# Fixes for LLVM 22 compatibility
-# https://github.com/rust-lang/rust/pull/151410
-Patch9:         0001-Update-amdgpu-data-layout.patch
-Patch10:        0002-Avoid-passing-addrspacecast-to-lifetime-intrinsics.patch
-Patch11:        0003-Don-t-use-evex512-with-LLVM-22.patch
+# Ensure llvm worker threads have sufficient stack space. Backport of #163289.
+Patch9:        0001-Ensure-llvm-worker-threads-have-sufficient-stack-spa.patch
 
-### RHEL-specific patches below ###
+# Add a `-static-pie` fallback when `rcrt1.o` is missing
+# https://github.com/rust-lang/rust/issues/164448
+# https://github.com/rust-lang/rust/pull/164451
+Patch10:        0001-Add-a-fallback-for-static-pie-missing-CRT-objects.patch
+
 
 # Simple rpm macros for rust-toolset (as opposed to full rust-packaging)
 Source100:      macros.rust-toolset
@@ -160,11 +164,7 @@ Source101:      macros.rust-srpm
 Source102:      cargo_vendor.attr
 Source103:      cargo_vendor.prov
 
-# Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
-Patch100:       rustc-1.94.0-disable-libssh2.patch
-
-# When building wasi, prevent linking a compiler-rt builtins library we don't have.
-Patch1000:	wasi-no-link-builtins.patch
+Patch100:        rustc-1.99.0-disable-libssh2.patch
 
 # Get the Rust triple for any architecture and ABI.
 %{lua: function rust_triple(arch, abi)
@@ -194,24 +194,12 @@ end}
 # cross-compilation. The packages are noarch, but they're not fully
 # reproducible between hosts, so only x86_64 actually builds it.
 %ifarch x86_64
-%if 0%{?fedora}
 %global mingw_targets i686-pc-windows-gnu x86_64-pc-windows-gnu
-%endif
 %global wasm_targets wasm32-unknown-unknown wasm32-wasip1
-%if 0%{?fedora}
 %global extra_targets x86_64-unknown-none x86_64-unknown-uefi
 %endif
-%if 0%{?rhel} >= 10
-%global extra_targets x86_64-unknown-none
-%endif
-%endif
 %ifarch aarch64
-%if 0%{?fedora}
 %global extra_targets aarch64-unknown-none-softfloat aarch64-unknown-uefi
-%endif
-%if 0%{?rhel} >= 10
-%global extra_targets aarch64-unknown-none-softfloat
-%endif
 %endif
 %global all_targets %{?mingw_targets} %{?wasm_targets} %{?extra_targets}
 %define target_enabled() %{lua:
@@ -257,14 +245,11 @@ Provides:       bundled(%{name}-bootstrap) = %{bootstrap_version}
 %else
 BuildRequires:  (cargo >= %{bootstrap_version} with cargo <= %{version})
 BuildRequires:  (%{name} >= %{bootstrap_version} with %{name} <= %{version})
+BuildRequires:  gnupg2
 %global local_rust_root %{_prefix}
 %endif
 
-%if 0%{?rhel} && 0%{?rhel} < 11
-BuildRequires:  gnupg2
-%else
 BuildRequires:  gpgverify
-%endif
 
 BuildRequires:  make
 BuildRequires:  gcc
@@ -274,7 +259,11 @@ BuildRequires:  ncurses-devel
 BuildRequires:  curl-devel
 BuildRequires:  pkgconfig(libcurl)
 BuildRequires:  pkgconfig(liblzma)
-BuildRequires:  pkgconfig(openssl)
+
+# Only specific versions of openssl are supported: 1.1.0, 1.1.1, 3.x, or 4.x
+# The openssl-sys crate will also verify the release is supported.
+BuildRequires:  pkgconfig(openssl) < 5~
+
 BuildRequires:  pkgconfig(zlib)
 
 %if %{without bundled_libgit2}
@@ -289,11 +278,7 @@ BuildRequires:  pkgconfig(sqlite3) >= %{min_sqlite3_version}
 BuildRequires:  pkgconfig(libssh2)
 %endif
 
-%if 0%{?rhel} == 8
-BuildRequires:  platform-python
-%else
 BuildRequires:  python3
-%endif
 BuildRequires:  python3-rpm-macros
 
 %if %with bundled_llvm
@@ -321,7 +306,6 @@ BuildRequires:  procps-ng
 
 # debuginfo-gdb tests need gdb
 BuildRequires:  gdb
-# Work around https://bugzilla.redhat.com/show_bug.cgi?id=2275274:
 # gdb currently prints a "Unable to load 'rpm' module. Please install the python3-rpm package."
 # message that breaks version detection.
 BuildRequires:  python3-rpm
@@ -382,6 +366,7 @@ BuildRequires:  mingw64-winpthreads-static
 %if %defined wasm_targets
 %if %with bundled_wasi_libc
 BuildRequires:  clang%{?llvm_compat_version}
+BuildRequires:  cmake >= 3.26
 %else
 BuildRequires:  wasi-libc-static
 %endif
@@ -417,8 +402,8 @@ Obsoletes:      %{name}-analysis < 1.69.0~
   }                                           \
 )
 %ifnarch %{bootstrap_arches}
-%{?fedora:BuildRequires: cargo-rpm-macros}
-%{?rhel:BuildRequires: rust-toolset}
+BuildRequires: cargo-rpm-macros
+
 %endif
 
 %description
@@ -494,24 +479,28 @@ Obsoletes:      %{name}-std-static-wasm32-wasi < 1.84.0~
 %if %target_enabled x86_64-unknown-none
 %target_package x86_64-unknown-none
 Requires:       lld
+BuildArch:      noarch
 %target_description x86_64-unknown-none embedded
 %endif
 
 %if %target_enabled aarch64-unknown-uefi
 %target_package aarch64-unknown-uefi
 Requires:       lld
+BuildArch:      noarch
 %target_description aarch64-unknown-uefi embedded
 %endif
 
 %if %target_enabled x86_64-unknown-uefi
 %target_package x86_64-unknown-uefi
 Requires:       lld
+BuildArch:      noarch
 %target_description x86_64-unknown-uefi embedded
 %endif
 
 %if %target_enabled aarch64-unknown-none-softfloat
 %target_package aarch64-unknown-none-softfloat
 Requires:       lld
+BuildArch:      noarch
 %target_description aarch64-unknown-none-softfloat embedded
 %endif
 
@@ -579,12 +568,12 @@ Provides:       bundled(sqlite) = %{bundled_sqlite3_version}
 %endif
 # For tests:
 BuildRequires:  git-core
+BuildRequires:  oreon-rpm-macros
 # Cargo is not much use without Rust, and it's worth keeping the versions
 # in sync since some feature development depends on them together.
 Requires:       %{name} = %{version}-%{release}
 
 # "cargo vendor" is a builtin command starting with 1.37. The Obsoletes and
-# Provides are mostly relevant to RHEL, but harmless to have on Fedora/etc. too
 Obsoletes:      cargo-vendor <= 0.1.23
 Provides:       cargo-vendor = %{version}-%{release}
 
@@ -653,44 +642,19 @@ This package includes source files for the Rust standard library. It may be
 useful as a reference for code completion tools in various editors.
 
 
-%if 0%{?rhel}
-
-%package toolset-srpm-macros
-Summary:        RPM macros for building Rust source packages
-BuildArch:      noarch
-
-# This used to be from its own source package, versioned like rust2rpm.
-Obsoletes:      rust-srpm-macros < 18~
-Provides:       rust-srpm-macros = 25.2
-
-%description toolset-srpm-macros
-RPM macros for building source packages for Rust projects.
-
-
-%package toolset
-Summary:        Rust Toolset
-BuildArch:      noarch
-Requires:       rust = %{version}-%{release}
-Requires:       cargo = %{version}-%{release}
-Requires:       rust-toolset-srpm-macros = %{version}-%{release}
-Conflicts:      cargo-rpm-macros
-
-%description toolset
-This is the metapackage for Rust Toolset, bringing in the Rust compiler,
-the Cargo package manager, and a few convenience macros for rpm builds.
-
-%endif
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-test "%{source10_hash}" = "none" || { f="%{SOURCE10}"; test -f "$f" || { echo "oreon: missing Source10 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source10_hash}" || { echo "oreon: Source10 hash mismatch" >&2; exit 1; }; }
-%gpgverify -k 2 -s 1 -d 0
+%oreon_sha256
+echo '%{source2_hash}  %{SOURCE2}' | sha256sum -c -
+echo '%{source10_hash}  %{SOURCE10}' | sha256sum -c -
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 
 %ifarch %{bootstrap_arches}
-%gpgverify -k 2 -s %{bootstrap_sig_cargo} -d %{bootstrap_source_cargo}
-%gpgverify -k 2 -s %{bootstrap_sig_rustc} -d %{bootstrap_source_rustc}
-%gpgverify -k 2 -s %{bootstrap_sig_std} -d %{bootstrap_source_std}
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE%{bootstrap_sig_cargo}} --data %{SOURCE%{bootstrap_source_cargo}}
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE%{bootstrap_sig_rustc}} --data %{SOURCE%{bootstrap_source_rustc}}
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE%{bootstrap_sig_std}} --data %{SOURCE%{bootstrap_source_std}}
 rm -rf %{local_rust_root}
 %setup -q -n cargo-%{bootstrap_suffix} -T -b %{bootstrap_source_cargo}
 ./install.sh --prefix=%{local_rust_root} --disable-ldconfig
@@ -704,12 +668,16 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %if %{defined wasm_targets} && %{with bundled_wasi_libc}
 %setup -q -n %{wasi_libc_name} -T -b 10
-rm -rf %{wasi_libc_dir}/dlmalloc/
-
-%patch -P1000 -p1
+# We want to make sure we use emmalloc instead of CC0 dlmalloc.
+# The cmake files need the sources to exist, so just truncate instead.
+truncate --no-create --size=0 %{wasi_libc_dir}/dlmalloc/src/*.c
 %endif
 
 %setup -q -n %{rustc_package}
+
+# Sanity check that the source version is what we expect,
+# especially for betas where the tarball is unversioned.
+test "$(cut -d' ' -f1 ./version)" = "%{lua: print((rpm.expand('%version'):gsub('~', '-'))) }"
 
 %patch -P1 -p1
 %patch -P2 -p1
@@ -725,7 +693,6 @@ rm -rf %{wasi_libc_dir}/dlmalloc/
 %patch -P8 -p1
 %patch -P9 -p1
 %patch -P10 -p1
-%patch -P11 -p1
 
 %if %with disabled_libssh2
 %patch -P100 -p1
@@ -773,6 +740,10 @@ rm -rf src/tools/rustc-perf/collector/*-benchmarks/
 rm -rf vendor/libssh2-sys*/
 %endif
 
+# (hopefully) minimize security scanners picking up false javascript positives by
+# removing references to unused npm packages.
+find '(' -name package-lock.json -or -name yarn.lock ')' -delete -print
+
 # This only affects the transient rust-installer, but let it use our dynamic xz-libs
 sed -i.lzma -e '/LZMA_API_STATIC/d' src/bootstrap/src/core/build_steps/tool.rs
 
@@ -800,17 +771,7 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 %endif
 
 # These are similar to __cflags_arch_* in /usr/lib/rpm/redhat/macros
-%global rustc_target_cpus %{lua: do
-  local fedora = tonumber(rpm.expand("0%{?fedora}"))
-  local rhel = tonumber(rpm.expand("0%{?rhel}"))
-  local env =
-    " RUSTC_TARGET_CPU_X86_64=x86-64" .. ((rhel >= 10) and "-v3" or (rhel == 9) and "-v2" or "")
-    .. " RUSTC_TARGET_CPU_PPC64LE=" .. ((rhel >= 9) and "pwr9" or "pwr8")
-    .. " RUSTC_TARGET_CPU_S390X=" ..
-        ((rhel >= 9) and "z14" or (rhel == 8 or fedora >= 38) and "z13" or
-         (fedora >= 26) and "zEC12" or (rhel == 7) and "z196" or "z10")
-  print(env)
-end}
+%global rustc_target_cpus RUSTC_TARGET_CPU_X86_64=x86-64 RUSTC_TARGET_CPU_PPC64LE=pwr8 RUSTC_TARGET_CPU_S390X=z15
 
 # Set up shared environment variables for build/install/check.
 # *_USE_PKG_CONFIG=1 convinces *-sys crates to use the system library.
@@ -862,10 +823,19 @@ end}
 
 %if %defined wasm_targets
 %if %with bundled_wasi_libc
-%define wasi_libc_flags MALLOC_IMPL=emmalloc CC=clang AR=llvm-ar NM=llvm-nm
-%make_build --quiet -C %{wasi_libc_dir} %{wasi_libc_flags} TARGET_TRIPLE=wasm32-wasip1
+# Note that we don't want host CFLAGS here!
+env -u CFLAGS %__cmake \
+  -S "%{wasi_libc_dir}" \
+  -B "%{wasi_libc_dir}/%{__cmake_builddir}" \
+  -DCMAKE_C_COMPILER=clang \
+  -DCMAKE_C_FLAGS_RELEASE="-O2 -fstack-protector" \
+  -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+  -DBUILD_SHARED=OFF \
+  -DMALLOC=emmalloc \
+  -DTARGET_TRIPLE=wasm32-wasip1
+%__cmake --build "%{wasi_libc_dir}/%{__cmake_builddir}" %{?_smp_mflags}
 %define wasm_target_config %{shrink:
-  --set target.wasm32-wasip1.wasi-root=%{wasi_libc_dir}/sysroot
+  --set target.wasm32-wasip1.wasi-root=%{wasi_libc_dir}/%{__cmake_builddir}/sysroot
 }
 %else
 %define wasm_target_config %{shrink:
@@ -880,14 +850,8 @@ end}
 %define profiler %{clang_lib}/%{_arch}-redhat-linux-gnu/libclang_rt.profile.a
 test -r "%{profiler}"
 
-# llvm < 21 does not provide a builtins library for s390x.
-%if "%{_arch}" != "s390x" || 0%{?clang_major_version} >= 21
 %define optimized_builtins %{clang_lib}/%{_arch}-redhat-linux-gnu/libclang_rt.builtins.a
 test -r "%{optimized_builtins}"
-%else
-%define optimized_builtins false
-%endif
-
 
 %configure --disable-option-checking \
   --docdir=%{_pkgdocdir} \
@@ -916,17 +880,19 @@ test -r "%{optimized_builtins}"
   --set build.jobs=%_smp_build_ncpus \
   --set build.build-stage=2 \
   --set build.doc-stage=2 \
+  --set build.gdb="discover" \
   --set build.install-stage=2 \
   --set build.test-stage=2 \
   --set build.optimized-compiler-builtins=false \
   --set rust.llvm-tools=false \
   --set rust.verify-llvm-ir=true \
+  --set rust.remap-debuginfo=false \
   --enable-extended \
   --tools=cargo,clippy,rust-analyzer,rustdoc,rustfmt,src \
   --enable-vendor \
   --enable-verbose-tests \
   --release-channel=%{channel} \
-  --release-description="%{?fedora:Fedora }%{?rhel:Red Hat }%{version}-%{release}"
+  --release-description="Oreon %{version}-%{release}"
 
 %global __x %{__python3} ./x.py
 
@@ -939,12 +905,10 @@ mkdir -p "%{profraw}"
 # Build cargo as a workload to generate compiler profiles
 # We normally use `x.py`, but in this case we invoke the stage 2 compiler and libs
 # directly to ensure we use the instrumented compiler.
-# Use %%{local_rust_root}/bin/cargo so PGO works when bootstrapping from stage0
-# tarballs (no system cargo on PATH).
 env LLVM_PROFILE_FILE="%{profraw}/default_%%m_%%p.profraw" \
   LD_LIBRARY_PATH=$PWD/build/host/stage2/lib \
   RUSTC=$PWD/build/host/stage2/bin/rustc \
-  %{local_rust_root}/bin/cargo build --manifest-path=src/tools/cargo/Cargo.toml
+  cargo build --manifest-path=src/tools/cargo/Cargo.toml
 # Finalize the profile data and clean up the raw files
 llvm-profdata merge -o "%{profdata}" "%{profraw}"
 rm -r "%{profraw}" build/%{rust_triple}/stage2*/
@@ -979,9 +943,6 @@ for triple in %{?all_targets} ; do
 done
 
 %install
-%if 0%{?rhel} && 0%{?rhel} <= 9
-%{?set_build_flags}
-%endif
 %{export_rust_env}
 
 DESTDIR=%{buildroot} %{__x} install
@@ -1020,7 +981,6 @@ find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
 # Remove backup files from %%configure munging
 find %{buildroot}%{rustlibdir} -type f -name '*.orig' -exec rm -v '{}' '+'
 
-# https://fedoraproject.org/wiki/Changes/Make_ambiguous_python_shebangs_error
 # We don't actually need to ship any of those python scripts in rust-src anyway.
 find %{buildroot}%{rustlibdir}/src -type f -name '*.py' -exec rm -v '{}' '+'
 
@@ -1048,19 +1008,9 @@ ln -sT ../rust/html/cargo/ %{buildroot}%{_docdir}/cargo/html
 # We don't want Rust copies of LLVM tools (rust-lld, rust-llvm-dwp)
 rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 
-%if 0%{?rhel}
-# This allows users to build packages using Rust Toolset.
-%{__install} -D -m 644 %{S:100} %{buildroot}%{rpmmacrodir}/macros.rust-toolset
-%{__install} -D -m 644 %{S:101} %{buildroot}%{rpmmacrodir}/macros.rust-srpm
-%{__install} -D -m 644 %{S:102} %{buildroot}%{_fileattrsdir}/cargo_vendor.attr
-%{__install} -D -m 755 %{S:103} %{buildroot}%{_rpmconfigdir}/cargo_vendor.prov
-%endif
 
 
 %check
-%if 0%{?rhel} && 0%{?rhel} <= 9
-%{?set_build_flags}
-%endif
 %{export_rust_env}
 
 # Sanity-check the installed binaries, debuginfo-stripped and all.
@@ -1071,6 +1021,9 @@ TMP_HELLO=$(mktemp -d)
     LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH"
   %{buildroot}%{_bindir}/cargo init --name hello-world
   %{buildroot}%{_bindir}/cargo run --verbose
+
+  # Sanity-check that a static executable builds and runs
+  env RUSTFLAGS="-Ctarget-feature=+crt-static" %{buildroot}%{_bindir}/cargo run --verbose
 
   # Sanity-check that code-coverage builds and runs
   env RUSTFLAGS="-Cinstrument-coverage" %{buildroot}%{_bindir}/cargo run --verbose
@@ -1102,6 +1055,12 @@ rm -rf "./build/%{rust_triple}/test/"
 # in mock in koji so the DNS resolution doesn't take place to begin with.
 # We test this after packaging
 %global cargo_test_skip_list net_err_suggests_fetch_with_cli
+
+# have DNS resolution, so the test will always fail.
+%global cargo_test_skip_list %{cargo_test_skip_list} publish_to_crates_io_warns
+
+# Requires DNS resolution to github.com, this test will always fail.
+%global cargo_test_skip_list %{cargo_test_skip_list} dep_with_scp_like_submodule_url
 
 %ifarch aarch64
 # https://github.com/rust-lang/rust/issues/123733
@@ -1275,17 +1234,5 @@ rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
 %{rustlibdir}/src
 
 
-%if 0%{?rhel}
-%files toolset-srpm-macros
-%{rpmmacrodir}/macros.rust-srpm
-
-%files toolset
-%{rpmmacrodir}/macros.rust-toolset
-%{_fileattrsdir}/cargo_vendor.attr
-%{_rpmconfigdir}/cargo_vendor.prov
-%endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.94.0-1
-- Prepare for Oreon 11 (RP1)

@@ -1,5 +1,11 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 #
 # Important for %%{ix86}:
 # This rpm has to be build on a CPU with sse2 support like Pentium 4 !
@@ -7,21 +13,21 @@
 
 Summary: GNU arbitrary precision library
 Name: gmp
-Version: 6.3.0
-Release: 5%{?dist}
+Version:        6.3.0
+Release:        1%{?dist}
 Epoch: 1
 URL: https://gmplib.org/
-Source0:        https://gmplib.org/download/gmp/gmp-%{version}.tar.xz
+Source0:        https://mirror.cs.odu.edu/gnu/gmp/gmp-%{version}.tar.xz
 Source2: gmp.h
 Source3: gmp-mparam.h
-Patch2: gmp-6.0.0-debuginfo.patch
-Patch3: gmp-intel-cet.patch
+Patch2:        gmp-6.0.0-debuginfo.patch
+Patch3:        gmp-intel-cet.patch
 # https://gmplib.org/repo/gmp/rev/8e7bb4ae7a18
-Patch4: gmp-6.3.0-c23.patch
+Patch4:        gmp-6.3.0-c23.patch
 # https://gmplib.org/list-archives/gmp-devel/2023-August/006198.html
 # https://gmplib.org/repo/gmp/rev/372acfd0c33e
-Patch5: gmp-6.3.0-s390x-popcount.patch
-Patch6: gmp-devel-arm64-pac-bti.patch
+Patch5:        gmp-6.3.0-s390x-popcount.patch
+Patch6:        gmp-devel-arm64-pac-bti.patch
 # * Main sources are dual licensed under LGPL-3.0-or-later and GPL-2.0-or-later
 #   Either only one may be active or both simultaneously.
 # * Some docs are under GFDL-1.3-invariants-or-later.
@@ -39,6 +45,7 @@ BuildRequires: git
 BuildRequires: fipscheck
 %endif
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 
 %description
 The gmp package contains GNU MP, a library for arbitrary precision
@@ -81,7 +88,8 @@ The static libraries for using the GNU MP arbitrary precision library
 in applications.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -S git
 
 %build
@@ -178,6 +186,3 @@ export LD_LIBRARY_PATH=`pwd`/.libs
 %{_libdir}/libgmp.a
 %{_libdir}/libgmpxx.a
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 6.3.0-5
-- Prepare for Oreon 11 (RP1)

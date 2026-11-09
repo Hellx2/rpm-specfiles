@@ -1,5 +1,11 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 9346a5ccd5ca77caf6a9d2ac0d83873c04d0372414a632126df4e7a88bedff4a
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # If the soname gets bumped we need to ship a compat library to be able
 # to bootstrap and rebuild rpm else we end up with chicken and egg problem.
 %global bootstrap 0
@@ -9,12 +15,12 @@
 %endif
 
 Name:    ima-evm-utils
-Version: 1.6.2
-Release: 10%{?dist}
+Version:        1.6.2
+Release:        1%{?dist}
 Summary: IMA/EVM support utilities
 License: GPL-2.0-or-later
 Url:     https://github.com/linux-integrity/
-Source0:        https://github.com/linux-integrity//ima-evm-utils/releases/download/v1.6.2/ima-evm-utils-1.6.2.tar.gz
+Source0:        https://github.com/linux-integrity//ima-evm-utils/releases/download/v%{version}/ima-evm-utils-%{version}.tar.gz
 
 # IMA setup tools
 Source2: dracut-98-integrity.conf
@@ -40,6 +46,7 @@ BuildRequires: libxslt
 BuildRequires: make
 BuildRequires: openssl-devel
 BuildRequires: tpm2-tss-devel
+BuildRequires:  oreon-rpm-macros
 Requires: %{name}-libs = %{version}-%{release}
 Requires: rpm-plugin-ima
 Requires: keyutils
@@ -58,7 +65,6 @@ Summary: Libraries for %{name}
 License: LGPL-2.0-or-later
 
 # to avoid ima-evm-utils and rpm-plugin-ima being installed on upgrade
-# to Fedora 41 - https://bugzilla.redhat.com/show_bug.cgi?id=2319827
 Obsoletes: ima-evm-utils < 1.6
 
 %description libs
@@ -74,7 +80,8 @@ Requires: %{name}-libs = %{version}-%{release}
 This package provides the header files for %{name}
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 
 %if 0%{bootstrap}
@@ -108,9 +115,6 @@ ln -s -f %{buildroot}%{_libdir}/libimaevm.so.%{compat_soversion}.0.0 %{buildroot
 popd
 %endif
 
-%ldconfig_scriptlets
-
-# IMA setup tools
 install -D -m 644 %{SOURCE2} $RPM_BUILD_ROOT%{_datadir}/ima/dracut-98-integrity.conf
 
 mkdir -p -m 755 $RPM_BUILD_ROOT%{_datadir}/ima/policies
@@ -121,6 +125,8 @@ done < %{SOURCE200}
 
 install -D %{SOURCE3} $RPM_BUILD_ROOT%{_bindir}/ima-add-sigs
 install -D %{SOURCE4} $RPM_BUILD_ROOT%{_bindir}/ima-setup
+
+%ldconfig_scriptlets
 
 %files
 %license LICENSES.txt COPYING
@@ -147,6 +153,3 @@ install -D %{SOURCE4} $RPM_BUILD_ROOT%{_bindir}/ima-setup
 %{_includedir}/imaevm.h
 %{_libdir}/libimaevm.so
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.6.2-10
-- Prepare for Oreon 11 (RP1)

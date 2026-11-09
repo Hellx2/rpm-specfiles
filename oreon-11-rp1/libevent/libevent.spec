@@ -1,5 +1,11 @@
-%global source0_hash 92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global develdocdir %{_docdir}/%{name}-devel
 
 Name:           libevent
@@ -8,8 +14,7 @@ Release:        1%{?dist}
 Summary:        Abstract asynchronous event notification library
 
 # arc4random.c, which is used in build, is ISC. The rest is BSD-3-Clause.
-# evndns.* and include/event2/dns.h has part of LicenseRef-Fedora-Public-Domain
-License:        BSD-3-Clause AND ISC AND LicenseRef-Fedora-Public-Domain
+License:        BSD-3-Clause AND ISC AND LicenseRef-Oreon-Public-Domain
 URL:            http://libevent.org/
 Source0:        https://github.com/libevent/libevent/releases/download/release-%{version}-stable/libevent-%{version}-stable.tar.gz
 
@@ -22,18 +27,19 @@ BuildRequires: doxygen
 %endif
 BuildRequires: openssl-devel
 BuildRequires: python3-devel
+BuildRequires:  oreon-rpm-macros
 
 # Disable network tests
-Patch01: libevent-nonettests.patch
+Patch01:        libevent-nonettests.patch
 # Upstream patch:
-Patch02: 0001-build-do-not-try-install-doxygen-man-pages-if-they-w.patch
+Patch02:        0001-build-do-not-try-install-doxygen-man-pages-if-they-w.patch
 # Upstream patch:
-Patch03: 0001-build-add-doxygen-to-all.patch
+Patch03:        0001-build-add-doxygen-to-all.patch
 # Temporary downstream change: revert a problematic upstream change
 # until Transmission is fixed. Please drop the patch when the Transmission
 # issue is fixed.
 # https://github.com/transmission/transmission/issues/1437
-Patch04: 0001-Revert-Fix-checking-return-value-of-the-evdns_base_r.patch
+Patch04:        0001-Revert-Fix-checking-return-value-of-the-evdns_base_r.patch
 
 %description
 The libevent API provides a mechanism to execute a callback function
@@ -45,7 +51,7 @@ without having to change the event loop.
 
 %package devel
 Summary: Development files for %{name}
-License: BSD-3-Clause AND LicenseRef-Fedora-Public-Domain
+License: BSD-3-Clause AND LicenseRef-Oreon-Public-Domain
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
 %description devel
@@ -63,11 +69,11 @@ BuildArch: noarch
 This package contains the development documentation for %{name}.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1 -n libevent-%{version}-stable
 
-%{__python3} %{_rpmconfigdir}/redhat/pathfix.py -i %{__python3} -pn test/check-dumpevents.py \
-                               event_rpcgen.py
+sed -i '1s|^#!.*python.*|#!%{__python3}|' test/check-dumpevents.py event_rpcgen.py
 
 %build
 # We're patching doxygen.am, so regenerate the autotools stuff to be
@@ -84,7 +90,6 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %make_install
 rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
 
-# Maintain the Fedora-specific location of libevent documentation, at
 # least for now
 mv $RPM_BUILD_ROOT/%{_docdir}/%{name} $RPM_BUILD_ROOT/%{develdocdir}
 
@@ -94,13 +99,13 @@ mv $RPM_BUILD_ROOT%{_includedir}/event2/event-config.h \
 cat > $RPM_BUILD_ROOT%{_includedir}/event2/event-config.h << EOF
 #include <bits/wordsize.h>
 
-# if __WORDSIZE == 32
+#if __WORDSIZE == 32
 #include <event2/event-config-32.h>
 #elif __WORDSIZE == 64
 #include <event2/event-config-64.h>
 #else
 #error "Unknown word size"
-# endif
+#endif
 EOF
 
 mkdir -p $RPM_BUILD_ROOT/%{develdocdir}/sample
@@ -147,6 +152,3 @@ mkdir -p $RPM_BUILD_ROOT/%{develdocdir}/sample
 %files doc
 %doc %{develdocdir}/
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.1.12-17
-- Prepare for Oreon 11 (RP1)

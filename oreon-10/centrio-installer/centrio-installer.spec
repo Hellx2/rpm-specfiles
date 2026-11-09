@@ -1,0 +1,52 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+Name:           centrio-installer
+Version:        1.0
+Release:        96%{?dist}
+Summary:        Oreon live installer
+License:        GPL-2.0-or-later
+URL:            https://github.com/oreonhq/centrio-installer
+BuildArch:      noarch
+Source0:        https://tarballs.oreonhq.com/centrio-%{version}.tar.xz
+Source1:        liveinst.desktop
+Source2:        centrio-live-sudoers
+Requires:       python3-gobject gtk4 libadwaita
+BuildRequires:  python3-devel
+
+%description
+Centrio is the Oreon installer. It runs in the live session.
+
+%prep
+%autosetup -n centrio-%{version}
+
+%build
+# No compile step for pure Python
+
+%install
+%{__mkdir_p} %{buildroot}%{_datadir}/centrio
+%{__mkdir_p} %{buildroot}%{_datadir}/centrio/ui
+%{__mkdir_p} %{buildroot}%{_datadir}/centrio/icons
+%{__mkdir_p} %{buildroot}%{_datadir}/centrio/locale
+%{__mkdir_p} %{buildroot}%{_datadir}/applications
+%{__mkdir_p} %{buildroot}%{_sysconfdir}/sudoers.d
+
+# GUI runs as user (Wayland/display); live user needs NOPASSWD for sudo
+install -p -m 0440 %{_sourcedir}/centrio-live-sudoers %{buildroot}%{_sysconfdir}/sudoers.d/99-centrio-live
+
+# Application and UI (from tarball)
+install -p -m 0644 %{_builddir}/centrio-%{version}/src/*.py %{buildroot}%{_datadir}/centrio/
+install -p -m 0644 %{_builddir}/centrio-%{version}/src/ui/*.py %{buildroot}%{_datadir}/centrio/ui/
+install -p -m 0644 %{_builddir}/centrio-%{version}/icons/*.svg %{buildroot}%{_datadir}/centrio/icons/ 2>/dev/null || true
+cp -a %{_builddir}/centrio-%{version}/locale/* %{buildroot}%{_datadir}/centrio/locale/ 2>/dev/null || true
+
+# Live env (from SOURCES)
+install -p -m 0644 %{_sourcedir}/liveinst.desktop %{buildroot}%{_datadir}/applications/
+
+%files
+%{_sysconfdir}/sudoers.d/99-centrio-live
+%{_datadir}/centrio/
+%{_datadir}/applications/liveinst.desktop
+
+%changelog
+%autochangelog

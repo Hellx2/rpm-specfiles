@@ -1,5 +1,11 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 85d99b79c981a404874c02e0342176cf75c7698e2b51fe41031cf6526d974f1a
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_with jar
 %bcond_with java
 # Disabled lto flags on i686 to avoid lto memory allocation error
@@ -9,8 +15,8 @@
 
 Summary: GNU tools and libraries for localized translated messages
 Name: gettext
-Version: 1.0
-Release: 1%{?dist}
+Version:        1.0
+Release:        1%{?dist}
 
 # The following are licensed under LGPLv2+:
 # - libintl and its headers
@@ -27,9 +33,10 @@ Release: 1%{?dist}
 # Everything else is GPLv3+
 License: GPL-3.0-or-later and LGPL-2.0-or-later and GFDL-1.2-or-later
 URL: https://www.gnu.org/software/gettext/
-Source:        https://mirrors.kernel.org/gnu/%{name}/%{name}-%{version}.tar.gz
+Source0:        https://mirror.cs.odu.edu/gnu/gettext/gettext-%{version}.tar.gz
 Source2: msghack.py
 Source3: msghack.1
+Patch1:        gettext-1.0-gnulib-posix_addchdr.patch
 
 # for bootstrapping
 # BuildRequires: autoconf >= 2.62
@@ -74,6 +81,7 @@ BuildRequires: glibc-langpack-ja
 BuildRequires: glibc-langpack-tr
 BuildRequires: glibc-langpack-zh
 BuildRequires: make
+BuildRequires:  oreon-rpm-macros
 Provides: bundled(gnulib)
 Requires: %{name}-runtime = %{version}-%{release}
 Requires: libtextstyle%{?_isa} = %{version}-%{release}
@@ -170,7 +178,7 @@ Summary: Support for editing po files within GNU Emacs
 BuildArch: noarch
 # help users find po-mode.el
 Provides: emacs-po-mode
-Requires: emacs(bin) >= %{?_emacs_version}%{!?_emacs_version:0}
+Requires: emacs(bin) >= %{_emacs_version}
 Provides: emacs-%{name}-el = %{version}-%{release}
 Obsoletes: emacs-%{name}-el < %{version}-%{release}
 
@@ -195,14 +203,15 @@ Substitutes the values of environment variables.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q
+%patch 1 -p1 -b .orig~
 autoreconf
 
 # Defeat libtextstyle attempt to bundle libxml2.  The comments
 # indicate this is done because the libtextstyle authors do not want
 # applications using their code to suffer startup delays due to the
-# relocations.  This is not a sufficient reason for Fedora.
 sed -e 's/\(gl_cv_libxml_force_included=\)yes/\1no/' \
     -i libtextstyle/configure
 
@@ -218,7 +227,6 @@ export JAR=fastjar
 # prevent test-isinf from failing with gcc-5.3.1 on ppc64le (#1294016)
 export CFLAGS="$RPM_OPT_FLAGS -D__SUPPORT_SNAN__"
 %endif
-# Fedora's libxml2-devel package has an extra "libxml2" path component.
 export CPPFLAGS="-I%{_includedir}/libxml2"
 # Side effect of unbundling libxml2 from libtextstyle.
 export LIBS="-lxml2"
@@ -461,6 +469,3 @@ make check LIBUNISTRING=-lunistring
 %{_bindir}/msghack
 %{_mandir}/man1/msghack.1*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.0-1
-- Prepare for Oreon 11 (RP1)

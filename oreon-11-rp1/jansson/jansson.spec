@@ -1,26 +1,32 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash c739578bf6b764aa0752db9a2fdadcfe921c78f1228c7ec0bb47fa804c55d17b
 
-%global forgeurl https://github.com/akheron/jansson
-Version:        2.15.1
-%forgemeta
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+Version:        2.14
 
 Name:		jansson
-Release:	1%{?dist}
+Release:        1%{?dist}
 Summary:	C library for encoding, decoding and manipulating JSON data
 
-# src/lookup3.h is LicenseRef-Fedora-Public-Domain
-License:	MIT AND LicenseRef-Fedora-Public-Domain
-URL:		%{forgeurl}
-Source0:        https://github.com/akheron/jansson/archive/refs/tags/v2.14.tar.gz#/jansson-2.14.tar.gz
+License:	MIT AND LicenseRef-Oreon-Public-Domain
+URL:		https://github.com/akheron/jansson
+Source0:        https://github.com/akheron/jansson/archive/v%{version}/jansson-%{version}.tar.gz
+Source10:       https://files.pythonhosted.org/packages/source/m/markupsafe/markupsafe-3.0.4.tar.gz
 
 # Fix the tests.
 # Upstream commit 0677666f65b988b2dd44d02966a08fea490d5883
-Patch:          0001-Fix-the-check-exports-tests-for-versioned-symbols.patch
+Patch:        0001-Fix-the-check-exports-tests-for-versioned-symbols.patch
 
 BuildRequires:	gcc
 BuildRequires:	python3-sphinx
+BuildRequires:	python3-markupsafe
 BuildRequires:  make
 BuildRequires:  autoconf, automake, libtool
+BuildRequires:  oreon-rpm-macros
 
 %description
 Small library for parsing and writing JSON documents.
@@ -40,17 +46,18 @@ BuildArch: noarch
 Development documentation for jansson.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%forgeautosetup -p1
+%oreon_sha256
 
-%if 0%{?rhel} == 6
-%{__sed} -i 's/code-block:: shell/code-block:: none/g' doc/*.rst
-%endif
+%autosetup -p1 -n jansson-%{version}
+
 
 %build
 autoreconf -f -i -v
 %configure --disable-static
 %make_build
+echo '2e9ad7dd851bf45fab9f75cbff4cb493fee9979e8d8c7c9c3ee119022518edd6  %{SOURCE10}' | sha256sum -c -
+tar -xzf %{SOURCE10} -C %{_builddir}
+export PYTHONPATH="%{_builddir}/markupsafe-3.0.4/src${PYTHONPATH:+:$PYTHONPATH}"
 make html
 
 %check
@@ -73,6 +80,3 @@ rm "$RPM_BUILD_ROOT%{_libdir}"/*.la
 %files devel-doc
 %doc doc/_build/html/*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 2.14-4
-- Prepare for Oreon 11 (RP1)

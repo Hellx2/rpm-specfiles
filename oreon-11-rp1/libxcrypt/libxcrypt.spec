@@ -1,15 +1,17 @@
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
+
 %global source0_hash 71513a31c01a428bccd5367a32fd95f115d6dac50fb5b60c779d5c7942aec071
+%global source3_hash 3b86e778174be05eb880a4f2411796b23bffe4649f8e19ba902dc6d9ca76b17e
 
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 # Build with new api?
-%if 0%{?fedora} || 0%{?rhel} > 8
 %bcond_without new_api
-%else
-%bcond_with    new_api
-%endif
 
 
-# Build the compat package?
-%if 0%{?fedora} >= 999 || (0%{?rhel} >= 11 && !0%{?eln}) || %{without new_api}
+%if %{without new_api}
 %bcond_with    compat_pkg
 %else
 %bcond_without compat_pkg
@@ -68,9 +70,6 @@
 
 
 # Need versioned requires on glibc and man-pages?
-%if !(0%{?fedora} || 0%{?rhel} > 9)
-%global trans_pkg        1
-%endif
 
 
 # Hash methods and API supported by libcrypt.
@@ -98,15 +97,7 @@
 
 
 # Needed for the distribution README file.
-%if 0%{?fedora}
-%global distname .fedora
-%else
-%if 0%{?rhel}
-%global distname .rhel
-%else
-%global distname .distribution
-%endif
-%endif
+%global distname .oreon
 
 
 # Needed for out-of-tree builds.
@@ -178,23 +169,22 @@ fi                                          \
 
 Name:           libxcrypt
 Version:        4.5.2
-Release:        3%{?dist}
+Release:        1%{?dist}
 Summary:        Extended crypt library for descrypt, md5crypt, bcrypt, and others
 
 # For explicit license breakdown, see the
 # LICENSING file in the source tarball.
-License:        LGPL-2.1-or-later AND BSD-3-Clause AND BSD-2-Clause AND BSD-2-Clause-FreeBSD AND 0BSD AND CC0-1.0 AND LicenseRef-Fedora-Public-Domain
+License:        LGPL-2.1-or-later AND BSD-3-Clause AND BSD-2-Clause AND BSD-2-Clause-FreeBSD AND 0BSD AND CC0-1.0 AND LicenseRef-Oreon-Public-Domain
 URL:            https://github.com/besser82/%{name}
-Source0:        https://github.com/besser82/libxcrypt/releases/download/v4.5.2/libxcrypt-4.5.2.tar.xz
-Source1:        https://github.com/besser82/libxcrypt/releases/download/v4.5.2/libxcrypt-4.5.2.tar.xz.asc
-Source2:        https://github.com/besser82/libxcrypt/releases/download/v4.5.2/libxcrypt-gpgkey.asc
-Source3:        https://github.com/besser82/libxcrypt/releases/download/v4.5.2/libxcrypt-4.5.2.tar.xz.sha256sum
+Source0:        https://github.com/besser82/libxcrypt/releases/download/v%{version}/libxcrypt-%{version}.tar.xz
+Source1:        libxcrypt-4.5.2.tar.xz.asc
+Source2:        libxcrypt-gpgkey.asc
+Source3:        https://github.com/besser82/libxcrypt/releases/download/v%{version}/libxcrypt-%{version}.tar.xz.sha256sum
 
 # Patch 0000 - 2999: Backported patches from upstream.
-Patch0000:        https://github.com/besser82/libxcrypt/commit/174c24d6e87a.patch#/libxcrypt-4.5.2-Werror_discarded-qualifiers.patch
+Patch0000:        libxcrypt-4.5.2-Werror_discarded-qualifiers.patch
 # Patch 3000 - 5999: Backported patches from pull requests.
-# Do not use github .../commit/ba67911314f5.patch here: that diff does not apply to the v4.5.2 release tarball (Makefile.am, doc/crypt_gensalt.3).
-Patch3000:        https://github.com/besser82/libxcrypt/archive/refs/tags/v4.5.2.tar.gz
+Patch3000:        libxcrypt-4.5.2-Make-crypt-and-crypt_gensalt-use-thread-local-output.patch
 # Patch 6000 - 9999: Downstream patches.
 
 BuildRequires:  autoconf
@@ -253,9 +243,7 @@ Requires:       glibc%{?_isa}         >= %{glibc_minver}
 Obsoletes:      %{name}-compat         < %{version}-%{release}
 %endif
 
-%if 0%{?fedora}
 Recommends:     mkpasswd
-%endif
 
 %description
 libxcrypt is a modern library for one-way hashing of passwords.
@@ -288,6 +276,7 @@ Summary:        Compatibility library providing legacy API functions
 %if %{without bootstrap}
 # For testing the glibc compatibility symbols.
 BuildRequires:  libxcrypt-compat
+BuildRequires:  oreon-rpm-macros
 %endif
 
 Requires:       %{name}%{?_isa}        = %{version}-%{release}
@@ -340,10 +329,12 @@ discouraged.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+echo '%{source3_hash}  %{SOURCE3}' | sha256sum -c -
+
 %if %{without bootstrap}
 # Omitted during bootstrap.
-%{gpgverify} --keyring=%{SOURCE2} --signature=%{SOURCE1} --data=%{SOURCE0}
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 pushd %{_sourcedir}
 sha256sum -c %{SOURCE3}
 popd
@@ -555,6 +546,3 @@ done
 %endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 4.5.2-3
-- Prepare for Oreon 11 (RP1)

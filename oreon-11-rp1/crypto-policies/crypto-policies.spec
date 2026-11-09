@@ -1,7 +1,13 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
-%global git_date 20251128
-%global git_commit 19878fea4c5f62208655e32269842bce55c819b2
+%global source0_hash a5fd44395ec5725a65b7e55562b6c5c3e68c2cd59d8ae3cfeeabd53b4beddce4
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
+%global git_date 20260731
+%global git_commit 6488aefe8b46d402c87da1ebea16ad250a76f050
 %{?git_commit:%global git_commit_hash %(c=%{git_commit}; echo ${c:0:7})}
 
 %global _python_bytecompile_extra 0
@@ -12,13 +18,14 @@
 %define rpmstate_autopolicy %{rpmstatedir}/autopolicy-reapplication-needed
 
 Name:           crypto-policies
-Version:        %{git_date}
-Release:        3.git%{git_commit_hash}%{?dist}
+Version:        20260731
+Release:        1%{?dist}
 Summary:        System-wide crypto policies
 
 License:        LGPL-2.1-or-later
-URL:            https://gitlab.com/redhat-crypto/fedora-crypto-policies
-Source0:        https://gitlab.com/redhat-crypto/fedora-crypto-policies/-/archive/%{git_commit_hash}/%{name}-git%{git_commit_hash}.tar.gz
+URL:            https://gitlab.com/redhat-crypto/oreon-crypto-policies
+Source0:        https://gitlab.com/redhat-crypto/fedora-%{name}/-/archive/6488aef/crypto-policies-git6488aef.tar.gz
+Patch0:         openssh-no-mldsa.patch
 
 BuildArch: noarch
 ExclusiveArch:  %{java_arches} noarch
@@ -35,14 +42,15 @@ BuildRequires: python3-pytest
 BuildRequires: make
 BuildRequires: sequoia-policy-config
 BuildRequires: systemd-rpm-macros
+BuildRequires:  oreon-rpm-macros
 
 Conflicts: openssl-libs < 1:3.5.0-1
 Conflicts: nss < 3.105
 Conflicts: libreswan < 3.28
-Conflicts: openssh < 9.9
+Conflicts: openssh < 10.4p1
 Conflicts: gnutls < 3.8.10
+Conflicts: libssh < 0.12
 
-# Most users want this, the split is mostly for Fedora CoreOS
 Recommends: crypto-policies-scripts
 
 %description
@@ -62,14 +70,15 @@ either the pre-built policies from the base package or custom policies
 defined in simple policy definition files.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %setup -q -n fedora-crypto-policies-%{git_commit_hash}-%{git_commit}
+patch -p1 < %{PATCH0}
 
 %build
 %make_build \
   SEQUOIA_POLICY_CONFIG_CHECK_LOOSE=sequoia-policy-config-check \
   SEQUOIA_POLICY_CONFIG_CHECK_STRICT=
-# remove these when Fedora sequoia-policy-config-check starts understanding PQC
 
 %install
 mkdir -p -m 755 %{buildroot}%{_datarootdir}/crypto-policies/
@@ -90,9 +99,7 @@ touch %{buildroot}%{_sysconfdir}/crypto-policies/state/CURRENT.pol
 # Drop pre-generated GOST-ONLY & BSI policies, we do not need to ship the files
 rm -rf %{buildroot}%{_datarootdir}/crypto-policies/GOST-ONLY
 rm -rf %{buildroot}%{_datarootdir}/crypto-policies/BSI
-# Same for the FEDORA42 policy for those who want to lag behind
 rm -rf %{buildroot}%{_datarootdir}/crypto-policies/FEDORA42
-# Same for the projected FEDORA43 policy
 rm -rf %{buildroot}%{_datarootdir}/crypto-policies/FEDORA43
 # Not having symlinks is also more robust for upgraders when policies go away
 
@@ -108,13 +115,12 @@ for f in %{buildroot}%{_datarootdir}/crypto-policies/DEFAULT/* ; do
     ln -sf %{_datarootdir}/crypto-policies/DEFAULT/$(basename $f) %{buildroot}%{_sysconfdir}/crypto-policies/back-ends/$(basename $f .txt).config
 done
 
-%py_byte_compile %{__python3} %{buildroot}%{_datadir}/crypto-policies/python
+%{__python3} -m compileall -o 0 -o 1 -s %{buildroot} -p / --invalidation-mode=timestamp %{buildroot}%{_datadir}/crypto-policies/python
 
 %check
 make test %{?_smp_mflags} SKIP_LINTING=1 \
   SEQUOIA_POLICY_CONFIG_CHECK_LOOSE=sequoia-policy-config-check \
   SEQUOIA_POLICY_CONFIG_CHECK_STRICT=
-# remove these when Fedora sequoia-policy-config-check starts understanding PQC
 
 # Migrate away from removed policies; each rule can be dropped 3 releases later
 %pretrans -p <lua>
@@ -290,9 +296,3 @@ exit 0
 %{_mandir}/man8/update-crypto-policies.8*
 %{_datarootdir}/crypto-policies/python
 
-%changelog
-* Fri Apr 3 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{git_date}-3.git
-- Remove autopatch with no Patch entries (prep failed in mock)
-
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - %{git_date}-3.git
-- Prepare for Oreon 11 (RP1)

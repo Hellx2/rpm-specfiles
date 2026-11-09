@@ -1,21 +1,23 @@
-%global source0_hash 6abd7ab0a7f1580d5914457cb3c85eb80455657ee5119206edbd7f848c14f0b2
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 1fb324b6ec2c56f6bde0658f4139ffd8209fa9e77ce98fd7a5f63af8d0e508ad
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global with_http3 0
 %global with_mingw 0
 
-%if 0%{?fedora} >= 43
 # Enable HTTP/3 support in nghttpx and h2load
 %global with_http3 1
-%endif
 
-%if 0%{?fedora}
 %global with_mingw 1
-%endif
 
 Summary: Experimental HTTP/2 client, server and proxy
 Name: nghttp2
-Version: 1.70.0
-Release: 1%{?dist}
+Version:        1.69.0
+Release:        1%{?dist}
 
 # Parts of ruby bindings are additionally under GPL-2.0-or-later, MIT and
 # HPND-Kevlin-Henney but they are NOT shipped.
@@ -23,8 +25,11 @@ License: MIT
 
 URL: https://nghttp2.org/
 Source0:        https://github.com/tatsuhiro-t/nghttp2/releases/download/v%{version}/nghttp2-%{version}.tar.xz
-Source1:        https://github.com/%{name}/%{name}/releases/download/v%{version}/%{name}-%{version}.tar.xz.asc
+Source1:        nghttp2-1.69.0.tar.xz.asc
 Source2: tatsuhiro-t.pgp
+
+# fix HTTP Request/Response Smuggling and Response-Queue Poisoning via ambiguous HTTP/1.1 Upgrade requests (CVE-2026-58055)
+Patch001:        0001-nghttp2-1.69.0-CVE-2026-58055.patch
 
 BuildRequires: CUnit-devel
 BuildRequires: c-ares-devel
@@ -35,7 +40,9 @@ BuildRequires: make
 BuildRequires: openssl-devel
 BuildRequires: python3-devel
 BuildRequires: systemd-rpm-macros
+BuildRequires: systemd-devel
 BuildRequires: zlib-devel
+BuildRequires: oreon-rpm-macros
 
 # For gpg verification of source tarball
 BuildRequires: gnupg2
@@ -112,8 +119,9 @@ This is the MinGW cross-compiled Windows library.
 %endif
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 %build
@@ -149,14 +157,13 @@ pushd build
 install -D -m0444 -p contrib/nghttpx.service \
     "$RPM_BUILD_ROOT%{_unitdir}/nghttpx.service"
 popd
+install -D -m0644 -p nghttpx.conf.sample \
+    "$RPM_BUILD_ROOT%{_sysconfdir}/nghttpx/nghttpx.conf"
 
-# not needed on Fedora/RHEL
 rm -f "$RPM_BUILD_ROOT%{_libdir}/libnghttp2.la"
 
 # will be installed via %%doc
 rm -f "$RPM_BUILD_ROOT%{_datadir}/doc/nghttp2/README.rst"
-
-%ldconfig_scriptlets -n libnghttp2
 
 %if %{with_mingw}
 %mingw_make_install
@@ -169,6 +176,8 @@ rm -f "%{buildroot}%{mingw64_datadir}/doc/nghttp2/README.rst"
 rm -r "%{buildroot}%{mingw32_mandir}/man1"
 rm -r "%{buildroot}%{mingw64_mandir}/man1"
 %endif
+
+%ldconfig_scriptlets -n libnghttp2
 
 %post
 %systemd_post nghttpx.service
@@ -194,6 +203,8 @@ popd
 %{_mandir}/man1/nghttpd.1*
 %{_mandir}/man1/nghttpx.1*
 %{_unitdir}/nghttpx.service
+%dir %{_sysconfdir}/nghttpx
+%config(noreplace) %{_sysconfdir}/nghttpx/nghttpx.conf
 
 %files -n libnghttp2
 %{_libdir}/libnghttp2.so.*
@@ -225,6 +236,3 @@ popd
 %endif
 
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.68.0-3
-- Prepare for Oreon 11 (RP1)

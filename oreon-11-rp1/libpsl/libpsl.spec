@@ -1,8 +1,14 @@
-%global source0_hash 1dcc9ceae8b128f3c0b3f654decd0e1e891afc6ff81098f227ef260449dae208
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 8fbb03054556498ba9c4cc48fcaa36a4483748c6504a65bdb9ba348f555b0e56
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name:           libpsl
-Version:        0.23.3
-Release:        %autorelease
+Version:        0.23.1
+Release:        1%{?dist}
 Summary:        C library for the Publix Suffix List
 License:        MIT
 URL:            https://rockdaboot.github.io/libpsl
@@ -18,6 +24,7 @@ BuildRequires:  libxslt
 BuildRequires:  make
 BuildRequires:  publicsuffix-list
 BuildRequires:  python3-devel
+BuildRequires:  oreon-rpm-macros
 Requires:       publicsuffix-list-dafsa
 
 %description
@@ -54,6 +61,7 @@ developing applications that use %{name}.
 
 %package -n     psl
 Summary:        Commandline utility to explore the Public Suffix List
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 
 %description -n psl
 This package contains a commandline utility to explore the Public Suffix List,
@@ -71,7 +79,8 @@ from a plain text Public Suffix List.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -p1
 rm -frv list
 ln -sv %{_datadir}/publicsuffix list
@@ -145,6 +154,3 @@ make check || cat tests/test-suite.log
 %{_bindir}/psl-make-dafsa
 %{_mandir}/man1/psl-make-dafsa.1*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 0.21.5-1
-- Prepare for Oreon 11 (RP1)

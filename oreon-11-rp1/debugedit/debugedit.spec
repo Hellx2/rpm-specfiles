@@ -1,17 +1,20 @@
-%global source0_hash 3b8c6396fe235e0270c9b9c0d244cfd0e86c284fc27e820acc58360e7cfa08c2
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 00e1d74d31df9012913975b76ab0d864f0e2569d29e31271317161187803813a
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 Name: debugedit
-Version: 5.3
-Release: 2%{?dist}
+Version:        5.4
+Release:        1%{?dist}
 Summary: Tools and scripts for creating debuginfo and source file distributions, collect build-ids and rewrite source paths in DWARF data for debugging, tracing and profiling.
 License: GPL-3.0-or-later AND GPL-2.0-or-later AND LGPL-2.0-or-later
 URL: https://sourceware.org/debugedit/
-
-Suggests: gdb-minimal
-
-Source0:        https://sourceware.org/pub/debugedit/%{version}/%{name}-%{version}.tar.xz
-Source1:        https://sourceware.org/pub/debugedit/%{version}/%{name}-%{version}.tar.xz.sig
-Source2: gpgkey-CBA20376A15C6FFC11CD.gpg
+Source0:        https://sourceware.org/pub/debugedit/%{version}/debugedit-%{version}.tar.xz
+Source1:        debugedit-5.4.tar.xz.sig
+Source2: gpgkey-28FF4B30A88D5523A7E2CBA20376A15C6FFC11CD.gpg.asc
 
 BuildRequires: make gcc gcc-c++
 BuildRequires: pkgconfig(libelf)
@@ -34,6 +37,7 @@ BuildRequires: automake
 # For configure checks we need full gdb, otherwise gdb-add-index is fine.
 # Older gdb-add-index unfortunately don't support --version.
 BuildRequires: gdb
+BuildRequires:  oreon-rpm-macros
 
 # The find-debuginfo.sh script has a couple of tools it needs at runtime.
 # For strip_to_debug, eu-strip
@@ -45,6 +49,7 @@ Requires: findutils
 # For do_file, gdb_add_index
 # We only need gdb-add-index, so suggest gdb-minimal (full gdb is also ok)
 Requires: /usr/bin/gdb-add-index
+Suggests: gdb-minimal
 # For run_job, sed
 Requires: sed
 # For dwz
@@ -53,8 +58,6 @@ Requires: dwz
 Requires: grep
 
 %global _hardened_build 1
-
-Patch1: debugedit-5.3-elflint-test.patch
 
 %description
 The debugedit project provides programs and scripts for creating
@@ -66,7 +69,9 @@ binutils.  It depends on the elfutils libelf and libdw libraries to
 read and write ELF files, DWARF data and build-ids.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %autosetup -p1
 
 %build
@@ -97,6 +102,3 @@ make check %{?_smp_mflags}
 %{_mandir}/man1/debugedit-classify-ar.1*
 %{_mandir}/man1/find-debuginfo.1*
 
-%changelog
-* Mon May 25 2026 Oreon Packaging Team <packaging@oreonhq.com> - 5.3-2
-- Import

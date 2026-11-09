@@ -1,54 +1,62 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash dd17ab2e9a04fd79d39d853f599cbc852062ddb9ab52a4ddeb4176fd8b302964
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %bcond_with bootstrap
 
 %global split_min_version 2.4.9-4.fc42.1
 
 Summary: Utility for secure communication and data storage
 Name:    gnupg2
-Version: 2.4.9
-Release: 5%{?dist}
+Version:        2.4.9
+Release:        1%{?dist}
 
 License: CC0-1.0 AND GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-2.1-or-later AND LGPL-3.0-or-later AND (BSD-3-Clause OR LGPL-3.0-or-later OR GPL-2.0-or-later) AND CC-BY-4.0 AND MIT
-Source0:        https://gnupg.org/ftp/gcrypt/%{?pre:alpha/}gnupg/gnupg-%{version}%{?pre}.tar.bz2
-Source1:        https://gnupg.org/ftp/gcrypt/%{?pre:alpha/}gnupg/gnupg-%{version}%{?pre}.tar.bz2.sig
-Source2: https://gnupg.org/signature_key.asc
+Source0:        https://gnupg.org/ftp/gcrypt/gnupg/gnupg-%{version}.tar.bz2
+Source1:        gnupg-2.4.9.tar.bz2.sig
+Source2:        signature_key.asc
+Source3: gnupg2.sh
+Source4: gnupg2.csh
 # initialize small amount of secmem for list of algorithms in help
 # (#598847) (necessary in the FIPS mode of libgcrypt)
-Patch1:  gnupg-2.4.7-secmem.patch
+Patch1:        gnupg-2.4.7-secmem.patch
 # non-upstreamable patch adding file-is-digest option needed for Copr
 # https://dev.gnupg.org/T1646
-Patch2:  gnupg-2.4.7-file-is-digest.patch
+Patch2:        gnupg-2.4.7-file-is-digest.patch
 # Disable brainpool tests as they are not built into our libgcrypt
 # Disable MD160 in FIPS mode (#879047)
-Patch3:  gnupg-2.4.7-fips-algo.patch
+Patch3:        gnupg-2.4.7-fips-algo.patch
 # CVE-2026-24882: Stack-based buffer overflow in tpm2daemon allows arbitrary code execution
 # https://dev.gnupg.org/T8045
-Patch4:  gnupg-2.4.9-tpm2daemon.patch
+Patch4:        gnupg-2.4.9-tpm2daemon.patch
 
 # Patches from FreePG:
 # https://gitlab.com/freepg/gnupg/-/tree/main/STABLE-BRANCH-2-4-freepg
-Patch20: 0002-gpg-accept-subkeys-with-a-good-revocation-but-no-sel.patch
-Patch21: 0003-gpg-allow-import-of-previously-known-keys-even-witho.patch
-Patch22: 0004-tests-add-test-cases-for-import-without-uid.patch
-Patch23: 0005-gpg-drop-import-clean-from-default-keyserver-import-.patch
-Patch24: 0006-Do-not-use-OCB-mode-even-if-AEAD-OCB-key-preference-.patch
-Patch25: 0007-Revert-the-introduction-of-the-RFC4880bis-draft-into.patch
-Patch26: 0008-avoid-systemd-deprecation-warning.patch
-Patch27: 0009-Add-systemd-support-for-keyboxd.patch
-Patch28: 0010-Ship-sample-systemd-unit-files.patch
-Patch29: 0011-el-gamal-default-to-3072-bits.patch
-Patch30: 0012-gpg-default-digest-algorithm-SHA512.patch
-Patch31: 0013-gpg-Prefer-SHA-512-and-SHA-384-in-personal-digest.patch
-Patch32: 0018-Avoid-simple-memory-dumps-via-ptrace.patch
-Patch34: 0029-Add-keyboxd-systemd-support.patch
-Patch35: 0033-Support-large-RSA-keygen-in-non-batch-mode.patch
+Patch20:        0002-gpg-accept-subkeys-with-a-good-revocation-but-no-sel.patch
+Patch21:        0003-gpg-allow-import-of-previously-known-keys-even-witho.patch
+Patch22:        0004-tests-add-test-cases-for-import-without-uid.patch
+Patch23:        0005-gpg-drop-import-clean-from-default-keyserver-import-.patch
+Patch24:        0006-Do-not-use-OCB-mode-even-if-AEAD-OCB-key-preference-.patch
+Patch25:        0007-Revert-the-introduction-of-the-RFC4880bis-draft-into.patch
+Patch26:        0008-avoid-systemd-deprecation-warning.patch
+Patch27:        0009-Add-systemd-support-for-keyboxd.patch
+Patch28:        0010-Ship-sample-systemd-unit-files.patch
+Patch29:        0011-el-gamal-default-to-3072-bits.patch
+Patch30:        0012-gpg-default-digest-algorithm-SHA512.patch
+Patch31:        0013-gpg-Prefer-SHA-512-and-SHA-384-in-personal-digest.patch
+Patch32:        0018-Avoid-simple-memory-dumps-via-ptrace.patch
+Patch34:        0029-Add-keyboxd-systemd-support.patch
+Patch35:        0033-Support-large-RSA-keygen-in-non-batch-mode.patch
 
 # Fixes for issues found in Coverity scan - reported upstream
-Patch40: gnupg-2.4.7-coverity.patch
+Patch40:        gnupg-2.4.7-coverity.patch
 
 # add a root certificate bundle due to changes in ca-certificates (#2380121)
-Patch45: gnupg-2.4.8-ca-certificates-bundle.patch
+Patch45:        gnupg-2.4.8-ca-certificates-bundle.patch
 
 URL:     https://www.gnupg.org/
 
@@ -81,6 +89,7 @@ BuildRequires: tpm2-tss-devel
 # for tests
 BuildRequires: openssh-clients
 BuildRequires: swtpm
+BuildRequires:  oreon-rpm-macros
 
 Requires: libgcrypt >= 1.9.1
 Requires: libgpg-error >= 1.46
@@ -214,9 +223,10 @@ package contains the GnuPG Web Key Service client and server.
 
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %if ! %{with bootstrap}
-%{gpgverify} --keyring='%{SOURCE2}' --signature='%{SOURCE1}' --data='%{SOURCE0}'
+%oreon_gpgverify --key %{SOURCE2} --sig %{SOURCE1} --data %{SOURCE0}
 %endif
 %setup -q -n gnupg-%{version}
 
@@ -242,6 +252,7 @@ test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "ore
 %patch 35 -p1 -b .large-rsa
 
 %patch 40 -p1 -b .coverity
+%patch 45 -p1 -b .cert-bundle
 
 # pcsc-lite library major: 0 in 1.2.0, 1 in 1.2.9+ (dlopen()'d in pcsc-wrapper)
 # Note: this is just the name of the default shared lib to load in scdaemon,
@@ -275,8 +286,7 @@ mkdir -p $HOME/.gnupg
 mkdir -p %{buildroot}%{_sysconfdir}/gnupg
 touch %{buildroot}%{_sysconfdir}/gnupg/gpgconf.conf
 mkdir -p %{buildroot}%{_sysconfdir}/profile.d
-echo "export GPG_TTY=\$(tty)" > %{buildroot}%{_sysconfdir}/profile.d/gnupg2.sh
-echo "setenv GPG_TTY \`tty\`" > %{buildroot}%{_sysconfdir}/profile.d/gnupg2.csh
+install -p %{SOURCE3} %{SOURCE4} %{buildroot}%{_sysconfdir}/profile.d
 
 # more docs
 install -m644 -p AUTHORS NEWS THANKS TODO \
@@ -297,8 +307,8 @@ rm -f %{buildroot}%{_bindir}/gpgscm
 
 # Move the systemd user units to appropriate directory
 install -d -m755 %{buildroot}%{_userunitdir}
-install -p doc/examples/systemd-user/*.socket %{buildroot}%{_userunitdir}
-install -p doc/examples/systemd-user/*.service %{buildroot}%{_userunitdir}
+install -p -m644 doc/examples/systemd-user/*.socket %{buildroot}%{_userunitdir}
+install -p -m644 doc/examples/systemd-user/*.service %{buildroot}%{_userunitdir}
 
 %check
 # need scratch gpg database for tests
@@ -338,7 +348,6 @@ make -k check
 %license COPYING
 %{_sysconfdir}/profile.d/gnupg2.sh
 %{_sysconfdir}/profile.d/gnupg2.csh
-## docs say to install suid root, but fedora/rh security folk say not to
 %{_bindir}/gpg
 %{_bindir}/gpg2
 %{_infodir}/gnupg.info*
@@ -436,5 +445,3 @@ make -k check
 %{_mandir}/man?/gpg-wks-server.*
 
 
-%changelog
-%autochangelog

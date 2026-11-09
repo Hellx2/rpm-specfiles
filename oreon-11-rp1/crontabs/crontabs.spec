@@ -1,22 +1,28 @@
-%global source0_hash none
+# Copyright (C) 2026 Oreon HQ
+# SPDX-License-Identifier: GPL-2.0-or-later
 
+%global source0_hash 7397d48865b1e743f437466586de1621bd1960da467227b7d05e400da5aad176
+
+%{!?oreon_bootstrap:%global oreon_bootstrap %{nil}}
+%bcond bootstrap 0
+%oreon_bootstrap
 %global snapshot_date 20190603
 %global snapshot_commit 9e74f2d
 
 Summary: Root crontab files used to schedule the execution of programs
 Name: crontabs
-Version: 1.11^%{snapshot_date}git%{snapshot_commit}
-Release: %autorelease
-# See https://gitlab.com/fedora/legal/fedora-license-data/-/merge_requests/359 for reasoning why Public Domain is not here.
+Version:        1.11^20190603git9e74f2d
+Release:        2%{?dist}
 License: GPL-2.0-or-later
 URL: https://github.com/cronie-crond/crontabs
-Source0: https://github.com/cronie-crond/crontabs/releases/download/crontabs-%{snapshot_date}/%{name}-%(echo %{version}|cut -d\^ -f1)-%{snapshot_date}git.tar.gz
+Source0:        https://github.com/cronie-crond/crontabs/releases/download/crontabs-20190603/crontabs-1.11-20190603git.tar.gz
 BuildArch: noarch
+BuildRequires: oreon-rpm-macros
 Requires: sed
 Requires: cronie
 
 %description
-This package is used by Fedora mainly for executing files by cron.
+This package is used by Oreon mainly for executing files by cron.
 
 The crontabs package contains root crontab files and directories.
 You will need to install cron daemon to run the jobs from the crontabs.
@@ -28,7 +34,8 @@ Crontabs handles a basic system function, so it should be installed on
 your system.
 
 %prep
-test "%{source0_hash}" = "none" || { f="%{SOURCE0}"; test -f "$f" || { echo "oreon: missing Source0 $f" >&2; exit 1; }; h=$(sha256sum "$f" | awk '{print $1}'); test "$h" = "%{source0_hash}" || { echo "oreon: Source0 hash mismatch" >&2; exit 1; }; }
+%oreon_sha256
+
 %autosetup -n %{name}-%(echo %{version}|cut -d\^ -f1)
 
 %build
@@ -59,6 +66,3 @@ touch $RPM_BUILD_ROOT/etc/sysconfig/run-parts
 %dir /etc/cron.monthly
 %{_mandir}/man4/*
 
-%changelog
-* Tue Mar 17 2026 Oreon Packaging Team <packaging@oreonhq.com> - 1.11^%{snapshot_date}git%{snapshot_commit}-1
-- Prepare for Oreon 11 (RP1)
